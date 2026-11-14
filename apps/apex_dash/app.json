@@ -317,13 +317,13 @@
       "label": "Redline (shift light)",
       "type": "number",
       "unit": "rpm",
-      "default": 7000,
+      "default": 5000,
       "steps": [
-        5500,
-        6000,
-        6500,
-        7000,
-        7500
+        4000,
+        4250,
+        4500,
+        4750,
+        5000
       ]
     },
     {
@@ -416,15 +416,42 @@
       "type": "choice",
       "default": "auto",
       "options": [
-        [ "auto", "Auto-cycle all 8 OBC functions" ],
-        [ "range", "Tank Liters + Range (km)" ],
-        [ "temps", "Oil Temp + Coolant Temp (°C)" ],
-        [ "power", "M-Power (PS) + Torque (Nm)" ],
-        [ "tpms", "TPMS Tyre Pressure & Temp" ],
-        [ "gforce", "G-Force Live + Peak G" ],
-        [ "boost", "Boost Pressure (bar)" ],
-        [ "sprint", "0-100 km/h Sprint Stopwatch" ],
-        [ "cons", "Consumption (L/100km) + Speed" ]
+        [
+          "auto",
+          "Auto-cycle all 8 OBC functions"
+        ],
+        [
+          "range",
+          "Tank Liters + Range (km)"
+        ],
+        [
+          "temps",
+          "Oil Temp + Coolant Temp (°C)"
+        ],
+        [
+          "power",
+          "M-Power (PS) + Torque (Nm)"
+        ],
+        [
+          "tpms",
+          "TPMS Tyre Pressure & Temp"
+        ],
+        [
+          "gforce",
+          "G-Force Live + Peak G"
+        ],
+        [
+          "boost",
+          "Boost Pressure (bar)"
+        ],
+        [
+          "sprint",
+          "0-100 km/h Sprint Stopwatch"
+        ],
+        [
+          "cons",
+          "Consumption (L/100km) + Speed"
+        ]
       ]
     },
     {
@@ -433,9 +460,18 @@
       "type": "choice",
       "default": "8",
       "options": [
-        [ "8", "8-Speed (1 2 3 4 5 6 7 8 - Steptronic / ZF 8HP)" ],
-        [ "7", "7-Speed (1 2 3 4 5 6 7 - M DKG / M-DCT)" ],
-        [ "6", "6-Speed (1 2 3 4 5 6 - Manual / SMG)" ]
+        [
+          "8",
+          "8-Speed (1 2 3 4 5 6 7 8 - Steptronic / ZF 8HP)"
+        ],
+        [
+          "7",
+          "7-Speed (1 2 3 4 5 6 7 - M DKG / M-DCT)"
+        ],
+        [
+          "6",
+          "6-Speed (1 2 3 4 5 6 - Manual / SMG)"
+        ]
       ]
     },
     {
@@ -444,11 +480,26 @@
       "type": "choice",
       "default": "auto",
       "options": [
-        [ "auto", "Auto-cycle Telemetry / TPMS / Sprint" ],
-        [ "telemetry", "M-Power (PS/Nm) + Boost + G-Force" ],
-        [ "tpms", "4-Wheel TPMS Tyre Pressures (VL/VR/HL/HR)" ],
-        [ "temps", "Tyre Temps + Oil & Coolant Temps" ],
-        [ "sprint", "0-100 km/h Stopwatch + Session V-Max" ]
+        [
+          "auto",
+          "Auto-cycle Telemetry / TPMS / Sprint"
+        ],
+        [
+          "telemetry",
+          "M-Power (PS/Nm) + Boost + G-Force"
+        ],
+        [
+          "tpms",
+          "4-Wheel TPMS Tyre Pressures (VL/VR/HL/HR)"
+        ],
+        [
+          "temps",
+          "Tyre Temps + Oil & Coolant Temps"
+        ],
+        [
+          "sprint",
+          "0-100 km/h Stopwatch + Session V-Max"
+        ]
       ]
     },
     {
