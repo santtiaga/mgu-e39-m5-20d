@@ -1221,14 +1221,14 @@ vec4 drawMLogo(vec2 p, vec2 ctr, float h, vec4 c) {
     float lx = (p.x - sk * (ctr.y - p.y) - mx0) / h;
     float ly = (p.y - y0) / h; // 0 at top, 1 at bottom
     if (lx >= -0.05 && lx <= 1.48 && ly >= -0.05 && ly <= 1.05) {
-        // Bold italic M: two upright stems and four diagonal shoulders,
-        // with the centre valley raised into the characteristic M silhouette.
+        // Bold italic M: outer stems rise to the top; the diagonals
+        // descend to a low centre valley and rise back to the opposite stem.
         // Keep the same GLSL distance-field rendering; only the letter geometry changes.
         vec2 mp = vec2(lx, ly);
         float dL  = segD(mp, vec2(0.12, 0.12), vec2(0.12, 0.88)) - 0.105;
-        float dML = segD(mp, vec2(0.12, 0.88), vec2(0.50, 0.18)) - 0.105;
-        float dMR = segD(mp, vec2(0.50, 0.18), vec2(0.88, 0.88)) - 0.105;
-        float dR  = segD(mp, vec2(0.88, 0.88), vec2(0.88, 0.12)) - 0.105;
+        float dML = segD(mp, vec2(0.12, 0.12), vec2(0.50, 0.88)) - 0.105;
+        float dMR = segD(mp, vec2(0.50, 0.88), vec2(0.88, 0.12)) - 0.105;
+        float dR  = segD(mp, vec2(0.88, 0.12), vec2(0.88, 0.88)) - 0.105;
         float dM = min(min(dL, dML), min(dMR, dR)) * h;
         vec3 mCol = mix(vec3(0.875, 0.886, 0.902), vec3(0.478, 0.416, 0.353), u_night);
         c = over(vec4(mCol, al * cov(dM)), c);
