@@ -924,6 +924,10 @@ const float PI = 3.14159265359;
 const float D2R = 3.14159265359 / 180.0;
 
 float rpmAngle(float rpm) {
+    return -124.6 + (clamp(rpm, 0.0, 5000.0) / 5000.0) * 246.0;
+}
+
+float rpmZoneAngle(float rpm) {
     float v = clamp(rpm, 0.0, 5000.0);
     float f = v <= 2000.0 ? (v / 2000.0) * 0.32
             : (v <= 4500.0 ? 0.32 + ((v - 2000.0) / 2500.0) * 0.60
@@ -932,10 +936,7 @@ float rpmAngle(float rpm) {
 }
 
 float rpmFromAngle(float degrees) {
-    float f = clamp((degrees + 124.6) / 246.0, 0.0, 1.0);
-    return f <= 0.32 ? (f / 0.32) * 2000.0
-         : (f <= 0.92 ? 2000.0 + ((f - 0.32) / 0.60) * 2500.0
-                       : 4500.0 + ((f - 0.92) / 0.08) * 500.0);
+    return clamp((degrees + 124.6) / 246.0, 0.0, 1.0) * 5000.0;
 }
 #define MARK_COL mix(vec3(0.937, 0.863, 0.761), vec3(1.0, 0.749, 0.388), u_night)
 #define GLOW_COL vec3(1.0, 0.478, 0.063)
@@ -1285,9 +1286,9 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
 
         // 2. Fixed 500-rpm warning bands: amber 4000-4500, red 4500-5000.
         // Their angular extents use the same non-linear mapping as the scale and needle.
-        float a4 = rpmAngle(4000.0);
-        float a45 = rpmAngle(4500.0);
-        float a5 = rpmAngle(5000.0);
+        float a4 = rpmZoneAngle(4000.0);
+        float a45 = rpmZoneAngle(4500.0);
+        float a5 = rpmZoneAngle(5000.0);
         if (ang >= a4 && ang <= a5 && r > R * 0.74 && r < R * 0.995) {
             bool redZone = ang >= a45;
             float a0 = redZone ? a45 : a4;
@@ -1715,11 +1716,7 @@ const float D2R = 3.14159265359 / 180.0;
 
 // Keep this mapping local: E39NEEDLES is compiled as an independent GLSL program.
 float rpmAngle(float rpm) {
-    float v = clamp(rpm, 0.0, 5000.0);
-    float f = v <= 2000.0 ? (v / 2000.0) * 0.32
-            : (v <= 4500.0 ? 0.32 + ((v - 2000.0) / 2500.0) * 0.60
-                           : 0.92 + ((v - 4500.0) / 500.0) * 0.08);
-    return -124.6 + f * 246.0;
+    return -124.6 + (clamp(rpm, 0.0, 5000.0) / 5000.0) * 246.0;
 }
 
 
