@@ -1221,12 +1221,15 @@ vec4 drawMLogo(vec2 p, vec2 ctr, float h, vec4 c) {
     float lx = (p.x - sk * (ctr.y - p.y) - mx0) / h;
     float ly = (p.y - y0) / h; // 0 at top, 1 at bottom
     if (lx >= -0.05 && lx <= 1.48 && ly >= -0.05 && ly <= 1.05) {
-        // Left vertical leg (0..0.34), Right vertical leg (1.08..1.42), V-diagonals meeting at (0.71, 0.52..1.0)
-        float dL = max(max(-lx, lx - 0.33), max(-ly, ly - 1.0));
-        float dR = max(max(1.09 - lx, lx - 1.42), max(-ly, ly - 1.0));
-        float dVL = segD(vec2(lx, ly), vec2(0.24, 0.14), vec2(0.71, 0.84)) - 0.145;
-        float dVR = segD(vec2(lx, ly), vec2(1.18, 0.14), vec2(0.71, 0.84)) - 0.145;
-        float dM = max(min(min(dL, dR), min(dVL, dVR)), max(-ly, ly - 1.0)) * h;
+        // Bold italic M: two upright stems and four diagonal shoulders,
+        // with the centre valley raised into the characteristic M silhouette.
+        // Keep the same GLSL distance-field rendering; only the letter geometry changes.
+        vec2 mp = vec2(lx, ly);
+        float dL  = segD(mp, vec2(0.12, 0.12), vec2(0.12, 0.88)) - 0.105;
+        float dML = segD(mp, vec2(0.12, 0.88), vec2(0.50, 0.18)) - 0.105;
+        float dMR = segD(mp, vec2(0.50, 0.18), vec2(0.88, 0.88)) - 0.105;
+        float dR  = segD(mp, vec2(0.88, 0.88), vec2(0.88, 0.12)) - 0.105;
+        float dM = min(min(dL, dML), min(dMR, dR)) * h;
         vec3 mCol = mix(vec3(0.875, 0.886, 0.902), vec3(0.478, 0.416, 0.353), u_night);
         c = over(vec4(mCol, al * cov(dM)), c);
     }
