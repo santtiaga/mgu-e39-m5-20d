@@ -893,9 +893,9 @@ void main() {
 
 const E39DASH = `// Classic analog BMW E39 M5 (1998-2003) instrument cluster in one cluster-render "effect" layer (GLSL ES 1.00):
 // Matte anthracite-grey E39 M5 gauge faces with concentric vinyl grain, 3D brushed aluminum/chrome Edition rings,
-// crisp white/ivory scale markings with subtle warm backlight, the iconic E39 M5 variable pre-warning LED field
+// crisp white/ivory scale markings with subtle warm backlight, the iconic E39 M5 two-zone pre-warning LED field
 // recessed into the tachometer (driven by u_oil: cold oil lights orange from 4000 rpm, warming up retreats to 6500 rpm,
-// redline at 7000..8000 rpm), in-dial //M5 badge, analog Oil Temperature sub-gauge, 3D tapered red-orange needles
+// redline at 4500..5000 rpm), in-dial //M5 badge, analog Oil Temperature sub-gauge, 3D tapered red-orange needles
 // with drop shadows and stepped black/metallic hub caps, and the classic E39 High-OBC amber pixel-matrix bar at the bottom.
 // Dial positions are shifted so BMW's hardware gear box (x:1406..1597, y:342..419) sits completely in the empty gap
 // between the M5 Tachometer (right edge x=1380) and the Coolant Temp gauge (left edge x=1608).
@@ -906,8 +906,8 @@ precision mediump float;
 #endif
 varying vec2 v_uv;
 uniform vec2 u_size;
-uniform float u_speed;    // 0..1 (0..300 km/h)
-uniform float u_rpm;      // 0..1 (0..8000 rpm)
+uniform float u_speed;    // 0..1 (0..260 km/h)
+uniform float u_rpm;      // 0..1 (0..5000 rpm)
 uniform float u_fuel;     // 0..1
 uniform float u_oil;      // 0..1 (50..150 C)
 uniform float u_coolant;  // 0..1 (50..130 C)
@@ -922,6 +922,14 @@ uniform float u_v2;       // 1: version 2 (silver faces, orange-red needles, the
 
 const float PI = 3.14159265359;
 const float D2R = 3.14159265359 / 180.0;
+
+float rpmAngle(float rpm) {
+    float v = clamp(rpm, 0.0, 5000.0);
+    float f = v <= 2000.0 ? (v / 2000.0) * 0.32
+            : (v <= 4500.0 ? 0.32 + ((v - 2000.0) / 2500.0) * 0.60
+                           : 0.92 + ((v - 4500.0) / 500.0) * 0.08);
+    return -124.6 + f * 246.0;
+}
 #define MARK_COL mix(vec3(0.937, 0.863, 0.761), vec3(1.0, 0.749, 0.388), u_night)
 #define GLOW_COL vec3(1.0, 0.478, 0.063)
 
@@ -948,6 +956,16 @@ float hash12(vec2 p) {
 }
 float cwAngleDeg(vec2 q) {
     return atan(q.x, -q.y) * 180.0 / PI;
+}
+
+// E39 20d cluster scale: five 1000-rpm intervals with a non-linear angular allocation.
+// 0-2000 rpm = 32%, 2000-4500 rpm = 60%, 4500-5000 rpm = 8%.
+float rpmAngle(float rpm) {
+    float v = clamp(rpm, 0.0, 5000.0);
+    float f = v <= 2000.0 ? (v / 2000.0) * 0.32
+            : (v <= 4500.0 ? 0.32 + ((v - 2000.0) / 2500.0) * 0.60
+                           : 0.92 + ((v - 4500.0) / 500.0) * 0.08);
+    return -124.6 + f * 246.0;
 }
 
 // Draw a mark (tick or dot or icon) with dark drop shadow in Day mode and warm amber halo in Night mode
@@ -1228,12 +1246,12 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
     float ang = cwAngleDeg(q);
 
     if (!isTach) {
-        // ---- SPEEDOMETER (20..300 km/h, -128 deg at 20, +133 deg at 300) ----
-        // Ticks & intermediate 10-km/h dots (10..300 km/h -> i = 1..30)
+        // ---- SPEEDOMETER (0..260 km/h, -128 deg at 0, +133 deg at 260) ----
+        // 10-km/h minor marks and 20-km/h major ticks across the full sweep.
         if (r > R * 0.74 && r < R * 0.90) {
-            float vApprox = 20.0 + (ang - (-128.0)) * (280.0 / 261.0);
-            float idx = clamp(floor(vApprox / 10.0 + 0.5), 1.0, 30.0);
-            float aTick = -128.0 + (idx * 10.0 - 20.0) * (261.0 / 280.0);
+            float vApprox = (ang - (-128.0)) * (260.0 / 261.0);
+            float idx = clamp(floor(vApprox / 10.0 + 0.5), 0.0, 26.0);
+            float aTick = -128.0 + idx * 10.0 * (261.0 / 260.0);
             float dM = 10.0;
             if (mod(idx, 2.0) < 0.5) {
                 dM = tickDist(q, aTick, R * 0.77, R * 0.875, R * 0.0155);
@@ -1242,127 +1260,60 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             }
             c = addMark(dM, c);
         }
-        // Stop pin below 20 km/h
-        float aPin = (-128.0 - 20.0 * (261.0 / 280.0) - 6.0) * D2R;
+        // Stop pin just below 0 km/h
+        float aPin = (-128.0 - 6.0) * D2R;
         vec2 pPin = vec2(sin(aPin), -cos(aPin)) * (R * 0.62);
         c = over(vec4(0.027, 0.031, 0.039, cov(length(q - pPin) - R * 0.022)), c);
 
         // Slanted ///M logo at y + 0.43 R (hub & needle drawn in E39NEEDLES above dial numbers)
         c = drawMLogo(p, center + vec2(0.0, R * 0.43), R * 0.092, c);
     } else {
-        // ---- TACHOMETER (0..8000 rpm, -124.6 deg at 0, +121 deg at 8000) ----
-        // 1. Ticks 0..8 and intermediate 500-rpm dots
+        // ---- TACHOMETER (0..5000 rpm; nonlinear angular allocation) ----
+        // Main ticks every 1000 rpm; intermediate dots every 500 rpm. 4500 is the zone boundary.
         if (r > R * 0.70 && r < R * 0.90) {
-            float kApprox = (ang - (-124.6)) / 15.35;
-            float k = clamp(floor(kApprox + 0.5), 0.0, 16.0);
-            float aTick = -124.6 + k * 15.35;
+            float kApprox = (ang - rpmAngle(0.0)) / (246.0 / 10.0);
+            float k = clamp(floor(kApprox + 0.5), 0.0, 10.0);
+            float rpmTick = k * 500.0;
+            float aTick = rpmAngle(rpmTick);
             float dM = 10.0;
-            if (mod(k, 2.0) < 0.5) {
-                float r0 = k >= 13.5 ? R * 0.768 : R * 0.77;
-                float r1 = abs(k - 14.0) < 0.5 ? R * 0.866 : R * 0.875;
-                dM = tickDist(q, aTick, r0, r1, R * 0.0155);
+            if (mod(k, 2.0) < 0.5 || abs(k - 9.0) < 0.1) {
+                float r0 = rpmTick >= 4000.0 ? R * 0.768 : R * 0.77;
+                dM = tickDist(q, aTick, r0, R * 0.875, R * 0.0155);
             } else {
-                float dr = (k >= 8.5 && k <= 15.5) ? R * 0.728 : R * 0.805;
-                dM = dotDist(q, aTick, dr, R * 0.0195);
+                dM = dotDist(q, aTick, R * 0.805, R * 0.0195);
             }
             c = addMark(dM, c);
         }
 
-        // 2. LED Pre-Warning & Shift-Light Band (4000..8000 rpm, 2 paired square LEDs per 1000 rpm = 8 segments, ro = 0.875 R)
-        // Exactly like the real M Tachometer in the reference photos:
-        //  - Every 1000 rpm block (4..5, 5..6, 6..7, 7..8) has TWO distinct square LED segments (one on each side of the 500-rpm dot)
-        //    with a clean dark gap at every integer tick (4, 5, 6, 7, 8) and at every 500-rpm dot!
-        //  - Oil temperature sets how many segments stay lit at the top end when cold; when warm (>= 90 C), the last 2 red LEDs (7000..8000)
-        //    and the last amber LED (6500..7000) stay lit at low RPM.
-        //  - As RPM approaches the redline (5500..7350 /min), the amber shift-light segments ignite progressively from top-to-bottom
-        //    (6500 -> 6000 -> 5500 -> 5000 -> 4500 -> 4000), and at >= 7250 /min the top 4000..4500 segment lights up RED and the
-        //    entire 8-segment band flashes at the rev limiter!
-        if (ang >= -5.0 && ang <= 125.0 && r > R * 0.74 && r < R * 0.995) {
+        // 2. Fixed 500-rpm warning bands: amber 4000-4500, red 4500-5000.
+        // Their angular extents use the same non-linear mapping as the scale and needle.
+        float a4 = rpmAngle(4000.0);
+        float a45 = rpmAngle(4500.0);
+        float a5 = rpmAngle(5000.0);
+        if (ang >= a4 && ang <= a5 && r > R * 0.74 && r < R * 0.995) {
+            bool redZone = ang >= a45;
+            float a0 = redZone ? a45 : a4;
+            float a1 = redZone ? a5 : a45;
             float ro = R * 0.875;
-            float th = R * 0.088; // uniform crisp square LED radial height across all 8 segments
-            float ri = ro - th;
-
-            // 8 paired square segments: idx = 0..7 for 4000..8000 rpm (each 500 rpm = 15.35 deg)
-            float idx = clamp(floor((ang - (-1.8)) / 15.35), 0.0, 7.0);
-            float mid = 4000.0 + (idx + 0.5) * 500.0;
-            // Nudge each pair slightly toward its 500-rpm dot so the integer ticks (4, 5, 6, 7, 8) have wide clean gaps
-            float shift = (mod(idx, 2.0) < 0.5 ? 1.0 : -1.0) * 0.55;
-            float aMid = -124.6 + mid * 0.0307 + shift;
-            float segA0 = aMid - 4.85;
-            float segA1 = aMid + 4.85;
-
-            float dAng = max(segA0 - ang, ang - segA1) * D2R * ro;
-            float dRad = max(ri - r, r - ro);
-            float dSeg = max(dAng, dRad);
-
-            // 1. Oil-temperature baseline threshold (cold <=45C: idx >= 0 -> 4000 rpm; warm >=90C: idx >= 5 -> 6500 rpm, i.e. 1 amber + 2 red)
-            float oilC = 50.0 + subVal * 100.0;
-            float fWarm = clamp((oilC - 45.0) / 45.0, 0.0, 1.0);
-            float oilIdx = floor(fWarm * 5.0 + 0.5); // 0..5
-
-            // 2. Progressive RPM shift-light countdown as needle approaches the redline (5500 -> 7250 rpm)
-            float rpmNow = clamp(val, 0.0, 1.0) * 8000.0;
-            float rpmIdx = 7.0;
-            if (rpmNow >= 7250.0) rpmIdx = 0.0;      // all 8 segments lit (including 4000..4500 red limiter LED!)
-            else if (rpmNow >= 7050.0) rpmIdx = 1.0; // 4500..8000 lit
-            else if (rpmNow >= 6850.0) rpmIdx = 2.0; // 5000..8000 lit
-            else if (rpmNow >= 6600.0) rpmIdx = 3.0; // 5500..8000 lit
-            else if (rpmNow >= 6250.0) rpmIdx = 4.0; // 6000..8000 lit
-            else if (rpmNow >= 5500.0) rpmIdx = 5.0; // 6500..8000 lit
-
-            float activeIdx = min(oilIdx, rpmIdx);
-            bool isRedSeg = (idx >= 6.0) || (idx < 0.5 && rpmNow >= 7200.0); // bottom 2 LEDs (7000..8000) + top LED (4000..4500) at limiter are RED
-            bool lit = isRedSeg || (idx >= activeIdx - 0.1);
-
-            // Blink modulation when in the limiter / shift zone (u_flash > 0.5 is the brief pulse-dim phase)
-            bool inShiftBlink = (rpmNow >= 7400.0) || (oilC < 75.0 && rpmNow >= 4000.0 + oilIdx * 500.0 + 200.0);
-            float blinkDim = (inShiftBlink && u_flash > 0.5 && idx < 5.5) ? 0.35 : 1.0;
-
-            if (!lit) {
-                // Unlit dark matte window cell
-                if (dSeg < 1.5) {
-                    vec3 offCol = mix(vec3(0.180, 0.200, 0.235), vec3(0.043, 0.027, 0.024), u_night);
-                    c = over(vec4(offCol, 0.85 * cov(dSeg)), c);
-                    if (u_night < 0.5) {
-                        c = over(vec4(0.0, 0.0, 0.0, 0.35 * cov(abs(dSeg) - 0.6)), c);
-                    }
-                }
-            } else {
-                // Lit LED segment: vivid red-coral for the red zone (7000..8000) & top limiter LED (4000..4500),
-                // warm golden-amber for the pre-warning / shift-light segments (4500..7000)
-                vec3 col = isRedSeg ? mix(vec3(1.0, 0.26, 0.22), vec3(1.0, 0.18, 0.16), u_night)
-                                    : mix(vec3(1.0, 0.65, 0.12), vec3(1.0, 0.56, 0.08), u_night);
-                vec3 core = isRedSeg ? vec3(1.0, 0.62, 0.52)
-                                     : vec3(1.0, 0.86, 0.42);
-
-                float eff = blinkDim;
-                if (dSeg < 8.5) {
-                    c = over(vec4(col, 0.44 * eff * exp(-max(dSeg, 0.0) / 3.4)), c);
-                    c = over(vec4(col, eff * cov(dSeg)), c);
-                    float dCore = max(dAng + 1.4, max((ro - th * 0.74) - r, r - (ro - th * 0.26)));
-                    c = over(vec4(core, 0.65 * eff * cov(dCore)), c);
-                }
-                // Strong radial LED reflection on the inner wall of the silver bezel ring (matches the photos!)
-                float dRefl = max(dAng - 0.8, abs(r - R * 0.962) - R * 0.024);
-                if (dRefl < 6.5) {
-                    vec3 reflCol = isRedSeg ? vec3(1.0, 0.20, 0.24) : vec3(1.0, 0.58, 0.10);
-                    c = over(vec4(reflCol, (isRedSeg ? 0.78 : 0.65) * eff * exp(-max(dRefl, 0.0) / 2.4)), c);
-                }
+            float th = R * 0.088;
+            float dAng = max(a0 + 1.1 - ang, ang - (a1 - 1.1)) * D2R * ro;
+            float dRad = max(ro - th - r, r - ro);
+            float dZone = max(dAng, dRad);
+            vec3 zoneCol = redZone ? vec3(1.0, 0.20, 0.17) : vec3(1.0, 0.64, 0.12);
+            vec3 coreCol = redZone ? vec3(1.0, 0.60, 0.50) : vec3(1.0, 0.86, 0.43);
+            if (dZone < 8.5) {
+                c = over(vec4(zoneCol, 0.40 * exp(-max(dZone, 0.0) / 3.4)), c);
+                c = over(vec4(zoneCol, 0.88 * cov(dZone)), c);
+                float dCore = max(dAng + 1.4, max(ro - th * 0.74 - r, r - (ro - th * 0.26)));
+                c = over(vec4(coreCol, 0.68 * cov(dCore)), c);
             }
-
-            // Redraw integer ticks (4, 5, 6, 7, 8) and 500-rpm dots cleanly on top of any LED halo
-            float kApprox = (ang - (-124.6)) / 15.35;
-            float k = clamp(floor(kApprox + 0.5), 8.0, 16.0);
-            float aTick = -124.6 + k * 15.35;
-            float dM = 10.0;
-            if (mod(k, 2.0) < 0.5) {
-                float r0 = k >= 13.5 ? R * 0.768 : R * 0.77;
-                float r1 = R * 0.875;
-                dM = tickDist(q, aTick, r0, r1, R * 0.0155);
-            } else {
-                dM = dotDist(q, aTick, R * 0.728, R * 0.0195);
-            }
-            c = addMark(dM, c);
+        }
+        // Redraw 4000, 4500 and 5000 rpm marks on top of the coloured bands.
+        for (int ti = 0; ti < 3; ti++) {
+            float rpmMark = 4000.0 + float(ti) * 500.0;
+            float aMark = rpmAngle(rpmMark);
+            float dMark = tickDist(q, aMark, R * 0.768, R * 0.875, R * 0.0155);
+            c = addMark(dMark, c);
         }
 
         // 3. Oil Temp Sub-Dial (pivot at center + (0, 0.40 R), sweeping downwards 237 deg -> 123 deg)
@@ -1859,8 +1810,8 @@ void main() {
     vec2 sq = p - sC;
     if (length(sq) <= mR * 0.92) {
         c = drawHub(sq, mR * 0.162, c);
-        float spdKmh = max(u_speed * 300.0, 4.0);
-        float sAng = -128.0 + (spdKmh - 20.0) * (261.0 / 280.0);
+        float spdKmh = clamp(u_speed, 0.0, 1.0) * 260.0;
+        float sAng = -128.0 + spdKmh * (261.0 / 260.0);
         c = drawE39Needle(sq, sAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, c);
     }
 
@@ -1873,7 +1824,7 @@ void main() {
         c = drawHub(oq, mR * 0.122, c);
         float oilAng = 237.0 - clamp(u_oil, 0.0, 1.0) * 114.0;
         c = drawE39Needle(oq, oilAng, mR * 0.555, -mR * 0.105, mR * 0.034, mR * 0.020, mR * 0.19, c);
-        float taAng = -124.6 + clamp(u_rpm, 0.0, 1.0) * 8000.0 * 0.0307;
+        float taAng = rpmAngle(clamp(u_rpm, 0.0, 1.0) * 5000.0);
         c = drawE39Needle(tq, taAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, c);
     }
 
