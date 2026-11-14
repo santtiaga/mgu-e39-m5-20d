@@ -1631,8 +1631,8 @@ class HudApp {
             const stg = d.stage === 'P' ? 0 : d.stage === 'R' ? 1 : d.stage === 'N' ? 2 : (this._program(d) === 'S' ? 5 : this._program(d) === 'M' ? 6 : 3);
             const gr = (d.stage === 'P' || d.stage === 'R' || d.stage === 'N') ? 0 : (isNum(d.gear) && d.gear >= 1 && d.gear <= 8 ? Math.round(d.gear) : (d.demo ? 1 : 0));
             const lim = this._e39LimitRpm();
-            const inWarn = isNum(rpm) && ((oil < 75 && rpm >= lim) || rpm >= 7400);
-            const inLim = isNum(rpm) && rpm >= 7400;
+            const inWarn = isNum(rpm) && ((oil < 75 && rpm >= lim) || rpm >= 5000);
+            const inLim = isNum(rpm) && rpm >= 5000;
             const fl = (sweep >= 0.85) ? 1 : (inWarn ? (Math.floor(now / (inLim ? 80 : 100)) % 3 === 2 ? 1 : 0) : 0);
             const svc = this._e39Service();
             const glat = this._raw('gLat') || 0, glon = this._raw('gLong') || 0;
