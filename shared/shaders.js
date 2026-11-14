@@ -1338,7 +1338,9 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         for (int ti = 0; ti < 3; ti++) {
             float rpmMark = 4000.0 + float(ti) * 500.0;
             float aMark = rpmAngle(rpmMark);
-            float dMark = tickDist(q, aMark, R * 0.768, R * 0.875, R * 0.0155);
+            float dMark = ti == 1
+                ? dotDist(q, aMark, R * 0.805, R * 0.0195)
+                : tickDist(q, aMark, R * 0.768, R * 0.875, R * 0.0155);
             c = addMark(dMark, c);
         }
 
