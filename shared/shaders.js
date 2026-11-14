@@ -1713,6 +1713,16 @@ uniform float u_night;
 const float PI = 3.14159265359;
 const float D2R = 3.14159265359 / 180.0;
 
+// Keep this mapping local: E39NEEDLES is compiled as an independent GLSL program.
+float rpmAngle(float rpm) {
+    float v = clamp(rpm, 0.0, 5000.0);
+    float f = v <= 2000.0 ? (v / 2000.0) * 0.32
+            : (v <= 4500.0 ? 0.32 + ((v - 2000.0) / 2500.0) * 0.60
+                           : 0.92 + ((v - 4500.0) / 500.0) * 0.08);
+    return -124.6 + f * 246.0;
+}
+
+
 float cov(float d) { return clamp(0.5 - d, 0.0, 1.0); }
 vec4 over(vec4 top, vec4 under) {
     float a = top.a + under.a * (1.0 - top.a);
