@@ -930,6 +930,13 @@ float rpmAngle(float rpm) {
                            : 0.92 + ((v - 4500.0) / 500.0) * 0.08);
     return -124.6 + f * 246.0;
 }
+
+float rpmFromAngle(float degrees) {
+    float f = clamp((degrees + 124.6) / 246.0, 0.0, 1.0);
+    return f <= 0.32 ? (f / 0.32) * 2000.0
+         : (f <= 0.92 ? 2000.0 + ((f - 0.32) / 0.60) * 2500.0
+                       : 4500.0 + ((f - 0.92) / 0.08) * 500.0);
+}
 #define MARK_COL mix(vec3(0.937, 0.863, 0.761), vec3(1.0, 0.749, 0.388), u_night)
 #define GLOW_COL vec3(1.0, 0.478, 0.063)
 
@@ -1271,7 +1278,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         // ---- TACHOMETER (0..5000 rpm; nonlinear angular allocation) ----
         // Main ticks every 1000 rpm; intermediate dots every 500 rpm. 4500 is the zone boundary.
         if (r > R * 0.70 && r < R * 0.90) {
-            float kApprox = (ang - rpmAngle(0.0)) / (246.0 / 10.0);
+            float kApprox = rpmFromAngle(ang) / 500.0;
             float k = clamp(floor(kApprox + 0.5), 0.0, 10.0);
             float rpmTick = k * 500.0;
             float aTick = rpmAngle(rpmTick);
