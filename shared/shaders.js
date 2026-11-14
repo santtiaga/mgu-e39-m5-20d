@@ -1277,21 +1277,21 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float dM = 10.0;
             if (abs(k - 9.0) < 0.1) {
                 // 4500 rpm is a round dot marking the amber/red transition, not a tick.
-                dM = dotDist(q, aTick, R * 0.805, R * 0.0195);
+                dM = dotDist(q, aTick, R * 0.735, R * 0.018);
             } else if (mod(k, 2.0) < 0.5) {
                 float r0 = rpmTick >= 4000.0 ? R * 0.768 : R * 0.77;
                 dM = tickDist(q, aTick, r0, R * 0.875, R * 0.0155);
             } else {
-                dM = dotDist(q, aTick, R * 0.805, R * 0.0195);
+                dM = dotDist(q, aTick, R * 0.735, R * 0.018);
             }
             c = addMark(dM, c);
         }
 
         // 2. Fixed 500-rpm warning bands: amber 4000-4500, red 4500-5000.
-        // Their angular extents retain the previous non-linear positions, independent of the new linear scale.
-        float a4 = rpmZoneAngle(4000.0);
-        float a45 = rpmZoneAngle(4500.0);
-        float a5 = rpmZoneAngle(5000.0);
+        // Warning bands must use the same linear RPM-to-angle mapping as the tachometer ticks.
+        float a4 = rpmAngle(4000.0);
+        float a45 = rpmAngle(4500.0);
+        float a5 = rpmAngle(5000.0);
         if (ang >= a4 && ang <= a5 && r > R * 0.74 && r < R * 0.995) {
             bool redZone = ang >= a45;
             float a0 = redZone ? a45 : a4;
@@ -1339,7 +1339,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float rpmMark = 4000.0 + float(ti) * 500.0;
             float aMark = rpmAngle(rpmMark);
             float dMark = ti == 1
-                ? dotDist(q, aMark, R * 0.805, R * 0.0195)
+                ? dotDist(q, aMark, R * 0.735, R * 0.018)
                 : tickDist(q, aMark, R * 0.768, R * 0.875, R * 0.0155);
             c = addMark(dMark, c);
         }
