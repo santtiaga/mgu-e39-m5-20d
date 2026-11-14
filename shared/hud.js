@@ -903,7 +903,7 @@ class HudApp {
                 const bst = this._raw('boost');
                 const lim = this._e39LimitRpm();
                 const rDisp = isNum(this.rpmShown) ? this.rpmShown : (isNum(rpm) ? Math.round(rpm / 50) * 50 : 0);
-                if (isNum(rpm) && rpm >= 7250) {
+                if (isNum(rpm) && rpm >= 5000) {
                     return Math.floor(Date.now() / 250) % 2 === 0
                         ? '! DREHZAHLBEGRENZER'
                         : 'SCHALTEN  ' + String(rDisp).padStart(4, ' ') + ' /MIN';
@@ -911,7 +911,7 @@ class HudApp {
                 if (isNum(rpm) && isNum(oil) && oil < 75 && rpm >= lim) {
                     return 'OEL KALT   MAX ' + String(lim);
                 }
-                if (isNum(rpm) && rpm >= 6250) {
+                if (isNum(rpm) && rpm >= 4500) {
                     return 'VORWARNFELD ' + String(rDisp) + '/MIN';
                 }
                 if (isNum(cool) && cool >= 115) {
@@ -1484,12 +1484,12 @@ class HudApp {
         if (!isNum(this.rpmShown) || Math.abs(this.rpmF - this.rpmShown) >= 40) this.rpmShown = Math.max(0, Math.round(this.rpmF / 50) * 50);
     }
 
-    /** E39 M5 oil-temperature-dependent pre-warning threshold (4000 /min cold at <=45C .. 6500 /min warm at >=90C). */
+    /** E39 20d oil-temperature-dependent shift warning (4000 /min cold .. 4500 /min warm). */
     _e39LimitRpm() {
         const oil = this._raw('oil');
         const oilC = isNum(oil) ? oil : 90;
         const fWarm = Math.min(1, Math.max(0, (oilC - 45) / 45));
-        return 4000 + Math.round(fWarm * 5) * 500;
+        return 4000 + Math.round(fWarm * 1) * 500;
     }
 
     /**
