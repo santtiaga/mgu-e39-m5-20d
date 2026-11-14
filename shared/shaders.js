@@ -1267,8 +1267,8 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         // Slanted ///M logo at y + 0.43 R (hub & needle drawn in E39NEEDLES above dial numbers)
         c = drawMLogo(p, center + vec2(0.0, R * 0.43), R * 0.092, c);
     } else {
-        // ---- TACHOMETER (0..5000 rpm; nonlinear angular allocation) ----
-        // Main ticks every 1000 rpm; intermediate dots every 500 rpm. 4500 is the zone boundary.
+        // ---- TACHOMETER (0..5000 rpm; linear angular allocation) ----
+        // Main ticks every 1000 rpm; intermediate dots every 500 rpm. Linear from 0 to 5000 rpm.
         if (r > R * 0.70 && r < R * 0.90) {
             float kApprox = rpmFromAngle(ang) / 500.0;
             float k = clamp(floor(kApprox + 0.5), 0.0, 10.0);
@@ -1285,7 +1285,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         }
 
         // 2. Fixed 500-rpm warning bands: amber 4000-4500, red 4500-5000.
-        // Their angular extents use the same non-linear mapping as the scale and needle.
+        // Their angular extents retain the previous non-linear positions, independent of the new linear scale.
         float a4 = rpmZoneAngle(4000.0);
         float a45 = rpmZoneAngle(4500.0);
         float a5 = rpmZoneAngle(5000.0);
