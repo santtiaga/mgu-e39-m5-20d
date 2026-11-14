@@ -965,15 +965,6 @@ float cwAngleDeg(vec2 q) {
     return atan(q.x, -q.y) * 180.0 / PI;
 }
 
-// E39 20d cluster scale: five 1000-rpm intervals with a non-linear angular allocation.
-// 0-2000 rpm = 32%, 2000-4500 rpm = 60%, 4500-5000 rpm = 8%.
-float rpmAngle(float rpm) {
-    float v = clamp(rpm, 0.0, 5000.0);
-    float f = v <= 2000.0 ? (v / 2000.0) * 0.32
-            : (v <= 4500.0 ? 0.32 + ((v - 2000.0) / 2500.0) * 0.60
-                           : 0.92 + ((v - 4500.0) / 500.0) * 0.08);
-    return -124.6 + f * 246.0;
-}
 
 // Draw a mark (tick or dot or icon) with dark drop shadow in Day mode and warm amber halo in Night mode
 vec4 addMark(float d, vec4 c) {
