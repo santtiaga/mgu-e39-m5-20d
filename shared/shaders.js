@@ -894,7 +894,7 @@ void main() {
 const E39DASH = `// Classic analog BMW E39 M5 (1998-2003) instrument cluster in one cluster-render "effect" layer (GLSL ES 1.00):
 // Matte anthracite-grey E39 M5 gauge faces with concentric vinyl grain, 3D brushed aluminum/chrome Edition rings,
 // crisp white/ivory scale markings with subtle warm backlight, the iconic E39 M5 two-zone pre-warning LED field
-// recessed into the tachometer (driven by u_oil: cold oil lights orange from 4000 rpm, warming up retreats to 6500 rpm,
+// recessed into the tachometer (driven by u_oil: ccold oil enables the amber 4000-4500 rpm band,
 // redline at 4500..5000 rpm), in-dial //M5 badge, analog Oil Temperature sub-gauge, 3D tapered red-orange needles
 // with drop shadows and stepped black/metallic hub caps, and the classic E39 High-OBC amber pixel-matrix bar at the bottom.
 // Dial positions are shifted so BMW's hardware gear box (x:1406..1597, y:342..419) sits completely in the empty gap
