@@ -1013,20 +1013,10 @@ float tickDistInnerRound(vec2 q, float angDeg, float r0, float r1, float hw) {
     vec2 dir = vec2(sin(a), -cos(a));
     vec2 nrm = vec2(-dir.y, dir.x);
     float al = dot(q, dir);
-    float across = dot(q, nrm);
-
-    // Semicircular inner cap.
-    float innerCap = length(vec2(max(r0 + hw - al, 0.0), across)) - hw;
-
-    // Straight-sided body with a 1 px radius only at the two outer corners.
-    const float outerRadius = 1.0;
-    vec2 halfSize = vec2(max((r1 - (r0 + hw)) * 0.5, 0.0), hw);
-    vec2 boxCenter = vec2((r1 + r0 + hw) * 0.5, 0.0);
-    vec2 d = abs(vec2(al, across) - boxCenter) - halfSize + vec2(outerRadius);
-    float outerRoundedBody = length(max(d, 0.0))
-                           + min(max(d.x, d.y), 0.0) - outerRadius;
-
-    return min(innerCap, outerRoundedBody);
+    float sd = abs(dot(q, nrm));
+    float innerCap = length(vec2(max(r0 + hw - al, 0.0), dot(q, nrm))) - hw;
+    float sideAndOuter = max(sd - hw, al - r1);
+    return max(innerCap, sideAndOuter);
 }
 
 float dotDist(vec2 q, float angDeg, float r, float rad) {
