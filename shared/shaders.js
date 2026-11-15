@@ -1193,45 +1193,66 @@ float sdPump(vec2 p, vec2 ctr, float h) {
     return min(min(body, base), hose) * u;
 }
 
-// Crisp slanted ///M logo on Speedometer (3 colored stripes + italic M polygon)
+// BMW M Motorsport mark, traced to the supplied reference image.
+// The stripes and the M share the same forward shear: their TOP edges move RIGHT.
+// The M is a single sharp polygon (not a stroked W); its deep outer legs and
+// stepped central notch reproduce the characteristic Motorsport block glyph.
+vec2 mLogoVertex(int i) {
+    if (i == 0) return vec2(0.00, 0.94); // lower left foot
+    if (i == 1) return vec2(0.61, 0.06); // upper left shoulder
+    if (i == 2) return vec2(0.90, 0.06); // short top bridge
+    if (i == 3) return vec2(0.90, 0.45); // inner vertical drop
+    if (i == 4) return vec2(1.15, 0.06); // rising centre diagonal
+    if (i == 5) return vec2(1.50, 0.06); // upper right shoulder
+    if (i == 6) return vec2(1.52, 0.94); // outer right foot
+    if (i == 7) return vec2(0.90, 0.94); // lower inner shelf
+    if (i == 8) return vec2(0.90, 0.55); // central notch
+    return vec2(0.67, 0.94);             // lower diagonal return
+}
+
 vec4 drawMLogo(vec2 p, vec2 ctr, float h, vec4 c) {
     float sk = 0.42, w = h * 0.36, gap = h * 0.02;
     float y0 = ctr.y - h * 0.5, y1 = ctr.y + h * 0.5;
     if (p.y < y0 - 1.5 || p.y > y1 + 1.5) return c;
     float xStart = ctr.x - h * 1.42;
-    if (p.x < xStart - 4.0 || p.x > xStart + h * 3.4) return c;
-    float dy = max(y0 - p.y, p.y - y1);
+    if (p.x < xStart - 4.0 || p.x > xStart + h * 2.86) return c;
     float u = (y1 - p.y) / h; // 0 at bottom, 1 at top
     float al = mix(1.0, 0.55, u_night);
 
-    // 3 slanted stripes
+    // Three sharp parallelogram stripes; the top is shifted RIGHT, as in the reference.
     for (int i = 0; i < 3; i++) {
         float xi = xStart + float(i) * (w + gap) + sk * h * u;
         float dx = max(xi - p.x, p.x - (xi + w));
+        float dy = max(y0 - p.y, p.y - y1);
         float d = max(dx, dy);
         if (d < 1.0) {
-            vec3 sc = i == 0 ? mix(vec3(0.353, 0.643, 0.878), vec3(0.227, 0.353, 0.502), u_night)
-                    : i == 1 ? mix(vec3(0.122, 0.247, 0.561), vec3(0.102, 0.165, 0.353), u_night)
-                             : mix(vec3(0.878, 0.141, 0.180), vec3(0.690, 0.165, 0.118), u_night);
+            vec3 sc = i == 0 ? mix(vec3(0.000, 0.604, 0.816), vec3(0.000, 0.325, 0.478), u_night)
+                    : i == 1 ? mix(vec3(0.180, 0.153, 0.514), vec3(0.110, 0.102, 0.318), u_night)
+                             : mix(vec3(0.878, 0.090, 0.169), vec3(0.635, 0.106, 0.114), u_night);
             c = over(vec4(sc, al * cov(d)), c);
         }
     }
-    // Slanted 'M' in un-sheared coordinates: x' = p.x - sk * (y1 - p.y) - mx0
+
+    // Undo the forward shear for the glyph's local coordinates. In screen space
+    // this makes the M's top shoulders sit to the RIGHT of its lower feet.
     float mx0 = xStart + 3.0 * (w + gap) + h * 0.42 - sk * h * 0.5;
-    float lx = (p.x - sk * (ctr.y - p.y) - mx0) / h;
-    float ly = (p.y - y0) / h; // 0 at top, 1 at bottom
-    if (lx >= -0.05 && lx <= 1.48 && ly >= -0.05 && ly <= 1.05) {
-        // Motorsport-style M: broad, forward-leaning outer stems and a
-        // sharp, high-contrast central notch. The deeper outer legs and
-        // shallower valley give the letter the compact angular BMW M profile.
-        vec2 mp = vec2(lx, ly);
-        float dL  = segD(mp, vec2(0.08, 0.08), vec2(0.08, 0.92)) - 0.115;
-        float dML = segD(mp, vec2(0.08, 0.08), vec2(0.50, 0.76)) - 0.115;
-        float dMR = segD(mp, vec2(0.50, 0.76), vec2(0.92, 0.08)) - 0.115;
-        float dR  = segD(mp, vec2(0.92, 0.08), vec2(0.92, 0.92)) - 0.115;
-        float dM = min(min(dL, dML), min(dMR, dR)) * h;
-        vec3 mCol = mix(vec3(0.875, 0.886, 0.902), vec3(0.478, 0.416, 0.353), u_night);
-        c = over(vec4(mCol, al * cov(dM)), c);
+    vec2 mp = vec2((p.x - sk * (y1 - p.y) - mx0) / h, (p.y - y0) / h);
+    if (mp.x >= -0.05 && mp.x <= 1.58 && mp.y >= -0.05 && mp.y <= 1.05) {
+        float edge = 1e4;
+        bool inside = false;
+        for (int i = 0; i < 10; i++) {
+            vec2 a = mLogoVertex(i);
+            vec2 b = mLogoVertex(i == 9 ? 0 : i + 1);
+            edge = min(edge, segD(mp, a, b));
+            bool crosses = (a.y > mp.y) != (b.y > mp.y);
+            if (crosses) {
+                float xHit = a.x + (b.x - a.x) * (mp.y - a.y) / (b.y - a.y);
+                if (mp.x < xHit) inside = !inside;
+            }
+        }
+        float signedD = (inside ? -edge : edge) * h;
+        vec3 mCol = mix(vec3(0.718, 0.729, 0.741), vec3(0.478, 0.416, 0.353), u_night);
+        c = over(vec4(mCol, al * cov(signedD)), c);
     }
     return c;
 }
