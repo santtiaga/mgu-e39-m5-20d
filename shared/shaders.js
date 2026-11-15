@@ -1360,10 +1360,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float dZone = length(max(bandQ, 0.0)) + min(max(bandQ.x, bandQ.y), 0.0) - 2.0;
             vec3 zoneCol = redZone ? vec3(1.0, 0.20, 0.17) : vec3(1.0, 0.64, 0.12);
             vec3 coreCol = redZone ? vec3(1.0, 0.60, 0.50) : vec3(1.0, 0.86, 0.43);
-            // Clip the complete band (including its glow) by the true on-screen distance
-            // to the 4000/5000 tick at the current radius, not only at the band centreline.
-            float tickGapPx = redZone ? (a5 - ang) * D2R * r : (ang - a4) * D2R * r;
-            if (dZone < 8.5 && tickGapPx >= 5.0) {
+            if (dZone < 8.5) {
                 c = over(vec4(zoneCol, 0.40 * exp(-max(dZone, 0.0) / 3.4)), c);
                 c = over(vec4(zoneCol, 0.88 * cov(dZone)), c);
                 // The brighter inner inlay follows the same 2 px corner radius.
