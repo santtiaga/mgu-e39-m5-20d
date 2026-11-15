@@ -1612,8 +1612,8 @@ void main() {
     vec3 pageCol = mix(vec3(0.039, 0.043, 0.051), vec3(0.012, 0.012, 0.012), u_night);
     vec4 c = vec4(pageCol, 1.0);
 
-    vec2 panQ = (p - vec2(960.0, 515.0)) / vec2(912.0, 472.0);
-    float dPan = p.y > 515.0 ? max(abs(p.x - 960.0) - 912.0, p.y - 664.0) : (length(panQ) - 1.0) * 470.0;
+    // Inner matte panel now fills the complete 1920x720 screen.
+    float dPan = max(abs(p.x - 960.0) - 960.0, abs(p.y - 360.0) - 360.0);
     if (dPan < 2.0) {
         float gy = clamp((p.y - 43.0) / 620.0, 0.0, 1.0);
         vec3 p0 = mix(vec3(0.086, 0.094, 0.110), vec3(0.035, 0.027, 0.024), u_night);
