@@ -1361,7 +1361,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             // This keeps the glow offset identical on the inner/outer edges and at both ends.
             float dZoneGlow = dZone;
             // The thin amber inlay halo uses the same 2 px rounded end geometry.
-            vec2 coreHalf = vec2(halfArc, th * 0.24);
+            vec2 coreHalf = vec2(max(halfArc - 5.0, 2.0), th * 0.24);
             vec2 coreQ = abs(bandP) - (coreHalf - vec2(2.0));
             float dCoreGlow = length(max(coreQ, 0.0)) + min(max(coreQ.x, coreQ.y), 0.0) - 2.0;
             float dCore = dCoreGlow;
