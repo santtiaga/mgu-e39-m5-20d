@@ -1645,30 +1645,16 @@ void main() {
     vec3 slotCol = mix(vec3(0.055, 0.059, 0.071), vec3(0.020, 0.016, 0.016), u_night);
     c = over(vec4(slotCol, cov(sdRoundBox(p, vec4(852.0, 110.0, 76.0, 52.0), 10.0))), c);
     c = over(vec4(slotCol, cov(sdRoundBox(p, vec4(800.0, 456.0, 180.0, 52.0), 8.0))), c);
-    // Solid BMW E39 turn arrows styled as the fuel-reserve warning lamp lens (not the fuel-scale dots).
-    // Left arrow at (358, 224), Right arrow at (1436, 224); both point outward.
+        // Faint unlit indicator symbols (Turn signals, Shift chevron, DSC, Brake/Temp)
+    float ghostA = mix(0.05, 0.02, u_night);
+    // Left arrow at (358, 224), Right arrow at (1436, 224), clear of the main dial bezels
     for (int s = -1; s <= 1; s += 2) {
         vec2 ap = p - vec2(s < 0 ? 358.0 : 1436.0, 224.0);
-        ap.x *= float(s);
-        if (abs(ap.x) < 32.0 && abs(ap.y) < 26.0) {
-            // Solid stepped shaft joined to the broad pointed E39 arrow head.
-            float dStem = sdRoundBox(ap, vec4(-20.0, -10.0, 24.0, 20.0), 0.8);
-            float dHead = max(max(3.0 - ap.x, ap.x - 27.0), abs(ap.y) - (22.0 - (ap.x - 3.0) * 0.88));
-            float dArrow = min(dStem, dHead);
-
-            // Match the reserve-lamp's dark, solid inactive lens and directional inner shadow.
-            if (dArrow < 6.0) {
-                vec3 arrowOff = mix(vec3(0.105, 0.12, 0.145), vec3(0.008, 0.009, 0.011), u_night);
-                float arrowAlpha = mix(0.95, 0.85, u_night);
-                c = over(vec4(arrowOff, arrowAlpha * cov(dArrow)), c);
-
-                float rimFade = exp(-max(-dArrow, 0.0) / 3.2)
-                              * (1.0 - smoothstep(0.0, 1.0, dArrow));
-                float shadowSide = smoothstep(-0.35, 0.65,
-                                              dot(normalize(ap), normalize(vec2(0.45, 0.65))));
-                float innerShadow = rimFade * shadowSide * mix(0.34, 0.42, u_night);
-                c = over(vec4(vec3(0.0), innerShadow), c);
-            }
+        ap.x *= float(-s); // +x points toward arrow tip
+        if (abs(ap.x) < 30.0 && abs(ap.y) < 26.0) {
+            float dHead = max(max(-ap.x, ap.x - 24.0), abs(ap.y) - (24.0 - ap.x) * 0.90);
+            float dTail = max(max(-22.0 - ap.x, -ap.x), abs(ap.y) - 10.0);
+            c = over(vec4(1.0, 1.0, 1.0, ghostA * cov(min(dHead, dTail))), c);
         }
     }
     // Upper center slot (890, 136): Shift-up chevron + M-Sport status bar (u_ind.y = sportMode, u_ind.z = shiftState 0..2)
