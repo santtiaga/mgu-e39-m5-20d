@@ -1656,6 +1656,7 @@ class HudApp {
                 spMode,
                 shSt,
                 brkTmp,
+                Math.min(5000, Math.max(isNum(rpm) ? rpm : 0, sweep * 5000)),
             ];
             const key = vals.join('|');
             if (!force && key === x.last) return;
@@ -1669,6 +1670,7 @@ class HudApp {
             x.c.uniform(x.ref, 'u_flash', [vals[7]]);
             x.c.uniform(x.ref, 'u_svc', [vals[8], vals[9]]);
             x.c.uniform(x.ref, 'u_ind', [vals[10], vals[11], vals[12], vals[13]]);
+            x.c.uniform(x.ref, 'u_rpmActual', [vals[14]]);
         } else if (w.type === 'e39needles') {
             const sweep = this._e39Sweep(now);
             const sp = this._raw('speed'), rpm = this._raw('rpm'), fuel = this._raw('fuel'), oil = this._raw('oil'), cool = this._raw('coolant');
