@@ -1403,17 +1403,17 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         // Keep the original arc radius, thickness, gap and 2 px corner treatment unchanged.
         const float SHIFT_LEDS = 10.0;
         float ledSpan = a5 - a4;
-        float ledIdx = floor(clamp((ang - a4) / ledSpan, 0.0, 0.9999) * SHIFT_LEDS);
-        float ledA0 = a4 + (ledIdx / SHIFT_LEDS) * ledSpan;
-        float ledA1 = a4 + ((ledIdx + 1.0) / SHIFT_LEDS) * ledSpan;
         float ledGap = 1.15;
-        // Keep the first LED's leading edge on the 4000-rpm tick axis and
-        // the last red LED's trailing edge on the 5000-rpm tick axis.
-        // Apply spacing only between adjacent rectangles, not at the arc ends.
-        float ledStart = ledA0 + (ledIdx > 0.0 ? ledGap : 0.0);
-        float ledEnd = ledA1 - (ledIdx < SHIFT_LEDS - 1.0 ? ledGap : 0.0);
         float ledR = R * 0.934 + 2.0; // Move shift LEDs 2 px toward the grey bezel ring.
         float ledTh = R * 0.026;
+        // Fit ten equal-width rectangles and nine equal gaps exactly between the 4000/5000 axes.
+        // The first and last outer edges stay on those axes; no end segment gets extra width.
+        float ledGapAngle = ledGap / (ledR * D2R);
+        float ledStep = (ledSpan + ledGapAngle * (SHIFT_LEDS - 1.0)) / SHIFT_LEDS;
+        float ledWidth = ledStep - ledGapAngle;
+        float ledIdx = floor(clamp((ang - a4) / ledStep, 0.0, SHIFT_LEDS - 0.0001));
+        float ledStart = a4 + ledIdx * ledStep;
+        float ledEnd = ledStart + ledWidth;
         float ledDA = max(ledStart - ang, ang - ledEnd) * D2R * ledR;
         float ledDR = max(ledR - ledTh - r, r - ledR);
         float ledD = max(ledDA, ledDR);
@@ -1421,7 +1421,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float ledThreshold = 4000.0 + ledIdx * 100.0;
         // Let the endpoint glow breathe by 1 px beyond the 4000/5000 axes;
         // the LED bodies themselves remain aligned exactly to those axes.
-        float ledMaskPad = 1.0 / (ledR * D2R);
+        // Include the full 3 px endpoint glow/antialias fringe so the outer LED ends are not clipped.\n        float ledMaskPad = 3.0 / (ledR * D2R);
         bool ledOn = ang >= a4 && ang <= a5 && ledRpm >= ledThreshold;
         if (ang >= a4 - ledMaskPad && ang <= a5 + ledMaskPad && r > ledR - ledTh - 15.0 && r < ledR + ledTh + R * 0.004) {
             bool ledRed = ledIdx >= SHIFT_LEDS * 0.5;
