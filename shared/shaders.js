@@ -1645,14 +1645,34 @@ void main() {
     vec3 slotCol = mix(vec3(0.055, 0.059, 0.071), vec3(0.020, 0.016, 0.016), u_night);
     c = over(vec4(slotCol, cov(sdRoundBox(p, vec4(852.0, 110.0, 76.0, 52.0), 10.0))), c);
     c = over(vec4(slotCol, cov(sdRoundBox(p, vec4(800.0, 456.0, 180.0, 52.0), 8.0))), c);
-        // Faint unlit BMW E39-style outlined turn arrows, mirrored outward from the dial bezels
+    // BMW E39 turn arrows: dark, solid lens backing with the fuel-reserve lamp's
+    // subdued inactive finish. Keep the existing arrow outline and exact placement.
     float ghostA = mix(0.05, 0.02, u_night);
-    // Left arrow at (358, 224), Right arrow at (1436, 224)
     for (int s = -1; s <= 1; s += 2) {
         vec2 ap = p - vec2(s < 0 ? 358.0 : 1436.0, 224.0);
-        ap.x *= float(s); // local +x points outward: left arrow -> left, right arrow -> right
-        if (abs(ap.x) < 34.0 && abs(ap.y) < 30.0) {
-            // Hollow, stepped E39 arrow silhouette: rectangular stem and broad pointed head
+        ap.x *= float(s);
+        if (abs(ap.x) < 36.0 && abs(ap.y) < 32.0) {
+            float dStem = sdRoundBox(ap, vec4(-19.0, -12.0, 23.0, 24.0), 1.2);
+            float dHead = max(max(4.0 - ap.x, ap.x - ap.y - 29.0), ap.x + ap.y - 29.0);
+            float dLens = min(dStem, dHead);
+
+            // Very restrained edge halo: the lens remains visibly unlit.
+            vec3 lensEdge = mix(vec3(0.34, 0.22, 0.045), vec3(0.11, 0.065, 0.018), u_night);
+            c = over(vec4(lensEdge, 0.12 * exp(-max(dLens, 0.0) / 3.8)), c);
+
+            // Solid inactive lens, using the same low-brightness material response as the fuel lamp.
+            vec3 lensOff = mix(vec3(0.105, 0.12, 0.145), vec3(0.008, 0.009, 0.011), u_night);
+            float lensAlpha = mix(0.94, 0.86, u_night);
+            c = over(vec4(lensOff, lensAlpha * cov(dLens)), c);
+
+            // Soft directional inner shade gives the filled lens a shallow recessed look.
+            float rimFade = exp(-max(-dLens, 0.0) / 3.2)
+                          * (1.0 - smoothstep(0.0, 1.0, dLens));
+            float shadowSide = smoothstep(-0.35, 0.65,
+                                          dot(normalize(ap), normalize(vec2(0.45, 0.65))));
+            c = over(vec4(vec3(0.0), rimFade * shadowSide * mix(0.30, 0.38, u_night)), c);
+
+            // Retain the thin, faint E39 outline as a separate surface detail.
             float dArrow = min(
                 min(segD(ap, vec2(-19.0, -12.0), vec2(4.0, -12.0)),
                     segD(ap, vec2(4.0, -12.0), vec2(4.0, -25.0))),
