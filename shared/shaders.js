@@ -1673,7 +1673,7 @@ void main() {
                         min(segD(ap, vec2(4.0, 25.0), vec2(4.0, 12.0)),
                             min(segD(ap, vec2(4.0, 12.0), vec2(-19.0, 12.0)),
                                 segD(ap, vec2(-19.0, 12.0), vec2(-19.0, -12.0))))))
-            ) - 1.4;
+            ) - 2.2;
             // Inner turn-arrow stroke uses the same recessed backing and inner-shadow finish as the inactive shift-up chevron.
             float arrowBackingD = dArrow - 2.0;
             c = over(vec4(slotCol, cov(arrowBackingD)), c);
