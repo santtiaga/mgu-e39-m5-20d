@@ -1447,11 +1447,19 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
                 // Keep the marker visible inside the dial face; positive distance is outside.
                 dPatch = max(dArc, radius - R * 0.90);
             } else {
-                // Preserve the existing blue cold-zone marker.
-                dPatch = max(
-                    sdRoundBox(lq, vec4(-R * 0.060, -R * 0.065, R * 0.12, R * 0.15), R * 0.008),
-                    R * 0.82 - length(pq)
-                );
+                // Blue cold-zone arc: mirror the red arc across the dial's vertical axis.
+                // Match its radial thickness, 2 px corner radius and outer-face clipping.
+                float radius = length(pq);
+                float angle = atan(pq.x, -pq.y) / D2R;
+                float radialDist = abs(radius - (R * 0.80 + 1.5)) - (R * 0.070 + 0.5);
+                float edgeDist = radius * sin((angle + 32.5) * D2R);
+                float startDist = radius * sin((-54.5 - angle) * D2R);
+                float cornerRadius = 2.0;
+                vec2 arcCorner = vec2(radialDist, max(edgeDist, startDist))
+                               + vec2(cornerRadius);
+                float dArc = min(max(arcCorner.x, arcCorner.y), 0.0)
+                           + length(max(arcCorner, vec2(0.0))) - cornerRadius;
+                dPatch = max(dArc, radius - R * 0.90);
             }
             if (dPatch < 1.0) {
                 vec3 pCol = s < 0 ? vec3(0.153, 0.318, 0.561)
