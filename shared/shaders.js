@@ -1668,7 +1668,7 @@ void main() {
                         min(segD(ap, vec2(4.0, 25.0), vec2(4.0, 12.0)),
                             min(segD(ap, vec2(4.0, 12.0), vec2(-19.0, 12.0)),
                                 segD(ap, vec2(-19.0, 12.0), vec2(-19.0, -12.0))))))
-            ) - 2.2;
+            ) - 1.4;
             c = over(vec4(1.0, 1.0, 1.0, ghostA * cov(dArrow)), c);
         }
     }
