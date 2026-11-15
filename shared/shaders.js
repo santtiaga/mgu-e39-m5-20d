@@ -1337,7 +1337,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             } else {
                 // All half-step dots (500–4500 rpm) share the inner-end radius of the main ticks.
                 if (k <= 5.0) {
-                    dM = dotDist(q, aTick, R * 0.768, R * 0.0195);
+                    dM = dotDist(q, aTick, R * 0.768, R * 0.018);
                 } else {
                     dM = dotDist(q, aTick, R * 0.768, R * 0.018);
                 }
