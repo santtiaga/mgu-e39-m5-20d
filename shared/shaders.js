@@ -1419,13 +1419,11 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
     if (isTemp) {
         // Slanted Blue (-45.5 deg) and Red (+45.5 deg) zone blocks around piv at 0.80 R
         for (int s = -1; s <= 1; s += 2) {
-            // Align the red marker with its scale tick; preserve the blue marker geometry.
-            float markerAngle = s > 0 ? 54.5 : -45.5;
-            float a = markerAngle * D2R;
+            // Keep the original marker position and angle.
+            float a = float(s) * 45.5 * D2R;
             vec2 dir = vec2(sin(a), -cos(a));
             vec2 nrm = vec2(-dir.y, dir.x);
-            float markerRadius = s > 0 ? 0.81 : 0.80;
-            vec2 pt = piv + dir * (R * markerRadius);
+            vec2 pt = piv + dir * (R * 0.80);
             vec2 lq = vec2(dot(p - pt, nrm), -dot(p - pt, dir));
             // The red hot-zone marker is a broad, tapered OEM-style block rather than
             // the narrow rounded dash used by the first pass. Keep the blue marker unchanged.
@@ -1434,7 +1432,8 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
                 float along = clamp((lq.y / R + 0.070) / 0.14, 0.0, 1.0);
                 float halfWidth = mix(R * 0.090, R * 0.105, along);
                 float dTrap = max(abs(lq.y) - R * 0.070, abs(lq.x) - halfWidth);
-                dPatch = max(dTrap, R * 0.82 - length(pq));
+                // Do not clip the marker at 0.82R: that was cutting off its outer half.
+                dPatch = max(dTrap, R * 0.90 - length(pq));
             } else {
                 // Preserve the existing blue cold-zone marker.
                 dPatch = max(
