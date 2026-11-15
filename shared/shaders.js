@@ -1608,21 +1608,9 @@ vec4 drawWin(vec2 p, vec4 rect, bool isLamp, vec4 c) {
 
 void main() {
     vec2 p = v_uv * u_size;
-    // 1. Page & Binnacle Dome Shell
+    // 1. Page background & inner matte panel
     vec3 pageCol = mix(vec3(0.039, 0.043, 0.051), vec3(0.012, 0.012, 0.012), u_night);
     vec4 c = vec4(pageCol, 1.0);
-
-    // Outer binnacle dome arch & inner matte panel
-    vec2 archQ = (p - vec2(960.0, 520.0)) / vec2(945.0, 505.0);
-    float dShell = p.y > 520.0 ? max(abs(p.x - 960.0) - 945.0, p.y - 696.0) : (length(archQ) - 1.0) * 500.0;
-    if (dShell < 2.0) {
-        float gy = clamp((p.y - 15.0) / 680.0, 0.0, 1.0);
-        vec3 sh0 = mix(vec3(0.106, 0.114, 0.133), vec3(0.043, 0.035, 0.031), u_night);
-        vec3 sh1 = mix(vec3(0.043, 0.047, 0.055), vec3(0.016, 0.012, 0.012), u_night);
-        vec3 shCol = mix(sh0, sh1, 1.0 - abs(gy * 2.0 - 1.0));
-        c = over(vec4(shCol, cov(dShell)), c);
-        c = over(vec4(1.0, 1.0, 1.0, mix(0.07, 0.02, u_night) * cov(abs(dShell) - 0.8)), c);
-    }
 
     vec2 panQ = (p - vec2(960.0, 515.0)) / vec2(912.0, 472.0);
     float dPan = p.y > 515.0 ? max(abs(p.x - 960.0) - 912.0, p.y - 664.0) : (length(panQ) - 1.0) * 470.0;
@@ -1902,7 +1890,7 @@ void main() {
 
     // 4. Subtle cover glass diagonal reflection
     float gLine = (p.x - 250.0) * 0.65 + (p.y - 80.0);
-    if (gLine > 0.0 && gLine < 420.0 && dShell < 0.0) {
+    if (gLine > 0.0 && gLine < 420.0 && dPan < 0.0) {
         float gAl = sin(gLine / 420.0 * PI) * mix(0.032, 0.010, u_night);
         c = over(vec4(mix(vec3(0.78, 0.84, 1.0), vec3(1.0, 0.78, 0.62), u_night), gAl), c);
     }
