@@ -1429,14 +1429,13 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
             // the narrow rounded dash used by the first pass. Keep the blue marker unchanged.
             float dPatch;
             if (s > 0) {
-                // Red zone is a curved annular segment. Its right radial edge follows
-                // the 54.5-degree scale tick; the band spans the same 0.14 R radial height.
+                // Red zone is a curved annular segment, shifted 3 px outward and 2 degrees counter-clockwise.
                 float radius = length(pq);
                 float angle = atan(pq.x, -pq.y) / D2R;
-                float radialDist = abs(radius - R * 0.80) - R * 0.070;
-                // Signed angular distances are negative inside the 36.5..54.5 degree sector.
-                float edgeDist = radius * sin((angle - 54.5) * D2R);
-                float startDist = radius * sin((36.5 - angle) * D2R);
+                float radialDist = abs(radius - (R * 0.80 + 3.0)) - R * 0.070;
+                // Signed angular distances are negative inside the shifted 34.5..52.5 degree sector.
+                float edgeDist = radius * sin((angle - 52.5) * D2R);
+                float startDist = radius * sin((34.5 - angle) * D2R);
                 float dArc = max(radialDist, max(edgeDist, startDist));
                 // Keep the marker visible inside the dial face; positive distance is outside.
                 dPatch = max(dArc, radius - R * 0.90);
