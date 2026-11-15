@@ -1409,8 +1409,10 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         // The tick half-width is measured normal to its radial axis; project that side edge to ledR.
         float tickHalfWidth = R * 0.0155;
         float tickSideAngle = asin(clamp(tickHalfWidth / ledR, 0.0, 0.999)) / D2R;
-        float ledArcStart = a4 + tickSideAngle;
-        float ledArcEnd = a5 - tickSideAngle;
+        // Use the outward-facing side edges of the endpoint ticks: toward 3000 at 4000,
+        // and the clockwise-facing edge beyond the 5000 tick.
+        float ledArcStart = a4 - tickSideAngle;
+        float ledArcEnd = a5 + tickSideAngle;
         float ledSpan = ledArcEnd - ledArcStart;
         float ledGapAngle = ledGap / (ledR * D2R);
         // Ten equal rectangles and nine equal gaps fill the interval between the two tick side edges.
@@ -1428,8 +1430,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         // the LED bodies themselves remain aligned exactly to those axes.
         // Include the full 3 px endpoint glow/antialias fringe so the outer LED ends are not clipped.\n        float ledMaskPad = 3.0 / (ledR * D2R);
         bool ledOn = ang >= ledArcStart && ang <= ledArcEnd && ledRpm >= ledThreshold;
-        // Keep the radial clipping margin tight and symmetric: 3 px beyond the LED body for its glow/AA.
-        if (ang >= ledArcStart - ledMaskPad && ang <= ledArcEnd + ledMaskPad && r > ledR - ledTh - 3.0 && r < ledR + ledTh + 3.0) {
+        if (ang >= ledArcStart - ledMaskPad && ang <= ledArcEnd + ledMaskPad && r > ledR - ledTh - 15.0 && r < ledR + ledTh + R * 0.004) {
             bool ledRed = ledIdx >= SHIFT_LEDS * 0.5;
             vec3 ledCol = ledRed ? vec3(1.0, 0.16, 0.10) : vec3(1.0, 0.72, 0.12);
             float ledAlpha = ledOn ? 0.98 : 0.12;
