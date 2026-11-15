@@ -1689,6 +1689,11 @@ void main() {
             c = over(vec4(shCol, 0.50 * exp(-max(dChv, 0.0) / 3.0)), c);
             c = over(vec4(shCol, cov(dChv)), c);
         } else {
+            // Inactive shift-up chevron uses the same recessed backing and inner-shadow finish as the turn arrows.
+            float chvBackingD = dChv - 2.0;
+            c = over(vec4(slotCol, cov(chvBackingD)), c);
+            float chvInnerShadow = 0.42 * exp(-max(-chvBackingD, 0.0) / 3.5) * cov(chvBackingD);
+            c = over(vec4(vec3(0.075, 0.078, 0.085), chvInnerShadow), c);
             c = over(vec4(1.0, 1.0, 1.0, ghostA * cov(dChv)), c);
         }
         if (u_ind.y >= 0.5) {
