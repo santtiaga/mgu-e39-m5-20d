@@ -1366,7 +1366,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float dCoreGlow = length(max(coreQ, 0.0)) + min(max(coreQ.x, coreQ.y), 0.0) - 1.0;
             float dCore = dCoreGlow;
             vec3 zoneCol = redZone ? vec3(1.0, 0.20, 0.17) : vec3(1.0, 0.64, 0.12);
-            vec3 coreCol = redZone ? vec3(1.0, 0.60, 0.50) : vec3(1.0, 0.86, 0.43);
+            vec3 coreCol = redZone ? vec3(1.0, 0.60, 0.50) : mix(zoneCol, vec3(1.0, 0.86, 0.43), 0.28);
 
             // The outer halo follows the exact SDF of the rendered band, without a cutoff mask.
             if (dZoneGlow < 14.0) {
@@ -1374,14 +1374,14 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             }
             // The inlay halo follows its own matching rounded shape.
             if (!redZone && dCoreGlow < 14.0) {
-                c = over(vec4(coreCol, 0.38 * exp(-max(dCoreGlow, 0.0) / 5.0)), c);
+                c = over(vec4(coreCol, 0.24 * exp(-max(dCoreGlow, 0.0) / 6.5)), c);
             }
 
             // Keep the original visible geometry and 2 px corner treatment unchanged.
             if (dZone < 8.5) {
                 c = over(vec4(zoneCol, 0.88 * cov(dZone)), c);
-                float coreProfile = 1.0 - smoothstep(-3.5, 0.5, dCore);
-                c = over(vec4(coreCol, 0.88 * coreProfile), c);
+                float coreProfile = 1.0 - smoothstep(-5.0, 3.0, dCore);
+                c = over(vec4(coreCol, 0.76 * coreProfile), c);
             }
         }
         // Dynamic segmented shift-light ring, following the retained amber/red warning-band arc.
