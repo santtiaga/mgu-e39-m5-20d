@@ -1432,8 +1432,8 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
                 float along = clamp((lq.y / R + 0.070) / 0.14, 0.0, 1.0);
                 float halfWidth = mix(R * 0.090, R * 0.105, along);
                 float dTrap = max(abs(lq.y) - R * 0.070, abs(lq.x) - halfWidth);
-                // Do not clip the marker at 0.82R: that was cutting off its outer half.
-                dPatch = max(dTrap, R * 0.90 - length(pq));
+                // Keep the marker visible inside the dial face; positive distance is outside.
+                dPatch = max(dTrap, length(pq) - R * 0.90);
             } else {
                 // Preserve the existing blue cold-zone marker.
                 dPatch = max(
