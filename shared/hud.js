@@ -1281,7 +1281,7 @@ class HudApp {
             c.uniform(ref, 'u_inner', [w.inner || w.band + 18]);
             c.uniform(ref, 'u_scale', w.scale || [w.geo[2], w.geo[0]]);
             c.uniform(ref, 'u_ticks', w.ticks);
-            const [redFrom, orange] = this._redMarks(w.rpmMax || 8000);
+            const [redFrom, orange] = this._redMarks(w.rpmMax || this.setting('redline'));
             c.uniform(ref, 'u_redFrom', [redFrom]);
             c.uniform(ref, 'u_orange', [orange]);
             c.uniform(ref, 'u_fuelSeg', w.fuelSeg);
@@ -1313,7 +1313,7 @@ class HudApp {
             x.gauges = [['u_gaugeL', L], ['u_gaugeR', R]];
             x.bars = bars;
         } else if (w.type === 'mtach') {
-            const max = w.max || 8000, [redFrom, orange] = this._redMarks(max);
+            const max = w.max || this.setting('redline'), [redFrom, orange] = this._redMarks(max);
             const right = w.side === 'right';
             c.uniform(ref, 'u_size', [w.w, w.h]);
             c.uniform(ref, 'u_side', [right ? 1 : -1]);
@@ -1473,7 +1473,7 @@ class HudApp {
             if (gNow > this.e39PeakG) this.e39PeakG = Math.min(2.5, gNow);
         }
         if (isNum(raw) && dt > 0) {
-            const trq = isNum(d.torque) ? Math.max(0, d.torque) : (raw / 8000) * 320;
+            const trq = isNum(d.torque) ? Math.max(0, d.torque) : (raw / this.setting('redline')) * 320;
             const instCons = isNum(d.speed) && d.speed > 10
                 ? Math.min(39.5, Math.max(4.5, 6.2 + (raw / 7000) * 11.5 + (trq / 500) * 12.0))
                 : 12.8;
@@ -1643,7 +1643,7 @@ class HudApp {
             const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 500) / 500;
             const vals = [
                 q(Math.max(isNum(sp) ? sp / (w.speedMax || 300) : 0, sweep)),
-                q(Math.max(isNum(rpm) ? rpm / (w.rpmMax || 8000) : 0, sweep)),
+                q(Math.max(isNum(rpm) ? rpm / (w.rpmMax || this.setting('redline')) : 0, sweep)),
                 q(Math.max(isNum(fuel) ? fuel : 0.72, sweep)),
                 q(Math.max(isNum(oil) ? (oil - 50) / 100 : 0.4, sweep)),
                 q(Math.max(isNum(cool) ? (cool - 50) / 80 : 0.5, sweep)),
@@ -1677,7 +1677,7 @@ class HudApp {
             const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 500) / 500;
             const vals = [
                 q(Math.max(isNum(sp) ? sp / (w.speedMax || 300) : 0, sweep)),
-                q(Math.max(isNum(rpm) ? rpm / (w.rpmMax || 8000) : 0, sweep)),
+                q(Math.max(isNum(rpm) ? rpm / (w.rpmMax || this.setting('redline')) : 0, sweep)),
                 q(Math.max(isNum(fuel) ? fuel : 0.72, sweep)),
                 q(Math.max(isNum(oil) ? (oil - 50) / 100 : 0.4, sweep)),
                 q(Math.max(isNum(cool) ? (cool - 50) / 80 : 0.5, sweep)),
@@ -1696,7 +1696,7 @@ class HudApp {
             const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 500) / 500;
             const vals = [
                 q(isNum(sp) ? scaleFrac(us ? sp * 0.621371 : sp, SPEED_SCALE[us ? 'us' : 'metric']) : 0),
-                q(isNum(rpm) ? rpm / (w.rpmMax || 8000) : 0),
+                q(isNum(rpm) ? rpm / (w.rpmMax || this.setting('redline')) : 0),
                 q(isNum(fuel) ? fuel : 0),
                 q(isNum(oil) ? (oil - 50) / 100 : 0),
             ];
@@ -1724,7 +1724,7 @@ class HudApp {
             x.c.uniform(x.ref, 'u_segLit', lit);
         } else if (w.type === 'mtach') {
             const rpm = this._raw('rpm'), sp = this._shift();
-            const v = isNum(rpm) ? Math.min(1, Math.max(0, rpm / (w.max || 8000))) : 0;
+            const v = isNum(rpm) ? Math.min(1, Math.max(0, rpm / (w.max || this.setting('redline')))) : 0;
             const key = Math.round(v * 600) + '|' + sp.now;
             if (!force && key === x.last) return;
             x.last = key;
