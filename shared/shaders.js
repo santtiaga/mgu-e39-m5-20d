@@ -1657,7 +1657,7 @@ void main() {
             float dLens = min(dStem, dHead);
 
             // Flat, solid inactive lens: same colour and coverage treatment as the indicator slot.
-            c = over(vec4(slotCol, cov(dLens)), c);
+            c = over(vec4(slotCol, cov(dLens - 5.0)), c);
 
             // Retain the thin, faint E39 outline as a separate surface detail.
             float dArrow = min(
