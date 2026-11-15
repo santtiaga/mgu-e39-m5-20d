@@ -1402,19 +1402,22 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         // Each segment lights at its own 100 rpm threshold: 4000, 4100 ... 4900.
         // Keep the original arc radius, thickness, gap and 2 px corner treatment unchanged.
         const float SHIFT_LEDS = 10.0;
-        float ledSpan = a5 - a4;
         float ledGap = 1.15;
         float ledR = R * 0.934 + 2.0; // Move shift LEDs 2 px toward the grey bezel ring.
         float ledTh = R * 0.026;
-        // Fit ten equal-width rectangles and nine equal gaps exactly between the 4000/5000 axes.
-        // The first and last outer edges stay on those axes; no end segment gets extra width.
+        // Align the outer LED endpoints with the inner-facing side edges of the 4000/5000 ticks.
+        // The tick half-width is measured normal to its radial axis; project that side edge to ledR.
+        float tickHalfWidth = R * 0.0155;
+        float tickSideAngle = asin(clamp(tickHalfWidth / ledR, 0.0, 0.999)) / D2R;
+        float ledArcStart = a4 + tickSideAngle;
+        float ledArcEnd = a5 - tickSideAngle;
+        float ledSpan = ledArcEnd - ledArcStart;
         float ledGapAngle = ledGap / (ledR * D2R);
-        // Ten equal rectangles plus nine equal gaps fill the exact 4000-5000 rpm arc.
-        // The first starts on the 4000 tick axis; the last ends on the 5000 tick axis.
+        // Ten equal rectangles and nine equal gaps fill the interval between the two tick side edges.
         float ledWidth = (ledSpan - ledGapAngle * (SHIFT_LEDS - 1.0)) / SHIFT_LEDS;
         float ledStep = ledWidth + ledGapAngle;
-        float ledIdx = floor(clamp((ang - a4) / ledStep, 0.0, SHIFT_LEDS - 0.0001));
-        float ledStart = a4 + ledIdx * ledStep;
+        float ledIdx = floor(clamp((ang - ledArcStart) / ledStep, 0.0, SHIFT_LEDS - 0.0001));
+        float ledStart = ledArcStart + ledIdx * ledStep;
         float ledEnd = ledStart + ledWidth;
         float ledDA = max(ledStart - ang, ang - ledEnd) * D2R * ledR;
         float ledDR = max(ledR - ledTh - r, r - ledR);
@@ -1424,8 +1427,8 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         // Let the endpoint glow breathe by 1 px beyond the 4000/5000 axes;
         // the LED bodies themselves remain aligned exactly to those axes.
         // Include the full 3 px endpoint glow/antialias fringe so the outer LED ends are not clipped.\n        float ledMaskPad = 3.0 / (ledR * D2R);
-        bool ledOn = ang >= a4 && ang <= a5 && ledRpm >= ledThreshold;
-        if (ang >= a4 - ledMaskPad && ang <= a5 + ledMaskPad && r > ledR - ledTh - 15.0 && r < ledR + ledTh + R * 0.004) {
+        bool ledOn = ang >= ledArcStart && ang <= ledArcEnd && ledRpm >= ledThreshold;
+        if (ang >= ledArcStart - ledMaskPad && ang <= ledArcEnd + ledMaskPad && r > ledR - ledTh - 15.0 && r < ledR + ledTh + R * 0.004) {
             bool ledRed = ledIdx >= SHIFT_LEDS * 0.5;
             vec3 ledCol = ledRed ? vec3(1.0, 0.16, 0.10) : vec3(1.0, 0.72, 0.12);
             float ledAlpha = ledOn ? 0.98 : 0.12;
