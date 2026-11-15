@@ -1428,7 +1428,9 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float ledThreshold = 4000.0 + ledIdx * 100.0;
         // Let the endpoint glow breathe by 1 px beyond the 4000/5000 axes;
         // the LED bodies themselves remain aligned exactly to those axes.
-        // Include the full 3 px endpoint glow/antialias fringe so the outer LED ends are not clipped.\n        float ledMaskPad = 3.0 / (ledR * D2R);
+        // Extend only the clipping mask beyond the endpoint LEDs so their glow remains visible.
+        // The LED geometry and the 4000/5000 alignment stay unchanged.
+        float ledMaskPad = 12.0 / (ledR * D2R);
         bool ledOn = ang >= ledArcStart && ang <= ledArcEnd && ledRpm >= ledThreshold;
         if (ang >= ledArcStart - ledMaskPad && ang <= ledArcEnd + ledMaskPad && r > ledR - ledTh - 15.0 && r < ledR + ledTh + R * 0.004) {
             bool ledRed = ledIdx >= SHIFT_LEDS * 0.5;
