@@ -1014,9 +1014,9 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, bool coolant, vec4 
     // 2. Dial Face inside rf
     if (r <= rf + 1.0) {
         float t = clamp(length(q - vec2(-R * 0.05, R * 0.15)) / rf, 0.0, 1.0);
-        vec3 f0 = mix(vec3(0.337, 0.376, 0.439), vec3(0.165, 0.082, 0.035), nightStyle); // #566070 / #2a1509
-        vec3 f1 = mix(vec3(0.282, 0.318, 0.373), vec3(0.082, 0.043, 0.024), nightStyle); // #48515f / #150b06
-        vec3 f2 = mix(vec3(0.200, 0.227, 0.271), vec3(0.031, 0.020, 0.016), nightStyle); // #333a45 / #080504
+        vec3 f0 = coolant ? vec3(0.045, 0.050, 0.058) : mix(vec3(0.337, 0.376, 0.439), vec3(0.165, 0.082, 0.035), nightStyle); // OEM coolant: near-black graphite
+        vec3 f1 = coolant ? vec3(0.026, 0.030, 0.036) : mix(vec3(0.282, 0.318, 0.373), vec3(0.082, 0.043, 0.024), nightStyle);
+        vec3 f2 = coolant ? vec3(0.012, 0.014, 0.018) : mix(vec3(0.200, 0.227, 0.271), vec3(0.031, 0.020, 0.016), nightStyle);
         vec3 fCol = t < 0.62 ? mix(f0, f1, t / 0.62) : mix(f1, f2, (t - 0.62) / 0.38);
         // Fine matte grain noise
         float gr = (hash12(floor(p)) - 0.5) * mix(0.055, 0.025, nightStyle);
@@ -1446,13 +1446,7 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
         dM = min(dM, min(dotDist(pq, -18.0, R * 0.895, R * 0.033),
                          dotDist(pq,  18.0, R * 0.895, R * 0.033)));
         dM = min(dM, sdThermo(p, center + vec2(-R * 0.02, -R * 0.065), R * 0.20, true));
-        if (isTemp) {
-            float dCoolantMarks = dM;
-            vec3 markCol = vec3(0.91, 0.92, 0.94);
-            c = over(vec4(markCol, cov(dCoolantMarks)), c);
-        } else {
-            c = addMark(dM, c);
-        }
+        c = over(vec4(vec3(0.91, 0.92, 0.94), cov(dM)), c);
     } else {
         // Fuel ticks, dots & Fuel Pump icon
         float dM = min(
