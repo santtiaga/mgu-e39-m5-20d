@@ -1367,8 +1367,11 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                 vec2 coreHalf = vec2(halfArc, th * 0.24);
                 vec2 coreQ = abs(bandP) - (coreHalf - vec2(2.0));
                 float dCore = length(max(coreQ, 0.0)) + min(max(coreQ.x, coreQ.y), 0.0) - 2.0;
-                // Uniform halo around the thin inner yellow inlay: same falloff on both sides and both ends.
-                c = over(vec4(coreCol, 0.30 * exp(-max(dCore, 0.0) / 2.4)), c);
+                // Strong, symmetric halo around the amber inlay; use the signed-distance magnitude
+                // so both sides of the thin line and its rounded ends receive the same falloff.
+                if (!redZone) {
+                    c = over(vec4(coreCol, 0.78 * exp(-abs(dCore) / 3.8)), c);
+                }
                 c = over(vec4(coreCol, 0.68 * cov(dCore)), c);
             }
         }
