@@ -1428,9 +1428,9 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
             // the narrow rounded dash used by the first pass. Keep the blue marker unchanged.
             float dPatch;
             if (s > 0) {
-                float along = clamp((lq.y / R + 0.085) / 0.17, 0.0, 1.0);
+                float along = clamp((lq.y / R + 0.070) / 0.14, 0.0, 1.0);
                 float halfWidth = mix(R * 0.090, R * 0.105, along);
-                float dTrap = max(abs(lq.y) - R * 0.085, abs(lq.x) - halfWidth);
+                float dTrap = max(abs(lq.y) - R * 0.070, abs(lq.x) - halfWidth);
                 dPatch = max(dTrap, R * 0.82 - length(pq));
             } else {
                 // Preserve the existing blue cold-zone marker.
