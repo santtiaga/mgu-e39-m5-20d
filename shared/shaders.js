@@ -1343,15 +1343,23 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float a1 = redZone ? a5 : a45;
             float ro = R * 0.875;
             float th = R * 0.088;
-            float dAng = max(a0 + 1.1 - ang, ang - (a1 - 1.1)) * D2R * ro;
-            float dRad = max(ro - th - r, r - ro);
-            float dZone = max(dAng, dRad);
+            // Build the curved band in local tangential/radial coordinates, then round
+            // all four corners by exactly 2 px without changing its visible end positions.
+            float aMid = 0.5 * (a0 + a1);
+            float halfArc = (0.5 * (a1 - a0) - 1.1) * D2R * ro;
+            vec2 bandP = vec2((ang - aMid) * D2R * ro, r - (ro - th * 0.5));
+            vec2 bandHalf = vec2(halfArc, th * 0.5);
+            vec2 bandQ = abs(bandP) - (bandHalf - vec2(2.0));
+            float dZone = length(max(bandQ, 0.0)) + min(max(bandQ.x, bandQ.y), 0.0) - 2.0;
             vec3 zoneCol = redZone ? vec3(1.0, 0.20, 0.17) : vec3(1.0, 0.64, 0.12);
             vec3 coreCol = redZone ? vec3(1.0, 0.60, 0.50) : vec3(1.0, 0.86, 0.43);
             if (dZone < 8.5) {
                 c = over(vec4(zoneCol, 0.40 * exp(-max(dZone, 0.0) / 3.4)), c);
                 c = over(vec4(zoneCol, 0.88 * cov(dZone)), c);
-                float dCore = max(dAng + 1.4, max(ro - th * 0.74 - r, r - (ro - th * 0.26)));
+                // The brighter inner inlay follows the same 2 px corner radius.
+                vec2 coreHalf = vec2(halfArc, th * 0.24);
+                vec2 coreQ = abs(bandP) - (coreHalf - vec2(2.0));
+                float dCore = length(max(coreQ, 0.0)) + min(max(coreQ.x, coreQ.y), 0.0) - 2.0;
                 c = over(vec4(coreCol, 0.68 * cov(dCore)), c);
             }
         }
