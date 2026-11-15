@@ -1224,22 +1224,22 @@ float sdPump(vec2 p, vec2 ctr, float h) {
     return min(min(body, base), hose) * u;
 }
 
-// Custom Motorsport-style ///W mark on the speedometer.
-// The three slanted stripes are retained; the final glyph is now a bold W.
+// Custom ///W mark on the speedometer.
+// The three original tricolor stripes are unchanged. W is a flat, solid Helvetica-Bold-style glyph.
 vec2 wLogoVertex(int i) {
-    // Bold W silhouette, normalized to a 1.50 x 1.00 box.
+    // Compact Helvetica Bold-inspired W outline, normalized to a 1.48 x 1.00 box.
     if (i == 0) return vec2(0.00, 0.00);
-    if (i == 1) return vec2(0.00, 1.00);
-    if (i == 2) return vec2(0.27, 1.00);
+    if (i == 1) return vec2(0.12, 1.00);
+    if (i == 2) return vec2(0.32, 1.00);
     if (i == 3) return vec2(0.50, 0.34);
-    if (i == 4) return vec2(0.73, 1.00);
-    if (i == 5) return vec2(1.00, 1.00);
+    if (i == 4) return vec2(0.68, 1.00);
+    if (i == 5) return vec2(0.88, 1.00);
     if (i == 6) return vec2(1.00, 0.00);
-    if (i == 7) return vec2(0.78, 0.00);
-    if (i == 8) return vec2(0.63, 0.55);
-    if (i == 9) return vec2(0.50, 0.18);
-    if (i == 10) return vec2(0.37, 0.55);
-    return vec2(0.22, 0.00);
+    if (i == 7) return vec2(0.79, 0.00);
+    if (i == 8) return vec2(0.76, 0.58);
+    if (i == 9) return vec2(0.50, 0.13);
+    if (i == 10) return vec2(0.24, 0.58);
+    return vec2(0.21, 0.00);
 }
 vec4 drawWLogo(vec2 p, vec2 ctr, float h, vec4 c) {
     float sk = 0.42, w = h * 0.36, gap = h * 0.02;
@@ -1248,9 +1248,8 @@ vec4 drawWLogo(vec2 p, vec2 ctr, float h, vec4 c) {
     float xStart = ctr.x - h * 1.42;
     if (p.x < xStart - 4.0 || p.x > xStart + h * 2.86) return c;
     float u = (y1 - p.y) / h; // 0 at bottom, 1 at top
-    float al = mix(1.0, 0.55, u_night);
 
-    // Three sharp parallelogram stripes; the top is shifted RIGHT, as in the reference.
+    // Three original sharp tricolor parallelograms: geometry and colors untouched.
     for (int i = 0; i < 3; i++) {
         float xi = xStart + float(i) * (w + gap) + sk * h * u;
         float dx = max(xi - p.x, p.x - (xi + w));
@@ -1260,30 +1259,28 @@ vec4 drawWLogo(vec2 p, vec2 ctr, float h, vec4 c) {
             vec3 sc = i == 0 ? mix(vec3(0.000, 0.604, 0.816), vec3(0.000, 0.325, 0.478), u_night)
                     : i == 1 ? mix(vec3(0.180, 0.153, 0.514), vec3(0.110, 0.102, 0.318), u_night)
                              : mix(vec3(0.878, 0.090, 0.169), vec3(0.635, 0.106, 0.114), u_night);
-            c = over(vec4(sc, al * cov(d)), c);
+            c = over(vec4(sc, cov(d)), c);
         }
     }
 
-    // The M has its own italic left stem in the traced polygon. Do NOT apply
-    // the stripes' shear to the whole glyph: its right outer stem stays nearly vertical.
-    float mx0 = xStart + h * 1.28;
-    vec2 mp = vec2((p.x - mx0) / h, (p.y - y0) / h);
-    if (mp.x >= -0.05 && mp.x <= 1.58 && mp.y >= -0.05 && mp.y <= 1.05) {
+    // Flat solid glyph: no glow, shadow, gradient, or theme-dependent tint.
+    float wx0 = xStart + h * 1.28;
+    vec2 wp = vec2((p.x - wx0) / h, (p.y - y0) / h);
+    if (wp.x >= -0.05 && wp.x <= 1.53 && wp.y >= -0.05 && wp.y <= 1.05) {
         float edge = 1e4;
         bool inside = false;
         for (int i = 0; i < 12; i++) {
             vec2 a = wLogoVertex(i);
             vec2 b = wLogoVertex(i == 11 ? 0 : i + 1);
-            edge = min(edge, segD(mp, a, b));
-            bool crosses = (a.y > mp.y) != (b.y > mp.y);
+            edge = min(edge, segD(wp, a, b));
+            bool crosses = (a.y > wp.y) != (b.y > wp.y);
             if (crosses) {
-                float xHit = a.x + (b.x - a.x) * (mp.y - a.y) / (b.y - a.y);
-                if (mp.x < xHit) inside = !inside;
+                float xHit = a.x + (b.x - a.x) * (wp.y - a.y) / (b.y - a.y);
+                if (wp.x < xHit) inside = !inside;
             }
         }
         float signedD = (inside ? -edge : edge) * h;
-        vec3 mCol = mix(vec3(0.718, 0.729, 0.741), vec3(0.478, 0.416, 0.353), u_night);
-        c = over(vec4(mCol, al * cov(signedD)), c);
+        c = over(vec4(0.718, 0.729, 0.741, cov(signedD)), c);
     }
     return c;
 }
