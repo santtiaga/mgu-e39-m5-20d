@@ -989,8 +989,10 @@ float cwAngleDeg(vec2 q) {
  // the same width on the inner edge, outer edge, and both arc endpoints.
 float arcStrokeDist(vec2 q, float radius, float a0Deg, float a1Deg, float halfWidth) {
     float a = cwAngleDeg(q);
+    float span = mod(a1Deg - a0Deg + 360.0, 360.0);
+    float rel = mod(a - a0Deg + 360.0, 360.0);
     float dCenter;
-    if (a >= a0Deg && a <= a1Deg) {
+    if (rel <= span) {
         dCenter = abs(length(q) - radius);
     } else {
         float a0 = a0Deg * D2R;
@@ -1376,20 +1378,25 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             vec2 bandHalf = vec2(halfArc, th * 0.5);
             vec2 bandQ = abs(bandP) - (bandHalf - vec2(2.0));
             float dZone = length(max(bandQ, 0.0)) + min(max(bandQ.x, bandQ.y), 0.0) - 2.0;
-            // Keep the visible band geometry, but calculate its glow from the true
-            // circular stroke distance so the falloff is not compressed at the ends.
+            // Compute glow independently from the legacy flattened band mask.
+            // This prevents the old rectangular SDF from clipping the two arc ends.
             float dZoneGlow = arcStrokeDist(q, ro - th * 0.5, aStart, aEnd, th * 0.5);
+            float dCore = arcStrokeDist(q, ro - th * 0.5, aStart, aEnd, th * 0.24);
             vec3 zoneCol = redZone ? vec3(1.0, 0.20, 0.17) : vec3(1.0, 0.64, 0.12);
             vec3 coreCol = redZone ? vec3(1.0, 0.60, 0.50) : vec3(1.0, 0.86, 0.43);
-            if (dZone < 8.5) {
+
+            // Outer halo: full, unclipped Euclidean falloff around all four sides.
+            if (dZoneGlow < 14.0) {
                 c = over(vec4(zoneCol, 0.40 * exp(-max(dZoneGlow, 0.0) / 3.4)), c);
+            }
+            // Amber inlay halo also gets its own independent, symmetric boundary.
+            if (!redZone && abs(dCore) < 14.0) {
+                c = over(vec4(coreCol, 0.78 * exp(-abs(dCore) / 3.8)), c);
+            }
+
+            // Keep the original visible geometry and 2 px corner treatment unchanged.
+            if (dZone < 8.5) {
                 c = over(vec4(zoneCol, 0.88 * cov(dZone)), c);
-                // The inlay keeps its 2 px visible corner rounding. Its glow uses
-                // the exact Euclidean distance to the circular arc and round caps.
-                float dCore = arcStrokeDist(q, ro - th * 0.5, aStart, aEnd, th * 0.24);
-                if (!redZone) {
-                    c = over(vec4(coreCol, 0.78 * exp(-abs(dCore) / 3.8)), c);
-                }
                 c = over(vec4(coreCol, 0.68 * cov(dCore)), c);
             }
         }
