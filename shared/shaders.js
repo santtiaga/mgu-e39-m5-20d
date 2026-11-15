@@ -1341,7 +1341,9 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float a4 = rpmAngle(4000.0);
         float a45 = rpmAngle(4500.0);
         float a5 = rpmAngle(5000.0);
-        if (ang >= a4 && ang <= a5 && r > R * 0.74 && r < R * 0.995) {
+        // Evaluate the rounded-band SDF beyond its visible bounds so the glow
+        // has the same falloff at the inner/outer edges and at both arc ends.
+        {
             bool redZone = ang >= a45;
             float a0 = redZone ? a45 : a4;
             float a1 = redZone ? a5 : a45;
