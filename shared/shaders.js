@@ -984,6 +984,24 @@ float cwAngleDeg(vec2 q) {
     return atan(q.x, -q.y) * 180.0 / PI;
 }
 
+ // Exact Euclidean distance to a finite circular stroke with round end caps.
+ // Unlike an unwrapped (angle * radius, radial) rectangle, this keeps the halo
+ // the same width on the inner edge, outer edge, and both arc endpoints.
+float arcStrokeDist(vec2 q, float radius, float a0Deg, float a1Deg, float halfWidth) {
+    float a = cwAngleDeg(q);
+    float dCenter;
+    if (a >= a0Deg && a <= a1Deg) {
+        dCenter = abs(length(q) - radius);
+    } else {
+        float a0 = a0Deg * D2R;
+        float a1 = a1Deg * D2R;
+        vec2 e0 = radius * vec2(sin(a0), -cos(a0));
+        vec2 e1 = radius * vec2(sin(a1), -cos(a1));
+        dCenter = min(length(q - e0), length(q - e1));
+    }
+    return dCenter - halfWidth;
+}
+
 
 // Draw a mark (tick or dot or icon) with dark drop shadow in Day mode and warm amber halo in Night mode
 vec4 addMark(float d, vec4 c) {
@@ -1358,17 +1376,17 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             vec2 bandHalf = vec2(halfArc, th * 0.5);
             vec2 bandQ = abs(bandP) - (bandHalf - vec2(2.0));
             float dZone = length(max(bandQ, 0.0)) + min(max(bandQ.x, bandQ.y), 0.0) - 2.0;
+            // Keep the visible band geometry, but calculate its glow from the true
+            // circular stroke distance so the falloff is not compressed at the ends.
+            float dZoneGlow = arcStrokeDist(q, ro - th * 0.5, aStart, aEnd, th * 0.5);
             vec3 zoneCol = redZone ? vec3(1.0, 0.20, 0.17) : vec3(1.0, 0.64, 0.12);
             vec3 coreCol = redZone ? vec3(1.0, 0.60, 0.50) : vec3(1.0, 0.86, 0.43);
             if (dZone < 8.5) {
-                c = over(vec4(zoneCol, 0.40 * exp(-max(dZone, 0.0) / 3.4)), c);
+                c = over(vec4(zoneCol, 0.40 * exp(-max(dZoneGlow, 0.0) / 3.4)), c);
                 c = over(vec4(zoneCol, 0.88 * cov(dZone)), c);
-                // The brighter inner inlay follows the same 2 px corner radius.
-                vec2 coreHalf = vec2(halfArc, th * 0.24);
-                vec2 coreQ = abs(bandP) - (coreHalf - vec2(2.0));
-                float dCore = length(max(coreQ, 0.0)) + min(max(coreQ.x, coreQ.y), 0.0) - 2.0;
-                // Strong, symmetric halo around the amber inlay; use the signed-distance magnitude
-                // so both sides of the thin line and its rounded ends receive the same falloff.
+                // The inlay keeps its 2 px visible corner rounding. Its glow uses
+                // the exact Euclidean distance to the circular arc and round caps.
+                float dCore = arcStrokeDist(q, ro - th * 0.5, aStart, aEnd, th * 0.24);
                 if (!redZone) {
                     c = over(vec4(coreCol, 0.78 * exp(-abs(dCore) / 3.8)), c);
                 }
