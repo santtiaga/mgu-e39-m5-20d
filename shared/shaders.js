@@ -1399,7 +1399,9 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         }
         // Dynamic segmented shift-light ring, following the retained amber/red warning-band arc.
         // The fixed warning band remains visible underneath; LEDs fill progressively from 4000 to 5000 rpm.
-        const float SHIFT_LEDS = 12.0;
+        // Ten individually addressable shift LEDs: one lights at each 100 rpm step from 4000 to 4900.
+        // Keep the original arc geometry, radius, thickness, gap and 2 px corner treatment unchanged.
+        const float SHIFT_LEDS = 10.0;
         float ledSpan = a5 - a4;
         float ledIdx = floor(clamp((ang - a4) / ledSpan, 0.0, 0.9999) * SHIFT_LEDS);
         float ledA0 = a4 + (ledIdx / SHIFT_LEDS) * ledSpan;
@@ -1411,7 +1413,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float ledDR = max(ledR - ledTh - r, r - ledR);
         float ledD = max(ledDA, ledDR);
         float ledRpm = u_rpm * 5000.0;
-        float ledThreshold = 4000.0 + ledIdx * (1000.0 / SHIFT_LEDS);
+        float ledThreshold = 4000.0 + ledIdx * 100.0;
         bool ledOn = ang >= a4 && ang <= a5 && ledRpm >= ledThreshold;
         if (ang >= a4 && ang <= a5 && r > ledR - ledTh - 10.0 && r < ledR + ledTh + R * 0.004) {
             bool ledRed = ledIdx >= SHIFT_LEDS * 0.5;
