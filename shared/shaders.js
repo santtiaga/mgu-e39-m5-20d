@@ -1347,11 +1347,11 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float a1 = redZone ? a5 : a45;
             float ro = R * 0.875;
             float th = R * 0.088;
-            // Keep a clear 5 px visible gap from the 4000- and 5000-rpm ticks.
-            // Include the 8.5 px outer glow when positioning each rounded band end.
+            // Preserve the original 13.5 px outer gaps at 4000 and 5000 rpm.
+            // Use half that offset (6.75 px) on both sides of the 4500-rpm boundary.
             // All four corners remain rounded by exactly 2 px.
-            float aStart = a0 + 6.75 / (ro * D2R);
-            float aEnd = a1 - 6.75 / (ro * D2R);
+            float aStart = a0 + (redZone ? 6.75 : 13.5) / (ro * D2R);
+            float aEnd = a1 - (redZone ? 13.5 : 6.75) / (ro * D2R);
             float aMid = 0.5 * (aStart + aEnd);
             float halfArc = 0.5 * (aEnd - aStart) * D2R * ro;
             vec2 bandP = vec2((ang - aMid) * D2R * ro, r - (ro - th * 0.5));
