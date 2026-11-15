@@ -1427,7 +1427,7 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
             // must never intrude inside that radius.
             float dPatch = max(
                 sdRoundBox(lq, vec4(-R * 0.085, -R * 0.085, R * 0.17, R * 0.20), R * 0.012),
-                R * 0.74 - length(pq)
+                R * 0.765 - length(pq)
             );
             if (dPatch < 4.0) {
                 vec3 pCol = s < 0 ? mix(vec3(0.153, 0.318, 0.561), vec3(0.169, 0.310, 0.604), u_night)
