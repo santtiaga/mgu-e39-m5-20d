@@ -1653,7 +1653,7 @@ void main() {
         ap.x *= float(s);
         if (abs(ap.x) < 36.0 && abs(ap.y) < 32.0) {
             float dStem = sdRoundBox(ap, vec4(-19.0, -12.0, 23.0, 24.0), 1.2);
-            float dHead = max(max(4.0 - ap.x, ap.x - ap.y - 29.0), ap.x + ap.y - 29.0);
+            float dHead = max(max(4.0 - ap.x, (ap.x - ap.y - 29.0) * 0.70710678), (ap.x + ap.y - 29.0) * 0.70710678);
             float dLens = min(dStem, dHead);
 
             // Flat, solid inactive lens: same colour and coverage treatment as the indicator slot.
