@@ -1439,7 +1439,7 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
                 float startDist = radius * sin((32.5 - angle) * D2R);
                 // Inset only the four corner regions; keep the straight inner, outer,
                 // start and end edges on their specified geometry.
-                float cornerRadius = 2.0;
+                float cornerRadius = 3.0;
                 vec2 arcCorner = vec2(radialDist, max(edgeDist, startDist))
                                + vec2(cornerRadius);
                 float dArc = min(max(arcCorner.x, arcCorner.y), 0.0)
