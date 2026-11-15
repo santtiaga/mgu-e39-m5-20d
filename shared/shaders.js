@@ -1422,12 +1422,12 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
             vec2 nrm = vec2(-dir.y, dir.x);
             vec2 pt = piv + dir * (R * 0.80);
             vec2 lq = vec2(dot(p - pt, nrm), -dot(p - pt, dir));
-            // Clip the inner edge of both temperature patches to the tick-mark circle.
-            // The tick scale starts at 0.74 R from the lowered pivot; the coloured blocks
-            // must never intrude inside that radius.
+            // Keep the inner edge of the coloured blocks clearly outside the inner ends of the ticks.
+            // The tick marks start at 0.74 R; the extra clearance accounts for their stroke width
+            // and prevents the coloured blocks from visually running into the scale.
             float dPatch = max(
                 sdRoundBox(lq, vec4(-R * 0.085, -R * 0.085, R * 0.17, R * 0.20), R * 0.012),
-                R * 0.765 - length(pq)
+                R * 0.82 - length(pq)
             );
             if (dPatch < 4.0) {
                 vec3 pCol = s < 0 ? mix(vec3(0.153, 0.318, 0.561), vec3(0.169, 0.310, 0.604), u_night)
