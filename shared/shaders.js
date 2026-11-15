@@ -1541,20 +1541,6 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
         dM = min(dM, sdPump(p, center + vec2(R * 0.02, -R * 0.16), R * 0.26));
         c = addMark(dM, c);
 
-        // Fuel reserve warning lamp (bottom-left of fuel dial: center + (-0.63 R, +0.17 R), radius 0.095 R)
-        float dRes = length(q - vec2(-R * 0.63, R * 0.17)) - R * 0.095;
-        if (dRes < 6.0) {
-            if (val < 0.15) {
-                vec3 rCol = vec3(1.0, 0.831, 0.0);
-                c = over(vec4(rCol, 0.45 * exp(-max(dRes, 0.0) / 3.0)), c);
-                c = over(vec4(rCol, cov(dRes)), c);
-            } else {
-                // Warm amber-yellow unlit lens in day mode, subtle in night mode
-                vec3 rOff = mix(vec3(0.95, 0.76, 0.08), vec3(0.18, 0.12, 0.02), u_night);
-                float aOff = mix(0.88, 0.22, u_night);
-                c = over(vec4(rOff, aOff * cov(dRes)), c);
-            }
-        }
     }
 
     // Hub and needle are drawn in E39NEEDLES above dial numbers
