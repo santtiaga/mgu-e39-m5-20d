@@ -1006,6 +1006,19 @@ float tickDist(vec2 q, float angDeg, float r0, float r1, float hw) {
     return max(sd - hw, max(r0 - al, al - r1));
 }
 
+// Rounded inner end toward the dial centre; the outer end remains flat.
+// A semicircular cap uses a radius equal to half the tick's full thickness.
+float tickDistInnerRound(vec2 q, float angDeg, float r0, float r1, float hw) {
+    float a = angDeg * D2R;
+    vec2 dir = vec2(sin(a), -cos(a));
+    vec2 nrm = vec2(-dir.y, dir.x);
+    float al = dot(q, dir);
+    float across = dot(q, nrm);
+    float innerCap = length(vec2(max(r0 + hw - al, 0.0), across)) - hw;
+    float sideAndOuter = max(abs(across) - hw, al - r1);
+    return max(innerCap, sideAndOuter);
+}
+
 float dotDist(vec2 q, float angDeg, float r, float rad) {
     float a = angDeg * D2R;
     vec2 pt = vec2(sin(a), -cos(a)) * r;
@@ -1297,7 +1310,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float aTick = -128.0 + idx * 10.0 * (261.0 / 260.0);
             float dM = 10.0;
             if (mod(idx, 2.0) < 0.5) {
-                dM = tickDist(q, aTick, R * 0.77, R * 0.875, R * 0.0155);
+                dM = tickDistInnerRound(q, aTick, R * 0.77, R * 0.875, R * 0.0155);
             } else {
                 dM = dotDist(q, aTick, R * 0.81, R * 0.0185);
             }
@@ -1324,7 +1337,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                 dM = dotDist(q, aTick, R * 0.735, R * 0.018);
             } else if (mod(k, 2.0) < 0.5) {
                 float r0 = rpmTick >= 4000.0 ? R * 0.768 : R * 0.77;
-                dM = tickDist(q, aTick, r0, R * 0.875, R * 0.0155);
+                dM = tickDistInnerRound(q, aTick, r0, R * 0.875, R * 0.0155);
             } else {
                 // Keep the lower half-step dots (500, 1500, 2500 rpm) at their original outer radius.
                 if (k <= 5.0) {
@@ -1414,7 +1427,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float aMark = rpmAngle(rpmMark);
             float dMark = ti == 1
                 ? dotDist(q, aMark, R * 0.735, R * 0.018)
-                : tickDist(q, aMark, R * 0.768, R * 0.875, R * 0.0155);
+                : tickDistInnerRound(q, aMark, R * 0.768, R * 0.875, R * 0.0155);
             c = addMark(dMark, c);
         }
 
