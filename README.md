@@ -1,8 +1,6 @@
-# BMW E39 M5 Digital Cluster for iDrive 7 / 8 (MGU)
+# BMW E39 M5d for iDrive 7 / 8 (MGU)
 
 <p align="center">
-  <a href="https://buymeacoffee.com/makiidrajf0" target="_blank">
-    <img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Marko%20DEV-orange.svg?style=for-the-badge&logo=buy-me-a-coffee" alt="Buy Me A Coffee">
   </a>
   &nbsp;
   <img src="https://img.shields.io/badge/Platform-BMW%20MGU%20(iDrive%207%2F8)-blue.svg?style=for-the-badge" alt="Platform: BMW MGU">
@@ -10,14 +8,9 @@
   <img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="License: MIT">
 </p>
 
-<h3 align="center">
-  Created with passion by <strong>Marko DEV</strong> &bull; Entwickelt von <strong>Marko DEV</strong>
-</h3>
-
 <p align="center">
   <b>Sprachauswahl / Language:</b><br>
   <a href="#-deutsch">🇩🇪 <b>Deutsch</b> (Danksagung, Aufbau, Anleitung & Rechtliches)</a> &nbsp;|&nbsp; 
-  <a href="#-english">🇬🇧 <b>English</b> (Acknowledgments, Architecture, Guide & Disclaimer)</a>
 </p>
 
 ---
