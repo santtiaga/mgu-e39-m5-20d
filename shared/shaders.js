@@ -1434,8 +1434,9 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
                 float radius = length(pq);
                 float angle = atan(pq.x, -pq.y) / D2R;
                 float radialDist = abs(radius - R * 0.80) - R * 0.070;
-                float edgeDist = radius * sin((54.5 - angle) * D2R);
-                float startDist = radius * sin((angle - 36.5) * D2R);
+                // Signed angular distances are negative inside the 36.5..54.5 degree sector.
+                float edgeDist = radius * sin((angle - 54.5) * D2R);
+                float startDist = radius * sin((36.5 - angle) * D2R);
                 float dArc = max(radialDist, max(edgeDist, startDist));
                 // Keep the marker visible inside the dial face; positive distance is outside.
                 dPatch = max(dArc, radius - R * 0.90);
