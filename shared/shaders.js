@@ -925,7 +925,8 @@ precision mediump float;
 varying vec2 v_uv;
 uniform vec2 u_size;
 uniform float u_speed;    // 0..1 (0..260 km/h)
-uniform float u_rpm;      // 0..1 (0..5000 rpm)
+uniform float u_rpm;      // 0..1 (needle scale)
+uniform float u_rpmActual; // actual engine rpm, independent of needle scale normalization
 uniform float u_fuel;     // 0..1
 uniform float u_oil;      // 0..1 (50..150 C)
 uniform float u_coolant;  // 0..1 (50..130 C)
@@ -1412,7 +1413,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float ledDA = max(ledA0 + ledGap - ang, ang - (ledA1 - ledGap)) * D2R * ledR;
         float ledDR = max(ledR - ledTh - r, r - ledR);
         float ledD = max(ledDA, ledDR);
-        float ledRpm = u_rpm * 5000.0;
+        float ledRpm = u_rpmActual;
         float ledThreshold = 4000.0 + ledIdx * 100.0;
         bool ledOn = ang >= a4 && ang <= a5 && ledRpm >= ledThreshold;
         if (ang >= a4 && ang <= a5 && r > ledR - ledTh - 10.0 && r < ledR + ledTh + R * 0.004) {
