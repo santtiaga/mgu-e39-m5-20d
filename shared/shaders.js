@@ -1645,16 +1645,18 @@ void main() {
     vec3 slotCol = mix(vec3(0.055, 0.059, 0.071), vec3(0.020, 0.016, 0.016), u_night);
     c = over(vec4(slotCol, cov(sdRoundBox(p, vec4(852.0, 110.0, 76.0, 52.0), 10.0))), c);
     c = over(vec4(slotCol, cov(sdRoundBox(p, vec4(800.0, 456.0, 180.0, 52.0), 8.0))), c);
-    // Faint unlit indicator symbols (Turn signals, Shift chevron, DSC, Brake/Temp)
+    // Faint unlit turn-signal arrows, mirrored outward from the dial bezels
     float ghostA = mix(0.05, 0.02, u_night);
-    // Left arrow at (358, 224), Right arrow at (1436, 224), clear of the main dial bezels
+    // Left arrow at (358, 224), Right arrow at (1436, 224)
     for (int s = -1; s <= 1; s += 2) {
         vec2 ap = p - vec2(s < 0 ? 358.0 : 1436.0, 224.0);
-        ap.x *= float(-s); // +x points toward arrow tip
-        if (abs(ap.x) < 30.0 && abs(ap.y) < 26.0) {
-            float dHead = max(max(-ap.x, ap.x - 24.0), abs(ap.y) - (24.0 - ap.x) * 0.90);
-            float dTail = max(max(-22.0 - ap.x, -ap.x), abs(ap.y) - 10.0);
-            c = over(vec4(1.0, 1.0, 1.0, ghostA * cov(min(dHead, dTail))), c);
+        ap.x *= float(s); // local +x points outward: left arrow -> left, right arrow -> right
+        if (abs(ap.x) < 30.0 && abs(ap.y) < 18.0) {
+            // Pointed arrow head (wide at the shaft, tapering to the outer tip)
+            float dHead = max(max(-ap.x, ap.x - 24.0), abs(ap.y) - (12.0 - ap.x * 0.5));
+            // Narrow rectangular shaft joined to the arrow head
+            float dShaft = sdRoundBox(ap, vec4(-9.5, 0.0, 12.5, 4.5), 1.5);
+            c = over(vec4(1.0, 1.0, 1.0, ghostA * cov(min(dHead, dShaft))), c);
         }
     }
     // Upper center slot (890, 136): Shift-up chevron + M-Sport status bar (u_ind.y = sportMode, u_ind.z = shiftState 0..2)
