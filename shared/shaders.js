@@ -1364,7 +1364,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             vec2 coreHalf = vec2(halfArc, th * 0.24);
             vec2 coreQ = abs(bandP) - (coreHalf - vec2(2.0));
             float dCoreGlow = length(max(coreQ, 0.0)) + min(max(coreQ.x, coreQ.y), 0.0) - 2.0;
-            float dCore = arcStrokeDist(q, ro - th * 0.5, aStart, aEnd, th * 0.24);
+            float dCore = dCoreGlow;
             vec3 zoneCol = redZone ? vec3(1.0, 0.20, 0.17) : vec3(1.0, 0.64, 0.12);
             vec3 coreCol = redZone ? vec3(1.0, 0.60, 0.50) : vec3(1.0, 0.86, 0.43);
 
