@@ -1335,11 +1335,11 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                 float r0 = rpmTick >= 4000.0 ? R * 0.768 : R * 0.77;
                 dM = tickDistInnerRound(q, aTick, r0, R * 0.875, R * 0.0155);
             } else {
-                // Keep the lower half-step dots (500, 1500, 2500 rpm) at their original outer radius.
+                // All half-step dots (500–4500 rpm) share the inner-end radius of the main ticks.
                 if (k <= 5.0) {
-                    dM = dotDist(q, aTick, R * 0.805, R * 0.0195);
+                    dM = dotDist(q, aTick, R * 0.768, R * 0.0195);
                 } else {
-                    dM = dotDist(q, aTick, R * 0.735, R * 0.018);
+                    dM = dotDist(q, aTick, R * 0.768, R * 0.018);
                 }
             }
             c = addMark(dM, c);
