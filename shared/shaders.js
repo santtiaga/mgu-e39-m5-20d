@@ -1224,22 +1224,26 @@ float sdPump(vec2 p, vec2 ctr, float h) {
     return min(min(body, base), hose) * u;
 }
 
-// Custom ///W mark on the speedometer.
-// The three original tricolor stripes are unchanged. W is a flat, solid Helvetica-Bold-style glyph.
+// Custom /// inverted-W mark on the speedometer.
+// The three original tricolor stripes are unchanged. The flat glyph is inverted and given a Helvetica Bold Italic-style slant.
 vec2 wLogoVertex(int i) {
-    // Compact Helvetica Bold-inspired W outline, normalized to a 1.48 x 1.00 box.
-    if (i == 0) return vec2(0.00, 0.00);
-    if (i == 1) return vec2(0.12, 1.00);
-    if (i == 2) return vec2(0.32, 1.00);
-    if (i == 3) return vec2(0.50, 0.34);
-    if (i == 4) return vec2(0.68, 1.00);
-    if (i == 5) return vec2(0.88, 1.00);
-    if (i == 6) return vec2(1.00, 0.00);
-    if (i == 7) return vec2(0.79, 0.00);
-    if (i == 8) return vec2(0.76, 0.58);
-    if (i == 9) return vec2(0.50, 0.13);
-    if (i == 10) return vec2(0.24, 0.58);
-    return vec2(0.21, 0.00);
+    // Base Helvetica Bold-inspired W outline, normalized to a 1.00 x 1.00 box.
+    vec2 v;
+    if (i == 0) v = vec2(0.00, 0.00);
+    else if (i == 1) v = vec2(0.12, 1.00);
+    else if (i == 2) v = vec2(0.32, 1.00);
+    else if (i == 3) v = vec2(0.50, 0.34);
+    else if (i == 4) v = vec2(0.68, 1.00);
+    else if (i == 5) v = vec2(0.88, 1.00);
+    else if (i == 6) v = vec2(1.00, 0.00);
+    else if (i == 7) v = vec2(0.79, 0.00);
+    else if (i == 8) v = vec2(0.76, 0.58);
+    else if (i == 9) v = vec2(0.50, 0.13);
+    else if (i == 10) v = vec2(0.24, 0.58);
+    else v = vec2(0.21, 0.00);
+
+    // Turn W upside down (M silhouette) and apply a restrained italic shear.
+    return vec2(v.x + 0.18 * v.y, 1.0 - v.y);
 }
 vec4 drawWLogo(vec2 p, vec2 ctr, float h, vec4 c) {
     float sk = 0.42, w = h * 0.36, gap = h * 0.02;
