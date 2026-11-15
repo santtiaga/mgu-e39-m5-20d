@@ -1007,11 +1007,6 @@ float tickDist(vec2 q, float angDeg, float r0, float r1, float hw) {
     return max(sd - hw, max(r0 - al, al - r1));
 }
 
-float roundTickDist(vec2 q, float angDeg, float r0, float r1, float hw) {
-    float a = angDeg * D2R;
-    vec2 dir = vec2(sin(a), -cos(a));
-    return segD(q, dir * r0, dir * r1) - hw;
-}
 float dotDist(vec2 q, float angDeg, float r, float rad) {
     float a = angDeg * D2R;
     vec2 pt = vec2(sin(a), -cos(a)) * r;
@@ -1372,6 +1367,8 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                 vec2 coreHalf = vec2(halfArc, th * 0.24);
                 vec2 coreQ = abs(bandP) - (coreHalf - vec2(2.0));
                 float dCore = length(max(coreQ, 0.0)) + min(max(coreQ.x, coreQ.y), 0.0) - 2.0;
+                // Uniform halo around the thin inner yellow inlay: same falloff on both sides and both ends.
+                c = over(vec4(coreCol, 0.30 * exp(-max(dCore, 0.0) / 2.4)), c);
                 c = over(vec4(coreCol, 0.68 * cov(dCore)), c);
             }
         }
@@ -1405,9 +1402,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float aMark = rpmAngle(rpmMark);
             float dMark = ti == 1
                 ? dotDist(q, aMark, R * 0.735, R * 0.018)
-                : (ti == 0
-                    ? roundTickDist(q, aMark, R * 0.768, R * 0.875, R * 0.0155)
-                    : tickDist(q, aMark, R * 0.768, R * 0.875, R * 0.0155));
+                : tickDist(q, aMark, R * 0.768, R * 0.875, R * 0.0155);
             c = addMark(dMark, c);
         }
 
