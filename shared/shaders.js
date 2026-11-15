@@ -697,7 +697,7 @@ void main() {
                                    vec2(2.5, 3.5), 2.0);
         if (t >= u_redFrom) {
             c = over(vec4(u_red, 0.95 * cov(redD)), c);
-        } else if (t >= u_orange && t < u_redFrom - 0.01) {
+        } else if (t >= u_orange + 10.0 / (y0 - y8) && t < u_redFrom - 0.01) {
             c = over(vec4(1.0, 0.6, 0.1, 0.95 * cov(amberD)), c);
         }
     }
@@ -805,7 +805,7 @@ vec4 bracket(vec2 q, float val, float redFrom, float orange, float ticks, vec3 l
             float amberD = sdRoundRect(vec2(d - 10.5, mod(q.y, 16.0) - 3.5),
                                        vec2(2.5, 3.5), 2.0);
             if (t >= redFrom && t <= 1.02) c = over(vec4(1.0, 0.2, 0.2, cov(redD)), c);
-            else if (t >= orange && t < redFrom) c = over(vec4(1.0, 0.85, 0.1, cov(amberD)), c);
+            else if (t >= orange + 10.0 / (u_scale.x - u_scale.y) && t < redFrom) c = over(vec4(1.0, 0.85, 0.1, cov(amberD)), c);
         }
     }
     // the outer line, its top run and its bottom run
@@ -1347,10 +1347,12 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float a1 = redZone ? a5 : a45;
             float ro = R * 0.875;
             float th = R * 0.088;
-            // Build the curved band in local tangential/radial coordinates, then round
-            // all four corners by exactly 2 px without changing its visible end positions.
-            float aMid = 0.5 * (a0 + a1);
-            float halfArc = (0.5 * (a1 - a0) - 1.1) * D2R * ro;
+            // Keep a clear 10 px gap after the 4000-rpm tick; the red band retains
+            // its original end inset. All four corners remain rounded by exactly 2 px.
+            float aStart = redZone ? a0 + 1.1 : a0 + 10.0 / (ro * D2R);
+            float aEnd = a1 - 1.1;
+            float aMid = 0.5 * (aStart + aEnd);
+            float halfArc = 0.5 * (aEnd - aStart) * D2R * ro;
             vec2 bandP = vec2((ang - aMid) * D2R * ro, r - (ro - th * 0.5));
             vec2 bandHalf = vec2(halfArc, th * 0.5);
             vec2 bandQ = abs(bandP) - (bandHalf - vec2(2.0));
