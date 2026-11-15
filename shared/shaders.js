@@ -1224,70 +1224,6 @@ float sdPump(vec2 p, vec2 ctr, float h) {
     return min(min(body, base), hose) * u;
 }
 
-// Custom Motorsport-style ///W mark on the speedometer.
-// The three slanted stripes are retained; the final glyph is now a bold W.
-vec2 wLogoVertex(int i) {
-    // Bold W silhouette, normalized to a 1.50 x 1.00 box.
-    if (i == 0) return vec2(0.00, 0.00);
-    if (i == 1) return vec2(0.00, 1.00);
-    if (i == 2) return vec2(0.27, 1.00);
-    if (i == 3) return vec2(0.50, 0.34);
-    if (i == 4) return vec2(0.73, 1.00);
-    if (i == 5) return vec2(1.00, 1.00);
-    if (i == 6) return vec2(1.00, 0.00);
-    if (i == 7) return vec2(0.78, 0.00);
-    if (i == 8) return vec2(0.63, 0.55);
-    if (i == 9) return vec2(0.50, 0.18);
-    if (i == 10) return vec2(0.37, 0.55);
-    return vec2(0.22, 0.00);
-}
-vec4 drawWLogo(vec2 p, vec2 ctr, float h, vec4 c) {
-    float sk = 0.42, w = h * 0.36, gap = h * 0.02;
-    float y0 = ctr.y - h * 0.5, y1 = ctr.y + h * 0.5;
-    if (p.y < y0 - 1.5 || p.y > y1 + 1.5) return c;
-    float xStart = ctr.x - h * 1.42;
-    if (p.x < xStart - 4.0 || p.x > xStart + h * 2.86) return c;
-    float u = (y1 - p.y) / h; // 0 at bottom, 1 at top
-    float al = mix(1.0, 0.55, u_night);
-
-    // Three sharp parallelogram stripes; the top is shifted RIGHT, as in the reference.
-    for (int i = 0; i < 3; i++) {
-        float xi = xStart + float(i) * (w + gap) + sk * h * u;
-        float dx = max(xi - p.x, p.x - (xi + w));
-        float dy = max(y0 - p.y, p.y - y1);
-        float d = max(dx, dy);
-        if (d < 1.0) {
-            vec3 sc = i == 0 ? mix(vec3(0.000, 0.604, 0.816), vec3(0.000, 0.325, 0.478), u_night)
-                    : i == 1 ? mix(vec3(0.180, 0.153, 0.514), vec3(0.110, 0.102, 0.318), u_night)
-                             : mix(vec3(0.878, 0.090, 0.169), vec3(0.635, 0.106, 0.114), u_night);
-            c = over(vec4(sc, al * cov(d)), c);
-        }
-    }
-
-    // The M has its own italic left stem in the traced polygon. Do NOT apply
-    // the stripes' shear to the whole glyph: its right outer stem stays nearly vertical.
-    float mx0 = xStart + h * 1.28;
-    vec2 mp = vec2((p.x - mx0) / h, (p.y - y0) / h);
-    if (mp.x >= -0.05 && mp.x <= 1.58 && mp.y >= -0.05 && mp.y <= 1.05) {
-        float edge = 1e4;
-        bool inside = false;
-        for (int i = 0; i < 12; i++) {
-            vec2 a = wLogoVertex(i);
-            vec2 b = wLogoVertex(i == 11 ? 0 : i + 1);
-            edge = min(edge, segD(mp, a, b));
-            bool crosses = (a.y > mp.y) != (b.y > mp.y);
-            if (crosses) {
-                float xHit = a.x + (b.x - a.x) * (mp.y - a.y) / (b.y - a.y);
-                if (mp.x < xHit) inside = !inside;
-            }
-        }
-        float signedD = (inside ? -edge : edge) * h;
-        vec3 mCol = mix(vec3(0.718, 0.729, 0.741), vec3(0.478, 0.416, 0.353), u_night);
-        c = over(vec4(mCol, al * cov(signedD)), c);
-    }
-    return c;
-}
-
 // Main large E39 M5 dial (Speedo on left, M5 Tach with Oil Temp sub-gauge & pre-warning LED band on right)
 vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal, vec4 c) {
     vec2 q = p - center;
@@ -1319,8 +1255,6 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         vec2 pPin = vec2(sin(aPin), -cos(aPin)) * (R * 0.62);
         c = over(vec4(0.027, 0.031, 0.039, cov(length(q - pPin) - R * 0.022)), c);
 
-        // Slanted ///M logo at y + 0.43 R (hub & needle drawn in E39NEEDLES above dial numbers)
-        c = drawWLogo(p, center + vec2(0.0, R * 0.43), R * 0.092, c);
     } else {
         // ---- TACHOMETER (0..5000 rpm; linear angular allocation) ----
         // Main ticks every 1000 rpm; intermediate dots every 500 rpm. Linear from 0 to 5000 rpm.
