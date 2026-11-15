@@ -1431,12 +1431,13 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         // Extend only the clipping mask beyond the endpoint LEDs so their glow remains visible.
         // The LED geometry and the 4000/5000 alignment stay unchanged.
         float ledMaskPad = 12.0 / (ledR * D2R);
-        bool ledOn = ang >= ledArcStart && ang <= ledArcEnd && ledRpm >= ledThreshold;
+        bool ledGlowOn = ledRpm >= ledThreshold;
+        bool ledOn = ang >= ledArcStart && ang <= ledArcEnd && ledGlowOn;
         if (ang >= ledArcStart - ledMaskPad && ang <= ledArcEnd + ledMaskPad && r > ledR - ledTh - 15.0 && r < ledR + ledTh + R * 0.004) {
             bool ledRed = ledIdx >= SHIFT_LEDS * 0.5;
             vec3 ledCol = ledRed ? vec3(1.0, 0.16, 0.10) : vec3(1.0, 0.72, 0.12);
             float ledAlpha = ledOn ? 0.98 : 0.12;
-            if (ledOn) c = over(vec4(ledCol, 0.42 * exp(-max(ledD, 0.0) / 2.6)), c);
+            if (ledGlowOn) c = over(vec4(ledCol, 0.42 * exp(-max(ledD, 0.0) / 2.6)), c);
             c = over(vec4(ledCol, ledAlpha * cov(ledD)), c);
         }
 
