@@ -1657,7 +1657,12 @@ void main() {
             float dLens = min(dStem, dHead);
 
             // Flat, solid inactive lens: same colour and coverage treatment as the indicator slot.
-            c = over(vec4(slotCol, cov(dLens - 5.0)), c);
+            float backingD = dLens - 5.0;
+            c = over(vec4(slotCol, cov(backingD)), c);
+
+            // Subtle dark-gray inner shadow, fading inward from the backing edge.
+            float innerShadow = 0.42 * exp(-max(-backingD, 0.0) / 3.5) * cov(backingD);
+            c = over(vec4(vec3(0.025, 0.027, 0.032), innerShadow), c);
 
             // Retain the thin, faint E39 outline as a separate surface detail.
             float dArrow = min(
