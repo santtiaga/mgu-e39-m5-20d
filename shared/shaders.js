@@ -1424,15 +1424,21 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
             vec2 nrm = vec2(-dir.y, dir.x);
             vec2 pt = piv + dir * (R * 0.80);
             vec2 lq = vec2(dot(p - pt, nrm), -dot(p - pt, dir));
-            // Keep the inner edge of the coloured blocks clearly outside the inner ends of the ticks.
-            // The tick marks start at 0.74 R; the extra clearance accounts for their stroke width
-            // and prevents the coloured blocks from visually running into the scale.
-            // Compact OEM-style temperature markers: retain the diagonal placement,
-            // but reduce their footprint and keep the colour crisp without a halo.
-            float dPatch = max(
-                sdRoundBox(lq, vec4(-R * 0.060, -R * 0.065, R * 0.12, R * 0.15), R * 0.008),
-                R * 0.82 - length(pq)
-            );
+            // The red hot-zone marker is a broad, tapered OEM-style block rather than
+            // the narrow rounded dash used by the first pass. Keep the blue marker unchanged.
+            float dPatch;
+            if (s > 0) {
+                float along = clamp((lq.y / R + 0.085) / 0.17, 0.0, 1.0);
+                float halfWidth = mix(R * 0.090, R * 0.105, along);
+                float dTrap = max(abs(lq.y) - R * 0.085, abs(lq.x) - halfWidth);
+                dPatch = max(dTrap, R * 0.82 - length(pq));
+            } else {
+                // Preserve the existing blue cold-zone marker.
+                dPatch = max(
+                    sdRoundBox(lq, vec4(-R * 0.060, -R * 0.065, R * 0.12, R * 0.15), R * 0.008),
+                    R * 0.82 - length(pq)
+                );
+            }
             if (dPatch < 1.0) {
                 vec3 pCol = s < 0 ? vec3(0.153, 0.318, 0.561)
                                   : vec3(0.812, 0.239, 0.200);
