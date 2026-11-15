@@ -1462,7 +1462,7 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
                 dPatch = max(dArc, radius - R * 0.90);
             }
             if (dPatch < 1.0) {
-                vec3 pCol = s < 0 ? vec3(0.153, 0.318, 0.561)
+                vec3 pCol = s < 0 ? vec3(0.145098, 0.588235, 0.854902)
                                   : vec3(0.812, 0.239, 0.200);
                 c = over(vec4(pCol, cov(dPatch)), c);
             }
