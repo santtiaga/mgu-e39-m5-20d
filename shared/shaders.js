@@ -1373,7 +1373,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                 c = over(vec4(zoneCol, 0.40 * exp(-max(dZoneGlow, 0.0) / 3.4)), c);
             }
             // The inlay halo follows its own matching rounded shape.
-            if (!redZone && dCoreGlow < 14.0) {
+            if (redZone && dCoreGlow < 14.0) {
                 c = over(vec4(coreCol, 0.33 * exp(-max(dCoreGlow, 0.0) / 3.8)), c);
             }
 
@@ -1381,7 +1381,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             if (dZone < 8.5) {
                 c = over(vec4(zoneCol, 0.88 * cov(dZone)), c);
                 float coreProfile = 1.0 - smoothstep(-5.0, 3.0, dCore);
-                c = over(vec4(coreCol, 0.29 * coreProfile), c);
+                if (redZone) c = over(vec4(coreCol, 0.29 * coreProfile), c);
             }
         }
         // Dynamic segmented shift-light ring, following the retained amber/red warning-band arc.
