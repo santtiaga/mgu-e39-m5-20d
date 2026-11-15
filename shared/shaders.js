@@ -1381,13 +1381,16 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             vec3 zoneCol = redZone ? vec3(1.0, 0.20, 0.17) : vec3(1.0, 0.64, 0.12);
             vec3 coreCol = redZone ? vec3(1.0, 0.48, 0.40) : mix(zoneCol, vec3(1.0, 0.86, 0.43), 0.28);
 
-            // The outer halo follows the exact SDF of the rendered band, without a cutoff mask.
-            if (dZoneGlow < 14.0) {
-                c = over(vec4(zoneCol, 0.40 * exp(-max(dZoneGlow, 0.0) / 3.4)), c);
-            }
-            // The inlay halo follows its own matching rounded shape.
-            if (redZone && dCoreGlow < 14.0) {
-                c = over(vec4(coreCol, 0.33 * exp(-max(dCoreGlow, 0.0) / 3.8)), c);
+            // Warning-band halos are enabled only in Night mode; keep the short bands crisp in Classic/day mode.
+            if (u_night > 0.5) {
+                // The outer halo follows the exact SDF of the rendered band, without a cutoff mask.
+                if (dZoneGlow < 14.0) {
+                    c = over(vec4(zoneCol, 0.40 * exp(-max(dZoneGlow, 0.0) / 3.4)), c);
+                }
+                // The inlay halo follows its own matching rounded shape.
+                if (redZone && dCoreGlow < 14.0) {
+                    c = over(vec4(coreCol, 0.33 * exp(-max(dCoreGlow, 0.0) / 3.8)), c);
+                }
             }
 
             // Keep the original visible geometry and 2 px corner treatment unchanged.
