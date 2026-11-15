@@ -1224,63 +1224,60 @@ float sdPump(vec2 p, vec2 ctr, float h) {
     return min(min(body, base), hose) * u;
 }
 
-// Custom /// inverted-W mark on the speedometer.
-// The three original tricolor stripes are unchanged. The flat glyph is inverted and given a Helvetica Bold Italic-style slant.
-vec2 wLogoVertex(int i) {
-    // Base Helvetica Bold-inspired W outline, normalized to a 1.00 x 1.00 box.
-    vec2 v;
-    if (i == 0) v = vec2(0.00, 0.00);
-    else if (i == 1) v = vec2(0.12, 1.00);
-    else if (i == 2) v = vec2(0.32, 1.00);
-    else if (i == 3) v = vec2(0.50, 0.34);
-    else if (i == 4) v = vec2(0.68, 1.00);
-    else if (i == 5) v = vec2(0.88, 1.00);
-    else if (i == 6) v = vec2(1.00, 0.00);
-    else if (i == 7) v = vec2(0.79, 0.00);
-    else if (i == 8) v = vec2(0.76, 0.58);
-    else if (i == 9) v = vec2(0.50, 0.13);
-    else if (i == 10) v = vec2(0.24, 0.58);
-    else v = vec2(0.21, 0.00);
-
-    // Turn W upside down (M silhouette) and apply a restrained italic shear.
-    return vec2(v.x + 0.18 * v.y, 1.0 - v.y);
+// ///M emblem redrawn as a flat vector interpretation of screenshots/IMG_1571.jpg.
+// Keep the established logo height and anchor; all artwork geometry is rebuilt from the reference.
+vec2 mLogoVertex(int i) {
+    // Angular M silhouette, normalized to a 1.48 x 1.00 box.
+    if (i == 0) return vec2(0.00, 1.00);
+    if (i == 1) return vec2(0.30, 0.00);
+    if (i == 2) return vec2(0.62, 0.00);
+    if (i == 3) return vec2(0.68, 0.47);
+    if (i == 4) return vec2(0.96, 0.00);
+    if (i == 5) return vec2(1.25, 0.00);
+    if (i == 6) return vec2(1.48, 1.00);
+    if (i == 7) return vec2(1.12, 1.00);
+    if (i == 8) return vec2(1.08, 0.50);
+    if (i == 9) return vec2(0.84, 1.00);
+    if (i == 10) return vec2(0.54, 1.00);
+    if (i == 11) return vec2(0.49, 0.50);
+    return vec2(0.36, 1.00);
 }
-vec4 drawWLogo(vec2 p, vec2 ctr, float h, vec4 c) {
+vec4 drawMLogo(vec2 p, vec2 ctr, float h, vec4 c) {
     float sk = 0.42, w = h * 0.36, gap = h * 0.02;
     float y0 = ctr.y - h * 0.5, y1 = ctr.y + h * 0.5;
     if (p.y < y0 - 1.5 || p.y > y1 + 1.5) return c;
     float xStart = ctr.x - h * 1.42;
     if (p.x < xStart - 4.0 || p.x > xStart + h * 2.86) return c;
-    float u = (y1 - p.y) / h; // 0 at bottom, 1 at top
+    float u = (y1 - p.y) / h;
 
-    // Three original sharp tricolor parallelograms: geometry and colors untouched.
+    // Three flat, sharply cut parallelograms, matching the reference artwork.
     for (int i = 0; i < 3; i++) {
         float xi = xStart + float(i) * (w + gap) + sk * h * u;
         float dx = max(xi - p.x, p.x - (xi + w));
         float dy = max(y0 - p.y, p.y - y1);
         float d = max(dx, dy);
         if (d < 1.0) {
-            vec3 sc = i == 0 ? mix(vec3(0.000, 0.604, 0.816), vec3(0.000, 0.325, 0.478), u_night)
-                    : i == 1 ? mix(vec3(0.180, 0.153, 0.514), vec3(0.110, 0.102, 0.318), u_night)
-                             : mix(vec3(0.878, 0.090, 0.169), vec3(0.635, 0.106, 0.114), u_night);
+            vec3 sc = i == 0 ? vec3(0.055, 0.635, 0.808)
+                    : i == 1 ? vec3(0.204, 0.157, 0.494)
+                             : vec3(0.890, 0.102, 0.157);
             c = over(vec4(sc, cov(d)), c);
         }
     }
 
-    // Flat solid glyph: no glow, shadow, gradient, or theme-dependent tint.
-    float wx0 = xStart + h * 1.28;
-    vec2 wp = vec2((p.x - wx0) / h, (p.y - y0) / h);
-    if (wp.x >= -0.05 && wp.x <= 1.53 && wp.y >= -0.05 && wp.y <= 1.05) {
+    // Solid cool-grey M; no glow, shadow, gradient, or theme-dependent tint.
+    float mx0 = xStart + h * 1.28;
+    vec2 mp = vec2((p.x - mx0) / h, (p.y - y0) / h);
+    if (mp.x >= -0.05 && mp.x <= 1.53 && mp.y >= -0.05 && mp.y <= 1.05) {
         float edge = 1e4;
         bool inside = false;
-        for (int i = 0; i < 12; i++) {
-            vec2 a = wLogoVertex(i);
-            vec2 b = wLogoVertex(i == 11 ? 0 : i + 1);
-            edge = min(edge, segD(wp, a, b));
-            bool crosses = (a.y > wp.y) != (b.y > wp.y);
+        for (int i = 0; i < 13; i++) {
+            vec2 a = mLogoVertex(i);
+            vec2 b = mLogoVertex(i == 12 ? 0 : i + 1);
+            edge = min(edge, segD(mp, a, b));
+            bool crosses = (a.y > mp.y) != (b.y > mp.y);
             if (crosses) {
-                float xHit = a.x + (b.x - a.x) * (wp.y - a.y) / (b.y - a.y);
-                if (wp.x < xHit) inside = !inside;
+                float xHit = a.x + (b.x - a.x) * (mp.y - a.y) / (b.y - a.y);
+                if (mp.x < xHit) inside = !inside;
             }
         }
         float signedD = (inside ? -edge : edge) * h;
@@ -1321,7 +1318,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         c = over(vec4(0.027, 0.031, 0.039, cov(length(q - pPin) - R * 0.022)), c);
 
         // Slanted ///M logo at y + 0.43 R (hub & needle drawn in E39NEEDLES above dial numbers)
-        c = drawWLogo(p, center + vec2(0.0, R * 0.43), R * 0.092, c);
+        c = drawMLogo(p, center + vec2(0.0, R * 0.43), R * 0.092, c);
     } else {
         // ---- TACHOMETER (0..5000 rpm; linear angular allocation) ----
         // Main ticks every 1000 rpm; intermediate dots every 500 rpm. Linear from 0 to 5000 rpm.
