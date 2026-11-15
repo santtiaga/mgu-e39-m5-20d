@@ -1651,13 +1651,13 @@ void main() {
     for (int s = -1; s <= 1; s += 2) {
         vec2 ap = p - vec2(s < 0 ? 358.0 : 1436.0, 224.0);
         ap.x *= float(s);
-        if (abs(ap.x) < 36.0 && abs(ap.y) < 32.0) {
+        if (abs(ap.x) < 38.0 && abs(ap.y) < 34.0) {
             float dStem = sdRoundBox(ap, vec4(-19.0, -12.0, 23.0, 24.0), 1.2);
             float dHead = max(max(4.0 - ap.x, (ap.x - ap.y - 29.0) * 0.70710678), (ap.x + ap.y - 29.0) * 0.70710678);
             float dLens = min(dStem, dHead);
 
             // Flat, solid inactive lens: same colour and coverage treatment as the indicator slot.
-            float backingD = dLens - 5.0;
+            float backingD = dLens - 7.0;
             c = over(vec4(slotCol, cov(backingD)), c);
 
             // Subtle dark-gray inner shadow, fading inward from the backing edge.
