@@ -1405,7 +1405,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float ledA0 = a4 + (ledIdx / SHIFT_LEDS) * ledSpan;
         float ledA1 = a4 + ((ledIdx + 1.0) / SHIFT_LEDS) * ledSpan;
         float ledGap = 1.15;
-        float ledR = R * 0.958;
+        float ledR = R * 0.934; // Shift LEDs inward: keep their outer edge clear of the grey bezel ring.
         float ledTh = R * 0.026;
         float ledDA = max(ledA0 + ledGap - ang, ang - (ledA1 - ledGap)) * D2R * ledR;
         float ledDR = max(ledR - ledTh - r, r - ledR);
