@@ -1401,10 +1401,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             }
 
             // Keep the original visible geometry and 2 px corner treatment unchanged.
-            // Clip the complete band (including its glow) by the true on-screen distance
-            // to the 4000/5000 tick at the current radius, not only at the band centreline.
-            float tickGapPx = redZone ? (a5 - ang) * D2R * r : (ang - a4) * D2R * r;
-            if (dZone < 8.5 && tickGapPx >= 5.0) {
+            if (dZone < 8.5) {
                 c = over(vec4(zoneCol, 0.88 * cov(dZone)), c);
                 float coreProfile = 1.0 - smoothstep(-5.0, 3.0, dCore);
                 if (redZone) c = over(vec4(coreCol, 0.29 * coreProfile), c);
