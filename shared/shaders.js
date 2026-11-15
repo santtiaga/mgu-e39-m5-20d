@@ -1551,9 +1551,9 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
                 c = over(vec4(rCol, 0.45 * exp(-max(dRes, 0.0) / 3.0)), c);
                 c = over(vec4(rCol, cov(dRes)), c);
             } else {
-                // Neutral grey unlit lens: visibly inactive in both day and night modes.
-                vec3 rOff = mix(vec3(0.43, 0.46, 0.50), vec3(0.14, 0.15, 0.17), u_night);
-                float aOff = mix(0.72, 0.24, u_night);
+                // Dark unlit lens: keep it visibly below the dial-face brightness.
+                vec3 rOff = mix(vec3(0.105, 0.12, 0.145), vec3(0.008, 0.009, 0.011), u_night);
+                float aOff = mix(0.95, 0.85, u_night);
                 c = over(vec4(rOff, aOff * cov(dRes)), c);
             }
         }
