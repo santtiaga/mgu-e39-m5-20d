@@ -1410,12 +1410,12 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         // Keep the first LED's leading edge on the 4000-rpm tick axis and
         // the last red LED's trailing edge on the 5000-rpm tick axis.
         // Apply spacing only between adjacent rectangles, not at the arc ends.
-        float ledStart = ledA0 + (ledIdx > 0.0 ? ledGap : 0.0);
-        float ledEnd = ledA1 - (ledIdx < SHIFT_LEDS - 1.0 ? ledGap : 0.0);
+        float ledStart = ledA0 + (ledIdx == SHIFT_LEDS - 1.0 ? 2.0 * ledGap : (ledIdx > 0.0 ? ledGap : 0.0));
+        float ledEnd = ledA1 - (ledIdx == 0.0 ? 2.0 * ledGap : (ledIdx < SHIFT_LEDS - 1.0 ? ledGap : 0.0));
         float ledR = R * 0.934 + 2.0; // Move shift LEDs 2 px toward the grey bezel ring.
         float ledTh = R * 0.026;
         float ledDA = max(ledStart - ang, ang - ledEnd) * D2R * ledR;
-        float ledDR = max(ledR - ledTh - r, r - ledR);
+        float ledDR = max(ledR - ledTh - r, r - (ledR + ledTh));
         float ledD = max(ledDA, ledDR);
         float ledRpm = u_rpmActual;
         float ledThreshold = 4000.0 + ledIdx * 100.0;
