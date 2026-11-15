@@ -1355,8 +1355,8 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float halfArc = 0.5 * (aEnd - aStart) * D2R * ro;
             vec2 bandP = vec2((ang - aMid) * D2R * ro, r - (ro - th * 0.5));
             vec2 bandHalf = vec2(halfArc, th * 0.5);
-            vec2 bandQ = abs(bandP) - (bandHalf - vec2(1.0));
-            float dZone = length(max(bandQ, 0.0)) + min(max(bandQ.x, bandQ.y), 0.0) - 1.0;
+            vec2 bandQ = abs(bandP) - (bandHalf - vec2(2.0));
+            float dZone = length(max(bandQ, 0.0)) + min(max(bandQ.x, bandQ.y), 0.0) - 2.0;
             // Use the same rounded-rectangle SDF as the visible band for its halo.
             // This keeps the glow offset identical on the inner/outer edges and at both ends.
             float dZoneGlow = dZone;
