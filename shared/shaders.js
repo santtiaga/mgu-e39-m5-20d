@@ -1646,6 +1646,7 @@ void main() {
     c = over(vec4(slotCol, cov(sdRoundBox(p, vec4(852.0, 110.0, 76.0, 52.0), 10.0))), c);
     c = over(vec4(slotCol, cov(sdRoundBox(p, vec4(800.0, 456.0, 180.0, 52.0), 8.0))), c);
     // BMW E39 turn arrows: use the same subdued, flat recessed finish as the upper center indicator slot.
+    float ghostA = mix(0.05, 0.02, u_night);
     // Keep the existing arrow geometry and exact placement; only the inactive backing material changes.
     for (int s = -1; s <= 1; s += 2) {
         vec2 ap = p - vec2(s < 0 ? 358.0 : 1436.0, 224.0);
