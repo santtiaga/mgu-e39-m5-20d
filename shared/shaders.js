@@ -1427,14 +1427,15 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
             // Keep the inner edge of the coloured blocks clearly outside the inner ends of the ticks.
             // The tick marks start at 0.74 R; the extra clearance accounts for their stroke width
             // and prevents the coloured blocks from visually running into the scale.
+            // Compact OEM-style temperature markers: retain the diagonal placement,
+            // but reduce their footprint and keep the colour crisp without a halo.
             float dPatch = max(
-                sdRoundBox(lq, vec4(-R * 0.085, -R * 0.085, R * 0.17, R * 0.20), R * 0.012),
+                sdRoundBox(lq, vec4(-R * 0.060, -R * 0.065, R * 0.12, R * 0.15), R * 0.008),
                 R * 0.82 - length(pq)
             );
-            if (dPatch < 4.0) {
-                vec3 pCol = s < 0 ? mix(vec3(0.153, 0.318, 0.561), vec3(0.169, 0.310, 0.604), u_night)
-                                  : mix(vec3(0.812, 0.239, 0.200), vec3(1.0, 0.290, 0.196), u_night);
-                if (u_night > 0.5) c = over(vec4(pCol, 0.35 * exp(-max(dPatch, 0.0) / 2.2)), c);
+            if (dPatch < 1.0) {
+                vec3 pCol = s < 0 ? vec3(0.153, 0.318, 0.561)
+                                  : vec3(0.812, 0.239, 0.200);
                 c = over(vec4(pCol, cov(dPatch)), c);
             }
         }
