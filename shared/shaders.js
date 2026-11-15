@@ -1433,13 +1433,13 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
                 // shifted 1 degree clockwise, with the smallest practical corner radius.
                 float radius = length(pq);
                 float angle = atan(pq.x, -pq.y) / D2R;
-                float radialDist = abs(radius - (R * 0.80 + 1.5)) - (R * 0.070 + 0.5);
+                float radialDist = abs(radius - (R * 0.80 + 1.0)) - (R * 0.070);
                 // Positive angle is clockwise in this coordinate convention.
                 float edgeDist = radius * sin((angle - 51.5) * D2R);
                 float startDist = radius * sin((33.5 - angle) * D2R);
                 // Rounded intersection gives subtly softened ends without changing the arc profile.
                 vec2 arcCorner = vec2(radialDist, max(edgeDist, startDist));
-                float cornerRadius = 0.75;
+                float cornerRadius = 1.0;
                 float dArc = min(max(arcCorner.x, arcCorner.y), 0.0)
                            + length(max(arcCorner, vec2(0.0))) - cornerRadius;
                 // Keep the marker visible inside the dial face; positive distance is outside.
