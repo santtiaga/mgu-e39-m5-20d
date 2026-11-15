@@ -297,7 +297,7 @@ class HudApp {
         this.pixelBytes = 0;             // what the layout's image layers and glyph atlases cost of cluster-render's pixel memory
         this.atlases = new Map();        // "<conn>:<font>" -> { ref, c, ci, cols, rows, cellW, cellH, chars, bytes }: R8 assets, kept across rebuilds
         this.targetState = null;         // { state, holder, reason } of our target
-        this.rpmF = null; this.rpmShown = null; this.lastTickT = 0;
+        this.rpmF = null; this.rpmNeedleF = null; this.rpmShown = null; this.lastTickT = 0;
         this.e39DistKm = 0; this.e39Cons = 12.8; this.e39WearKm = 0;
         this.e39PeakG = 0.45; this.e39Vmax = 0;
         this.e39Sprint = { state: 'armed', startT: 0, lastSec: 4.7, bestSec: 4.7 };
@@ -1479,8 +1479,10 @@ class HudApp {
                 : 12.8;
             this.e39Cons = this.e39Cons + (instCons - this.e39Cons) * (1 - Math.exp(-dt / 1500));
         }
-        if (!isNum(raw)) { this.rpmF = null; this.rpmShown = null; return; }
+        if (!isNum(raw)) { this.rpmF = null; this.rpmNeedleF = null; this.rpmShown = null; return; }
         this.rpmF = isNum(this.rpmF) ? this.rpmF + (raw - this.rpmF) * (1 - Math.exp(-dt / 120)) : raw;
+        // Keep the analog tach needle tied to live engine rpm with only a light 45 ms anti-jitter filter.
+        this.rpmNeedleF = isNum(this.rpmNeedleF) ? this.rpmNeedleF + (raw - this.rpmNeedleF) * (1 - Math.exp(-dt / 45)) : raw;
         if (!isNum(this.rpmShown) || Math.abs(this.rpmF - this.rpmShown) >= 40) this.rpmShown = Math.max(0, Math.round(this.rpmF / 50) * 50);
     }
 
@@ -1673,11 +1675,11 @@ class HudApp {
             x.c.uniform(x.ref, 'u_rpmActual', [vals[14]]);
         } else if (w.type === 'e39needles') {
             const sweep = this._e39Sweep(now);
-            const sp = this._raw('speed'), rpm = this._raw('rpm'), fuel = this._raw('fuel'), oil = this._raw('oil'), cool = this._raw('coolant');
+            const sp = this._raw('speed'), rpm = isNum(this.rpmNeedleF) ? this.rpmNeedleF : this._raw('rpm'), fuel = this._raw('fuel'), oil = this._raw('oil'), cool = this._raw('coolant');
             const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 500) / 500;
             const vals = [
                 q(Math.max(isNum(sp) ? sp / (w.speedMax || 300) : 0, sweep)),
-                q(Math.max(isNum(rpm) ? rpm / (w.rpmMax || this.setting('redline')) : 0, sweep)),
+                Math.max(0, Math.min(1, Math.max(isNum(rpm) ? rpm / (w.rpmMax || this.setting('redline')) : 0, sweep))),
                 q(Math.max(isNum(fuel) ? fuel : 0.72, sweep)),
                 q(Math.max(isNum(oil) ? (oil - 50) / 100 : 0.4, sweep)),
                 q(Math.max(isNum(cool) ? (cool - 50) / 80 : 0.5, sweep)),
