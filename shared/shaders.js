@@ -984,27 +984,6 @@ float cwAngleDeg(vec2 q) {
     return atan(q.x, -q.y) * 180.0 / PI;
 }
 
- // Exact Euclidean distance to a finite circular stroke with round end caps.
- // Unlike an unwrapped (angle * radius, radial) rectangle, this keeps the halo
- // the same width on the inner edge, outer edge, and both arc endpoints.
-float arcStrokeDist(vec2 q, float radius, float a0Deg, float a1Deg, float halfWidth) {
-    float a = cwAngleDeg(q);
-    float span = mod(a1Deg - a0Deg + 360.0, 360.0);
-    float rel = mod(a - a0Deg + 360.0, 360.0);
-    float dCenter;
-    if (rel <= span) {
-        dCenter = abs(length(q) - radius);
-    } else {
-        float a0 = a0Deg * D2R;
-        float a1 = a1Deg * D2R;
-        vec2 e0 = radius * vec2(sin(a0), -cos(a0));
-        vec2 e1 = radius * vec2(sin(a1), -cos(a1));
-        dCenter = min(length(q - e0), length(q - e1));
-    }
-    return dCenter - halfWidth;
-}
-
-
 // Draw a mark (tick or dot or icon) with dark drop shadow in Day mode and warm amber halo in Night mode
 vec4 addMark(float d, vec4 c) {
     if (d > 6.5) return c;
@@ -1378,20 +1357,24 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             vec2 bandHalf = vec2(halfArc, th * 0.5);
             vec2 bandQ = abs(bandP) - (bandHalf - vec2(2.0));
             float dZone = length(max(bandQ, 0.0)) + min(max(bandQ.x, bandQ.y), 0.0) - 2.0;
-            // Compute glow independently from the legacy flattened band mask.
-            // This prevents the old rectangular SDF from clipping the two arc ends.
-            float dZoneGlow = arcStrokeDist(q, ro - th * 0.5, aStart, aEnd, th * 0.5);
+            // Use the same rounded-rectangle SDF as the visible band for its halo.
+            // This keeps the glow offset identical on the inner/outer edges and at both ends.
+            float dZoneGlow = dZone;
+            // The thin amber inlay halo uses the same 2 px rounded end geometry.
+            vec2 coreHalf = vec2(halfArc, th * 0.24);
+            vec2 coreQ = abs(bandP) - (coreHalf - vec2(2.0));
+            float dCoreGlow = length(max(coreQ, 0.0)) + min(max(coreQ.x, coreQ.y), 0.0) - 2.0;
             float dCore = arcStrokeDist(q, ro - th * 0.5, aStart, aEnd, th * 0.24);
             vec3 zoneCol = redZone ? vec3(1.0, 0.20, 0.17) : vec3(1.0, 0.64, 0.12);
             vec3 coreCol = redZone ? vec3(1.0, 0.60, 0.50) : vec3(1.0, 0.86, 0.43);
 
-            // Outer halo: full, unclipped Euclidean falloff around all four sides.
+            // The outer halo follows the exact SDF of the rendered band, without a cutoff mask.
             if (dZoneGlow < 14.0) {
                 c = over(vec4(zoneCol, 0.40 * exp(-max(dZoneGlow, 0.0) / 3.4)), c);
             }
-            // Amber inlay halo also gets its own independent, symmetric boundary.
-            if (!redZone && abs(dCore) < 14.0) {
-                c = over(vec4(coreCol, 0.78 * exp(-abs(dCore) / 3.8)), c);
+            // The inlay halo follows its own matching rounded shape.
+            if (!redZone && dCoreGlow < 14.0) {
+                c = over(vec4(coreCol, 0.78 * exp(-max(dCoreGlow, 0.0) / 3.8)), c);
             }
 
             // Keep the original visible geometry and 2 px corner treatment unchanged.
