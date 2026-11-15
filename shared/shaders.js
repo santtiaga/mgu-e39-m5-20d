@@ -1435,7 +1435,7 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
                 float angle = atan(pq.x, -pq.y) / D2R;
                 float radialDist = abs(radius - (R * 0.80 + 1.5)) - (R * 0.070 + 0.5);
                 // Positive angle is clockwise in this coordinate convention.
-                float edgeDist = radius * sin((angle - 54.5) * D2R);
+                float edgeDist = radius * sin((angle - 52.5) * D2R);
                 float startDist = radius * sin((32.5 - angle) * D2R);
                 // Inset only the four corner regions; keep the straight inner, outer,
                 // start and end edges on their specified geometry.
@@ -1454,7 +1454,7 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
                 float radialDist = abs(radius - (R * 0.80 + 1.5)) - (R * 0.070 + 0.5);
                 float edgeDist = radius * sin((angle + 40.5) * D2R);
                 float cornerRadius = 2.0;
-                float startDist = radius * sin((-54.5 - angle) * D2R);
+                float startDist = radius * sin((-52.5 - angle) * D2R);
                 vec2 arcCorner = vec2(radialDist, max(edgeDist, startDist))
                                + vec2(cornerRadius);
                 float dArc = min(max(arcCorner.x, arcCorner.y), 0.0)
