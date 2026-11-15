@@ -1381,21 +1381,13 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             vec3 zoneCol = redZone ? vec3(1.0, 0.20, 0.17) : vec3(1.0, 0.64, 0.12);
             vec3 coreCol = redZone ? vec3(1.0, 0.48, 0.40) : mix(zoneCol, vec3(1.0, 0.86, 0.43), 0.28);
 
-            // Day: restrained dark edge shadow. Night: warm coloured luminous halo.
+            // The outer halo follows the exact SDF of the rendered band, without a cutoff mask.
             if (dZoneGlow < 14.0) {
-                if (u_night > 0.5) {
-                    c = over(vec4(zoneCol, 0.40 * exp(-max(dZoneGlow, 0.0) / 3.4)), c);
-                } else {
-                    c = over(vec4(vec3(0.0), 0.18 * exp(-max(dZoneGlow - 0.4, 0.0) / 1.4)), c);
-                }
+                c = over(vec4(zoneCol, 0.40 * exp(-max(dZoneGlow, 0.0) / 3.4)), c);
             }
-            // The thin inlay follows the same day/night glow behaviour and its own rounded shape.
+            // The inlay halo follows its own matching rounded shape.
             if (redZone && dCoreGlow < 14.0) {
-                if (u_night > 0.5) {
-                    c = over(vec4(coreCol, 0.33 * exp(-max(dCoreGlow, 0.0) / 3.8)), c);
-                } else {
-                    c = over(vec4(vec3(0.0), 0.16 * exp(-max(dCoreGlow - 0.4, 0.0) / 1.4)), c);
-                }
+                c = over(vec4(coreCol, 0.33 * exp(-max(dCoreGlow, 0.0) / 3.8)), c);
             }
 
             // Keep the original visible geometry and 2 px corner treatment unchanged.
