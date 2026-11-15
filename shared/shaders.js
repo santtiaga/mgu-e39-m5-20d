@@ -1006,17 +1006,27 @@ float tickDist(vec2 q, float angDeg, float r0, float r1, float hw) {
     return max(sd - hw, max(r0 - al, al - r1));
 }
 
-// Rounded inner end toward the dial centre; the outer end remains flat.
-// A semicircular cap uses a radius equal to half the tick's full thickness.
+// Rounded inner end toward the dial centre and minimally softened outer corners.
+// Inner cap radius equals half the tick thickness; outer corner radius is 1 layer pixel.
 float tickDistInnerRound(vec2 q, float angDeg, float r0, float r1, float hw) {
     float a = angDeg * D2R;
     vec2 dir = vec2(sin(a), -cos(a));
     vec2 nrm = vec2(-dir.y, dir.x);
     float al = dot(q, dir);
     float across = dot(q, nrm);
+
+    // Semicircular inner cap.
     float innerCap = length(vec2(max(r0 + hw - al, 0.0), across)) - hw;
-    float sideAndOuter = max(abs(across) - hw, al - r1);
-    return max(innerCap, sideAndOuter);
+
+    // Straight-sided body with a 1 px radius only at the two outer corners.
+    const float outerRadius = 1.0;
+    vec2 halfSize = vec2(max((r1 - (r0 + hw)) * 0.5, 0.0), hw);
+    vec2 boxCenter = vec2((r1 + r0 + hw) * 0.5, 0.0);
+    vec2 d = abs(vec2(al, across) - boxCenter) - halfSize + vec2(outerRadius);
+    float outerRoundedBody = length(max(d, 0.0))
+                           + min(max(d.x, d.y), 0.0) - outerRadius;
+
+    return min(innerCap, outerRoundedBody);
 }
 
 float dotDist(vec2 q, float angDeg, float r, float rad) {
