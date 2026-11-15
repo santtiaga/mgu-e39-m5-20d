@@ -1662,7 +1662,7 @@ void main() {
 
             // Subtle dark-gray inner shadow, fading inward from the backing edge.
             float innerShadow = 0.42 * exp(-max(-backingD, 0.0) / 3.5) * cov(backingD);
-            c = over(vec4(vec3(0.025, 0.027, 0.032), innerShadow), c);
+            c = over(vec4(vec3(0.075, 0.078, 0.085), innerShadow), c);
 
             // Retain the thin, faint E39 outline as a separate surface detail.
             float dArrow = min(
