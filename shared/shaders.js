@@ -1645,31 +1645,24 @@ void main() {
     vec3 slotCol = mix(vec3(0.055, 0.059, 0.071), vec3(0.020, 0.016, 0.016), u_night);
     c = over(vec4(slotCol, cov(sdRoundBox(p, vec4(852.0, 110.0, 76.0, 52.0), 10.0))), c);
     c = over(vec4(slotCol, cov(sdRoundBox(p, vec4(800.0, 456.0, 180.0, 52.0), 8.0))), c);
-        // Unlit BMW E39 turn arrows: solid dark lenses styled like the fuel-reserve warning lamp
+        // Faint unlit BMW E39-style outlined turn arrows, mirrored outward from the dial bezels
+    float ghostA = mix(0.05, 0.02, u_night);
+    // Left arrow at (358, 224), Right arrow at (1436, 224)
     for (int s = -1; s <= 1; s += 2) {
         vec2 ap = p - vec2(s < 0 ? 358.0 : 1436.0, 224.0);
         ap.x *= float(s); // local +x points outward: left arrow -> left, right arrow -> right
         if (abs(ap.x) < 34.0 && abs(ap.y) < 30.0) {
-            // Filled stepped arrow: rectangular stem joined to a broad triangular head.
-            float dStem = sdRoundBox(ap, vec4(-19.0, -12.0, 23.0, 24.0), 1.2);
-            float dHead = max(max(4.0 - ap.x, ap.x - ap.y - 29.0), ap.x + ap.y - 29.0);
-            float dArrow = min(dStem, dHead);
-
-            if (dArrow < 6.0) {
-                // Dark inactive lens, matching the fuel-reserve lamp's material and night response.
-                vec3 arrowOff = mix(vec3(0.105, 0.12, 0.145), vec3(0.008, 0.009, 0.011), u_night);
-                float aOff = mix(0.95, 0.85, u_night);
-                c = over(vec4(arrowOff, aOff * cov(dArrow)), c);
-
-                // Subtle directional inner shadow along the lower-right inner edge.
-                vec2 arrowQ = ap;
-                float rimFade = exp(-max(-dArrow, 0.0) / 3.2)
-                              * (1.0 - smoothstep(0.0, 1.0, dArrow));
-                float shadowSide = smoothstep(-0.35, 0.65,
-                                              dot(normalize(arrowQ), normalize(vec2(0.45, 0.65))));
-                float innerShadow = rimFade * shadowSide * mix(0.34, 0.42, u_night);
-                c = over(vec4(vec3(0.0), innerShadow), c);
-            }
+            // Hollow, stepped E39 arrow silhouette: rectangular stem and broad pointed head
+            float dArrow = min(
+                min(segD(ap, vec2(-19.0, -12.0), vec2(4.0, -12.0)),
+                    segD(ap, vec2(4.0, -12.0), vec2(4.0, -25.0))),
+                min(segD(ap, vec2(4.0, -25.0), vec2(29.0, 0.0)),
+                    min(segD(ap, vec2(29.0, 0.0), vec2(4.0, 25.0)),
+                        min(segD(ap, vec2(4.0, 25.0), vec2(4.0, 12.0)),
+                            min(segD(ap, vec2(4.0, 12.0), vec2(-19.0, 12.0)),
+                                segD(ap, vec2(-19.0, 12.0), vec2(-19.0, -12.0))))))
+            ) - 2.2;
+            c = over(vec4(1.0, 1.0, 1.0, ghostA * cov(dArrow)), c);
         }
     }
     // Upper center slot (890, 136): Shift-up chevron + M-Sport status bar (u_ind.y = sportMode, u_ind.z = shiftState 0..2)
