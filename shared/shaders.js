@@ -1555,6 +1555,15 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
                 vec3 rOff = mix(vec3(0.105, 0.12, 0.145), vec3(0.008, 0.009, 0.011), u_night);
                 float aOff = mix(0.95, 0.85, u_night);
                 c = over(vec4(rOff, aOff * cov(dRes)), c);
+
+                // Directional inner shadow: softly darken the lower-right inner rim.
+                vec2 resQ = q - vec2(-R * 0.63, R * 0.17);
+                float rimFade = exp(-max(-dRes, 0.0) / 3.2)
+                              * (1.0 - smoothstep(0.0, 1.0, dRes));
+                float shadowSide = smoothstep(-0.35, 0.65,
+                                              dot(normalize(resQ), normalize(vec2(0.45, 0.65))));
+                float innerShadow = rimFade * shadowSide * mix(0.34, 0.42, u_night);
+                c = over(vec4(vec3(0.0), innerShadow), c);
             }
         }
     }
