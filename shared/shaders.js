@@ -1560,11 +1560,11 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
             tickDist(pq, 0.0, R * 0.80, R * 0.95, R * 0.015)
         );
         dM = min(dM, sdPump(p, center + vec2(R * 0.02, -R * 0.16), R * 0.26));
-        c = addMark(dM, c);
 
         // Match the coolant-temperature dial's two circular markers in position, radius and finish.
         dM = min(dM, min(dotDist(pq, -18.0, R * 0.895, R * 0.033),
                          dotDist(pq,  18.0, R * 0.895, R * 0.033)));
+        c = addMark(dM, c);
 
         // Fuel reserve warning lamp (bottom-left of fuel dial: center + (-0.63 R, +0.17 R), radius 0.095 R)
         float dRes = length(q - vec2(-R * 0.63, R * 0.17)) - R * 0.095;
