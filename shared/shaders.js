@@ -686,11 +686,25 @@ void main() {
         c = over(vec4(1.0, 1.0, 1.0, 0.3 * cov(abs(d - 4.0) - 0.6)), c);       // its bevel
         c = over(vec4(0.66, 0.7, 0.76, 0.75 * cov(abs(d - w) - 0.8)), c);      // inner edge
         // BMW's marks: a solid red line from the redline, a few orange dashes in the run-up to it
-        bool redM = t >= u_redFrom && d > 6.0 && d < 11.0;
-        bool orM = t >= u_orange && t < u_redFrom - 0.01 && d > 6.0 && d < 11.0 && mod(p.y, 20.0) < 7.0;
-        if (redM || orM) {
-            c = over(vec4(redM ? u_red : vec3(1.0, 0.6, 0.1), 0.95), c);
-        }
+        // Rounded 2 px corners on the orange (yellow) dashes and the redline strip.
+        // Keep the original 5 px radial width and the existing rpm / dash positions.
+        float dashY = mod(p.y, 20.0);
+        vec2 dashP = vec2(d - 8.5, dashY - 3.5);
+        vec2 dashQ = abs(dashP) - (vec2(2.5, 3.5) - vec2(2.0));
+        float dashSd = length(max(dashQ, 0.0)) + min(max(dashQ.x, dashQ.y), 0.0) - 2.0;
+        float orangeCov = cov(dashSd) * step(u_orange, t) * step(t, u_redFrom - 0.01);
+
+        float redY0 = y0 - u_redFrom * (y0 - y8);
+        float redY1 = y8;
+        float redMid = 0.5 * (redY0 + redY1);
+        vec2 redP = vec2(d - 8.5, p.y - redMid);
+        vec2 redHalf = vec2(2.5, 0.5 * (redY0 - redY1));
+        vec2 redQ = abs(redP) - (redHalf - vec2(2.0));
+        float redSd = length(max(redQ, 0.0)) + min(max(redQ.x, redQ.y), 0.0) - 2.0;
+        float redCov = cov(redSd) * step(u_redFrom, t) * step(t, 1.0);
+
+        if (redCov > 0.0) c = over(vec4(u_red, 0.95 * redCov), c);
+        if (orangeCov > 0.0) c = over(vec4(1.0, 0.6, 0.1, 0.95 * orangeCov), c);
     }
     // ticks every 1000 rpm: bright, from the outer edge 24 px into the glass, as the M8 draws them
     float kk = floor(t * u_ticks + 0.5);
