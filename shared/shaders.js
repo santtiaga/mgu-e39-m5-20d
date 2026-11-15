@@ -1429,11 +1429,16 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
             // the narrow rounded dash used by the first pass. Keep the blue marker unchanged.
             float dPatch;
             if (s > 0) {
-                float along = clamp((lq.y / R + 0.070) / 0.14, 0.0, 1.0);
-                float halfWidth = mix(R * 0.090, R * 0.105, along);
-                float dTrap = max(abs(lq.y) - R * 0.070, abs(lq.x) - halfWidth);
+                // Red zone is a curved annular segment. Its right radial edge follows
+                // the 54.5-degree scale tick; the band spans the same 0.14 R radial height.
+                float radius = length(pq);
+                float angle = atan(pq.x, -pq.y) / D2R;
+                float radialDist = abs(radius - R * 0.80) - R * 0.070;
+                float edgeDist = radius * sin((54.5 - angle) * D2R);
+                float startDist = radius * sin((angle - 36.5) * D2R);
+                float dArc = max(radialDist, max(edgeDist, startDist));
                 // Keep the marker visible inside the dial face; positive distance is outside.
-                dPatch = max(dTrap, length(pq) - R * 0.90);
+                dPatch = max(dArc, radius - R * 0.90);
             } else {
                 // Preserve the existing blue cold-zone marker.
                 dPatch = max(
