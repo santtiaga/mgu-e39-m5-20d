@@ -1308,7 +1308,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             if (mod(idx, 2.0) < 0.5) {
                 dM = tickDistInnerRound(q, aTick, R * 0.77, R * 0.875, R * 0.0155);
             } else {
-                dM = dotDist(q, aTick, R * 0.81, R * 0.0185);
+                dM = dotDist(q, aTick, R * 0.77, R * 0.0185);
             }
             c = addMark(dM, c);
         }
