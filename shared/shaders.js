@@ -1427,7 +1427,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float ledRpm = u_rpmActual;
         // Yellow LEDs retain 4000-4400 rpm; red LEDs start at 4600 rpm,
         // so the second red segment activates at 4700 rpm.
-        float ledThreshold = 4000.0 + ledIdx * 100.0 + (ledIdx >= SHIFT_LEDS * 0.5 ? 100.0 : 0.0);
+        float ledThreshold = 4001.0 + ledIdx * 100.0 + (ledIdx >= SHIFT_LEDS * 0.5 ? 100.0 : 0.0);
         // Let the endpoint glow breathe by 1 px beyond the 4000/5000 axes;
         // the LED bodies themselves remain aligned exactly to those axes.
         // Extend only the clipping mask beyond the endpoint LEDs so their glow remains visible.
