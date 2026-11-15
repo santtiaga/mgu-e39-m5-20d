@@ -1645,8 +1645,9 @@ void main() {
     vec3 slotCol = mix(vec3(0.055, 0.059, 0.071), vec3(0.020, 0.016, 0.016), u_night);
     c = over(vec4(slotCol, cov(sdRoundBox(p, vec4(852.0, 110.0, 76.0, 52.0), 10.0))), c);
     c = over(vec4(slotCol, cov(sdRoundBox(p, vec4(800.0, 456.0, 180.0, 52.0), 8.0))), c);
-    // BMW E39 turn arrows: inactive lenses retain only the outer recessed backing;
-    // the inner arrow detail is transparent.
+    // BMW E39 turn arrows: use the same subdued, flat recessed finish as the upper center indicator slot.
+    float ghostA = mix(0.05, 0.02, u_night);
+    // Keep the existing arrow geometry and exact placement; only the inactive backing material changes.
     for (int s = -1; s <= 1; s += 2) {
         vec2 ap = p - vec2(s < 0 ? 358.0 : 1436.0, 224.0);
         ap.x *= float(s);
@@ -1663,7 +1664,22 @@ void main() {
             float innerShadow = 0.42 * exp(-max(-backingD, 0.0) / 3.5) * cov(backingD);
             c = over(vec4(vec3(0.075, 0.078, 0.085), innerShadow), c);
 
-
+            // Retain the thin, faint E39 outline as a separate surface detail.
+            float dArrow = min(
+                min(segD(ap, vec2(-19.0, -12.0), vec2(4.0, -12.0)),
+                    segD(ap, vec2(4.0, -12.0), vec2(4.0, -25.0))),
+                min(segD(ap, vec2(4.0, -25.0), vec2(29.0, 0.0)),
+                    min(segD(ap, vec2(29.0, 0.0), vec2(4.0, 25.0)),
+                        min(segD(ap, vec2(4.0, 25.0), vec2(4.0, 12.0)),
+                            min(segD(ap, vec2(4.0, 12.0), vec2(-19.0, 12.0)),
+                                segD(ap, vec2(-19.0, 12.0), vec2(-19.0, -12.0))))))
+            ) - 2.2;
+            // Inner turn-arrow stroke uses the same recessed backing and inner-shadow finish as the inactive shift-up chevron.
+            float arrowBackingD = dArrow - 2.0;
+            c = over(vec4(slotCol, cov(arrowBackingD)), c);
+            float arrowInnerShadow = 0.42 * exp(-max(-arrowBackingD, 0.0) / 3.5) * cov(arrowBackingD);
+            c = over(vec4(vec3(0.075, 0.078, 0.085), arrowInnerShadow), c);
+            c = over(vec4(1.0, 1.0, 1.0, ghostA * cov(dArrow)), c);
         }
     }
     // Upper center slot (890, 136): Shift-up chevron + M-Sport status bar (u_ind.y = sportMode, u_ind.z = shiftState 0..2)
