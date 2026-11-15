@@ -1419,8 +1419,11 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float ledD = max(ledDA, ledDR);
         float ledRpm = u_rpmActual;
         float ledThreshold = 4000.0 + ledIdx * 100.0;
+        // Let the endpoint glow breathe by 1 px beyond the 4000/5000 axes;
+        // the LED bodies themselves remain aligned exactly to those axes.
+        float ledMaskPad = 1.0 / (ledR * D2R);
         bool ledOn = ang >= a4 && ang <= a5 && ledRpm >= ledThreshold;
-        if (ang >= a4 && ang <= a5 && r > ledR - ledTh - 10.0 && r < ledR + ledTh + R * 0.004) {
+        if (ang >= a4 - ledMaskPad && ang <= a5 + ledMaskPad && r > ledR - ledTh - 10.0 && r < ledR + ledTh + R * 0.004) {
             bool ledRed = ledIdx >= SHIFT_LEDS * 0.5;
             vec3 ledCol = ledRed ? vec3(1.0, 0.16, 0.10) : vec3(1.0, 0.72, 0.12);
             float ledAlpha = ledOn ? 0.98 : 0.12;
