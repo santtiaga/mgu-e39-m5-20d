@@ -1409,8 +1409,10 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         // Fit ten equal-width rectangles and nine equal gaps exactly between the 4000/5000 axes.
         // The first and last outer edges stay on those axes; no end segment gets extra width.
         float ledGapAngle = ledGap / (ledR * D2R);
-        float ledStep = (ledSpan + ledGapAngle * (SHIFT_LEDS - 1.0)) / SHIFT_LEDS;
-        float ledWidth = ledStep - ledGapAngle;
+        // Ten equal rectangles plus nine equal gaps fill the exact 4000-5000 rpm arc.
+        // The first starts on the 4000 tick axis; the last ends on the 5000 tick axis.
+        float ledWidth = (ledSpan - ledGapAngle * (SHIFT_LEDS - 1.0)) / SHIFT_LEDS;
+        float ledStep = ledWidth + ledGapAngle;
         float ledIdx = floor(clamp((ang - a4) / ledStep, 0.0, SHIFT_LEDS - 0.0001));
         float ledStart = a4 + ledIdx * ledStep;
         float ledEnd = ledStart + ledWidth;
