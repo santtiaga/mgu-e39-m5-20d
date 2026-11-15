@@ -995,8 +995,7 @@ float dotDist(vec2 q, float angDeg, float r, float rad) {
 }
 
 // 1:1 E39 M5 Bezel Ring + Dark Inner Collar + Slate-Blue/Warm-Amber Matte Face with Grain Noise
-vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, bool coolant, vec4 c) {
-    float nightStyle = coolant ? 0.0 : u_night;
+vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
     vec2 q = p - center;
     float r = length(q);
     if (r > R + 18.0) return c;
@@ -1014,21 +1013,21 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, bool coolant, vec4 
     // 2. Dial Face inside rf
     if (r <= rf + 1.0) {
         float t = clamp(length(q - vec2(-R * 0.05, R * 0.15)) / rf, 0.0, 1.0);
-        vec3 f0 = coolant ? vec3(0.045, 0.050, 0.058) : mix(vec3(0.337, 0.376, 0.439), vec3(0.165, 0.082, 0.035), nightStyle); // OEM coolant: near-black graphite
-        vec3 f1 = coolant ? vec3(0.026, 0.030, 0.036) : mix(vec3(0.282, 0.318, 0.373), vec3(0.082, 0.043, 0.024), nightStyle);
-        vec3 f2 = coolant ? vec3(0.012, 0.014, 0.018) : mix(vec3(0.200, 0.227, 0.271), vec3(0.031, 0.020, 0.016), nightStyle);
+        vec3 f0 = mix(vec3(0.337, 0.376, 0.439), vec3(0.165, 0.082, 0.035), u_night); // #566070 / #2a1509
+        vec3 f1 = mix(vec3(0.282, 0.318, 0.373), vec3(0.082, 0.043, 0.024), u_night); // #48515f / #150b06
+        vec3 f2 = mix(vec3(0.200, 0.227, 0.271), vec3(0.031, 0.020, 0.016), u_night); // #333a45 / #080504
         vec3 fCol = t < 0.62 ? mix(f0, f1, t / 0.62) : mix(f1, f2, (t - 0.62) / 0.38);
         // Fine matte grain noise
-        float gr = (hash12(floor(p)) - 0.5) * mix(0.055, 0.025, nightStyle);
+        float gr = (hash12(floor(p)) - 0.5) * mix(0.055, 0.025, u_night);
         fCol = clamp(fCol + vec3(gr), 0.0, 1.0);
 
         // Top-lit recess shadow cast by the inner ring onto the sunken dial face
         float rSh = length(q - vec2(0.0, R * 0.035));
         float sh = smoothstep(rf * 0.86, rf * 1.02, rSh);
-        fCol = mix(fCol, vec3(0.0), sh * mix(0.62, 0.80, nightStyle));
+        fCol = mix(fCol, vec3(0.0), sh * mix(0.62, 0.80, u_night));
 
         // Night mode: warm amber ambient scatter around hub and along scale
-        if (!coolant && u_night > 0.5) {
+        if (u_night > 0.5) {
             float nh1 = clamp(1.0 - (r - R * 0.10) / (R * 0.42), 0.0, 1.0);
             fCol += vec3(1.0, 0.47, 0.12) * (0.28 * nh1 * nh1);
             float nh2 = 1.0 - abs(r - R * 0.75) / (R * 0.20);
@@ -1039,7 +1038,7 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, bool coolant, vec4 
 
     // 3. Dark inner collar between bezel ring and dial face (rf .. R * ringIn)
     if (r >= rf - 1.0 && r <= R * ringIn + 1.0) {
-        vec3 colCollar = mix(vec3(0.055, 0.059, 0.071), vec3(0.020, 0.012, 0.012), nightStyle);
+        vec3 colCollar = mix(vec3(0.055, 0.059, 0.071), vec3(0.020, 0.012, 0.012), u_night);
         float dCollar = max(rf - r, r - R * ringIn);
         c = over(vec4(colCollar, cov(dCollar)), c);
     }
@@ -1048,8 +1047,8 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, bool coolant, vec4 
     if (r >= R * ringIn - 1.0) {
         float ang = atan(q.y, q.x) + PI * 0.75;
         float w = 0.5 + 0.32 * cos(ang * 2.0) + 0.18 * sin(ang * 3.0 - 0.7);
-        vec3 rLight = mix(vec3(0.933, 0.945, 0.961), vec3(0.227, 0.165, 0.118), nightStyle);
-        vec3 rDark  = mix(vec3(0.549, 0.569, 0.612), vec3(0.078, 0.055, 0.039), nightStyle);
+        vec3 rLight = mix(vec3(0.933, 0.945, 0.961), vec3(0.227, 0.165, 0.118), u_night);
+        vec3 rDark  = mix(vec3(0.549, 0.569, 0.612), vec3(0.078, 0.055, 0.039), u_night);
         vec3 rCol = mix(rDark, rLight, clamp(w, 0.0, 1.0));
 
         // Radial bevel (inner shadow, ridge highlight at 0.55, outer shadow)
@@ -1063,7 +1062,7 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, bool coolant, vec4 
         c = over(vec4(rCol, cov(dRing)), c);
 
         // Night mode: dashed amber scale reflection along inner edge of bezel ring
-        if (!coolant && u_night > 0.5) {
+        if (u_night > 0.5) {
             float dRef = abs(r - R * (ringIn + 0.012)) - R * 0.006;
             if (dRef < 3.5) {
                 float dash = smoothstep(-0.2, 0.3, sin(atan(q.y, q.x) * 36.0));
@@ -1267,7 +1266,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
     if (r > R + 18.0) return c;
 
     // 1. Ring, Dark Inner Collar & Matte Slate-Blue / Night Face
-    c = drawRingAndFace(p, center, R, true, false, c);
+    c = drawRingAndFace(p, center, R, true, c);
 
     float ang = cwAngleDeg(q);
 
@@ -1412,7 +1411,7 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
     float r = length(q);
     if (r > R + 16.0) return c;
 
-    c = drawRingAndFace(p, center, R, false, isTemp, c);
+    c = drawRingAndFace(p, center, R, false, c);
 
     vec2 piv = center + vec2(0.0, R * 0.44);
     vec2 pq = p - piv;
@@ -1446,7 +1445,7 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
         dM = min(dM, min(dotDist(pq, -18.0, R * 0.895, R * 0.033),
                          dotDist(pq,  18.0, R * 0.895, R * 0.033)));
         dM = min(dM, sdThermo(p, center + vec2(-R * 0.02, -R * 0.065), R * 0.20, true));
-        c = over(vec4(vec3(0.91, 0.92, 0.94), cov(dM)), c);
+        c = addMark(dM, c);
     } else {
         // Fuel ticks, dots & Fuel Pump icon
         float dM = min(
@@ -1812,7 +1811,7 @@ vec4 drawHub(vec2 q, float capR, vec4 c) {
     return c;
 }
 
-vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1, float stem, bool coolantNeedle, vec4 c) {
+vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1, float stem, vec4 c) {
     float rad = deg * D2R;
     vec2 dir = vec2(sin(rad), -cos(rad));
     vec2 nrm = vec2(-dir.y, dir.x);
@@ -1833,13 +1832,13 @@ vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1,
         float t = clamp((al + tail) / (len + tail), 0.0, 1.0);
         float hw = mix(w0, w1, t) * 0.5;
         float d = max(sd - hw, max(-al - tail, al - len));
-        if (!coolantNeedle && u_night > 0.5 && d < 6.0) {
+        if (u_night > 0.5 && d < 6.0) {
             c = over(vec4(1.0, 0.478, 0.094, 0.42 * exp(-max(d, 0.0) / 3.2)), c);
         }
         if (d < 1.0) {
-            vec3 c0 = coolantNeedle ? vec3(1.0, 0.22, 0.16) : mix(vec3(1.0, 0.541, 0.259), vec3(1.0, 0.886, 0.659), u_night);
-            vec3 c1 = coolantNeedle ? vec3(0.96, 0.12, 0.10) : mix(vec3(1.0, 0.478, 0.235), vec3(1.0, 0.816, 0.541), u_night);
-            vec3 c2 = coolantNeedle ? vec3(0.72, 0.055, 0.045) : mix(vec3(0.847, 0.263, 0.165), vec3(1.0, 0.541, 0.227), u_night);
+            vec3 c0 = mix(vec3(1.0, 0.541, 0.259), vec3(1.0, 0.886, 0.659), u_night);
+            vec3 c1 = mix(vec3(1.0, 0.478, 0.235), vec3(1.0, 0.816, 0.541), u_night);
+            vec3 c2 = mix(vec3(0.847, 0.263, 0.165), vec3(1.0, 0.541, 0.227), u_night);
             vec3 nCol = t < 0.33 ? mix(c0, c1, t / 0.33) : mix(c1, c2, (t - 0.33) / 0.67);
             float u = (sgnSd / max(hw, 0.5)) * 0.5 + 0.5;
             float spec = max(0.0, 1.0 - abs(u - 0.35) / 0.22) * 0.22;
@@ -1865,7 +1864,7 @@ void main() {
         vec2 fpq = p - (fC + vec2(0.0, fR * 0.44));
         c = drawHub(fpq, fR * 0.235, c);
         float fAng = -54.0 + clamp(u_fuel, 0.0, 1.0) * 108.0;
-        c = drawE39Needle(fpq, fAng, fR * 0.90, fR * 0.20, fR * 0.068, fR * 0.040, 0.0, false, c);
+        c = drawE39Needle(fpq, fAng, fR * 0.90, fR * 0.20, fR * 0.068, fR * 0.040, 0.0, c);
     }
 
     // 2. Right Coolant Dial Needle (center 1735, 398, R = 118, lowered pivot y + 0.44 R)
@@ -1874,7 +1873,7 @@ void main() {
         vec2 cpq = p - (cC + vec2(0.0, fR * 0.44));
         c = drawHub(cpq, fR * 0.235, c);
         float cAng = -54.0 + clamp(u_coolant, 0.0, 1.0) * 108.0;
-        c = drawE39Needle(cpq, cAng, fR * 0.90, fR * 0.20, fR * 0.030, fR * 0.018, 0.0, true, c);
+        c = drawE39Needle(cpq, cAng, fR * 0.90, fR * 0.20, fR * 0.068, fR * 0.040, 0.0, c);
     }
 
     // 3. Main Speedometer Needle (center 625, 295, R = 214)
@@ -1885,7 +1884,7 @@ void main() {
         c = drawHub(sq, mR * 0.162, c);
         float spdKmh = clamp(u_speed, 0.0, 1.0) * 260.0;
         float sAng = -128.0 + spdKmh * (261.0 / 260.0);
-        c = drawE39Needle(sq, sAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, false, c);
+        c = drawE39Needle(sq, sAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, c);
     }
 
     // 4. Main Tachometer + Oil Temp Sub-Dial Needles (center 1155, 295, R = 214)
@@ -1896,9 +1895,9 @@ void main() {
         c = drawHub(tq, mR * 0.162, c);
         c = drawHub(oq, mR * 0.122, c);
         float oilAng = 237.0 - clamp(u_oil, 0.0, 1.0) * 114.0;
-        c = drawE39Needle(oq, oilAng, mR * 0.555, -mR * 0.105, mR * 0.034, mR * 0.020, mR * 0.19, false, c);
+        c = drawE39Needle(oq, oilAng, mR * 0.555, -mR * 0.105, mR * 0.034, mR * 0.020, mR * 0.19, c);
         float taAng = rpmAngle(clamp(u_rpm, 0.0, 1.0) * 5000.0);
-        c = drawE39Needle(tq, taAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, false, c);
+        c = drawE39Needle(tq, taAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, c);
     }
 
     gl_FragColor = c;
