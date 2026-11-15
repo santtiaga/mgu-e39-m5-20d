@@ -1233,10 +1233,10 @@ vec4 drawMLogo(vec2 p, vec2 ctr, float h, vec4 c) {
         }
     }
 
-    // Undo the forward shear for the glyph's local coordinates. In screen space
-    // this makes the M's top shoulders sit to the RIGHT of its lower feet.
-    float mx0 = xStart + 3.0 * (w + gap) + h * 0.42 - sk * h * 0.5;
-    vec2 mp = vec2((p.x - sk * (y1 - p.y) - mx0) / h, (p.y - y0) / h);
+    // The M has its own italic left stem in the traced polygon. Do NOT apply
+    // the stripes' shear to the whole glyph: its right outer stem stays nearly vertical.
+    float mx0 = xStart + h * 1.28;
+    vec2 mp = vec2((p.x - mx0) / h, (p.y - y0) / h);
     if (mp.x >= -0.05 && mp.x <= 1.58 && mp.y >= -0.05 && mp.y <= 1.05) {
         float edge = 1e4;
         bool inside = false;
