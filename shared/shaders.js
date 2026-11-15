@@ -1419,10 +1419,11 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
     if (isTemp) {
         // Slanted Blue (-45.5 deg) and Red (+45.5 deg) zone blocks around piv at 0.80 R
         for (int s = -1; s <= 1; s += 2) {
-            float a = float(s) * 45.5 * D2R;
+            // Match each marker's radial axis and height to its corresponding scale tick.
+            float a = float(s) * 54.5 * D2R;
             vec2 dir = vec2(sin(a), -cos(a));
             vec2 nrm = vec2(-dir.y, dir.x);
-            vec2 pt = piv + dir * (R * 0.80);
+            vec2 pt = piv + dir * (R * 0.81);
             vec2 lq = vec2(dot(p - pt, nrm), -dot(p - pt, dir));
             // The red hot-zone marker is a broad, tapered OEM-style block rather than
             // the narrow rounded dash used by the first pass. Keep the blue marker unchanged.
