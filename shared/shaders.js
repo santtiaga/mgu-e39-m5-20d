@@ -1657,7 +1657,7 @@ void main() {
             float dLens = min(dStem, dHead);
 
             // Flat, solid inactive lens: same colour and coverage treatment as the indicator slot.
-            float backingD = dLens - 10.0;
+            float backingD = dLens - 8.0;
             c = over(vec4(slotCol, cov(backingD)), c);
 
             // Subtle dark-gray inner shadow, fading inward from the backing edge.
