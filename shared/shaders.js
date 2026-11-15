@@ -1402,7 +1402,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         // Each segment lights at its own 100 rpm threshold: 4000, 4100 ... 4900.
         // Keep the original arc radius, thickness and 2 px corner treatment unchanged; slightly widen the gaps.
         const float SHIFT_LEDS = 10.0;
-        float ledGap = 2.0;
+        float ledGap = 5.0;
         float ledR = R * 0.934 + 2.0; // Move shift LEDs 2 px toward the grey bezel ring.
         float ledTh = R * 0.026;
         // Align the outer LED endpoints with the inner-facing side edges of the 4000/5000 ticks.
