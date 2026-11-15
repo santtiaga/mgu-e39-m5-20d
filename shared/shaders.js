@@ -654,6 +654,10 @@ vec4 over(vec4 top, vec4 under) {
     return vec4((top.rgb * top.a + under.rgb * under.a * (1.0 - top.a)) / a, a);
 }
 float segD(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0); return length(pa - ba * h); }
+float sdRoundRect(vec2 p, vec2 halfSize, float radius) {
+    vec2 q = abs(p) - (halfSize - vec2(radius));
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+}
 
 void main() {
     vec2 p = v_uv * u_size;
@@ -685,11 +689,16 @@ void main() {
         c = over(vec4(0.93, 0.95, 0.98, cov(abs(d) - 1.6)), c);               // outer edge
         c = over(vec4(1.0, 1.0, 1.0, 0.3 * cov(abs(d - 4.0) - 0.6)), c);       // its bevel
         c = over(vec4(0.66, 0.7, 0.76, 0.75 * cov(abs(d - w) - 0.8)), c);      // inner edge
-        // BMW's marks: a solid red line from the redline, a few orange dashes in the run-up to it
-        bool redM = t >= u_redFrom && d > 6.0 && d < 11.0;
-        bool orM = t >= u_orange && t < u_redFrom - 0.01 && d > 6.0 && d < 11.0 && mod(p.y, 20.0) < 7.0;
-        if (redM || orM) {
-            c = over(vec4(redM ? u_red : vec3(1.0, 0.6, 0.1), 0.95), c);
+        // BMW's warning marks: redline and amber dashes with 2 px rounded ends on every corner.
+        float redY = y0 - u_redFrom * (y0 - y8);
+        float redD = sdRoundRect(vec2(d - 8.5, p.y - 0.5 * (y8 + redY)),
+                                 vec2(2.5, 0.5 * (redY - y8)), 2.0);
+        float amberD = sdRoundRect(vec2(d - 8.5, mod(p.y, 20.0) - 3.5),
+                                   vec2(2.5, 3.5), 2.0);
+        if (t >= u_redFrom) {
+            c = over(vec4(u_red, 0.95 * cov(redD)), c);
+        } else if (t >= u_orange && t < u_redFrom - 0.01) {
+            c = over(vec4(1.0, 0.6, 0.1, 0.95 * cov(amberD)), c);
         }
     }
     // ticks every 1000 rpm: bright, from the outer edge 24 px into the glass, as the M8 draws them
@@ -751,6 +760,10 @@ vec4 over(vec4 top, vec4 under) {
 }
 float segD(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0); return length(pa - ba * h); }
 float segH(vec2 p, vec2 a, vec2 b) { vec2 ba = b - a; return clamp(dot(p - a, ba) / dot(ba, ba), 0.0, 1.0); }
+float sdRoundRect(vec2 p, vec2 halfSize, float radius) {
+    vec2 q = abs(p) - (halfSize - vec2(radius));
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+}
 
 float outerX(float y) {
     float dy = y - u_geo.y;
@@ -784,10 +797,15 @@ vec4 bracket(vec2 q, float val, float redFrom, float orange, float ticks, vec3 l
         float kk = floor(t * ticks + 0.5);
         float yk = u_scale.x - kk / ticks * (u_scale.x - u_scale.y);
         if (kk >= 0.0 && kk <= ticks && d > 7.0 && d < 19.0) c = over(vec4(line, 0.9 * cov(abs(q.y - yk) - 1.2)), c);
-        // redline: yellow dashes, then a solid red line, on the outer edge of the band
-        if (redFrom < 1.5 && d > 8.0 && d < 13.0) {
-            if (t >= redFrom && t <= 1.02) c = over(vec4(1.0, 0.2, 0.2, 1.0), c);
-            else if (t >= orange && t < redFrom && mod(q.y, 16.0) < 7.0) c = over(vec4(1.0, 0.85, 0.1, 1.0), c);
+        // Redline and amber pre-warning marks: rounded 2 px corners, matching the analog E39 dial.
+        if (redFrom < 1.5) {
+            float redY = u_scale.x - redFrom * (u_scale.x - u_scale.y);
+            float redD = sdRoundRect(vec2(d - 10.5, q.y - 0.5 * (u_scale.y + redY)),
+                                     vec2(2.5, 0.5 * (redY - u_scale.y)), 2.0);
+            float amberD = sdRoundRect(vec2(d - 10.5, mod(q.y, 16.0) - 3.5),
+                                       vec2(2.5, 3.5), 2.0);
+            if (t >= redFrom && t <= 1.02) c = over(vec4(1.0, 0.2, 0.2, cov(redD)), c);
+            else if (t >= orange && t < redFrom) c = over(vec4(1.0, 0.85, 0.1, cov(amberD)), c);
         }
     }
     // the outer line, its top run and its bottom run
