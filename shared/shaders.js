@@ -1411,7 +1411,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float ledDR = max(ledR - ledTh - r, r - ledR);
         float ledD = max(ledDA, ledDR);
         float ledRpm = u_rpm * 5000.0;
-        float ledThreshold = 4000.0 + (ledIdx + 1.0) * (1000.0 / SHIFT_LEDS);
+        float ledThreshold = 4000.0 + ledIdx * (1000.0 / SHIFT_LEDS);
         bool ledOn = ang >= a4 && ang <= a5 && ledRpm >= ledThreshold;
         if (ang >= a4 && ang <= a5 && r > ledR - ledTh - 10.0 && r < ledR + ledTh + R * 0.004) {
             bool ledRed = ledIdx >= SHIFT_LEDS * 0.5;
