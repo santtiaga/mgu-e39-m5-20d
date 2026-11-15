@@ -1198,18 +1198,20 @@ float sdPump(vec2 p, vec2 ctr, float h) {
 // The M is a single sharp polygon (not a stroked W); its deep outer legs and
 // stepped central notch reproduce the characteristic Motorsport block glyph.
 vec2 mLogoVertex(int i) {
-    if (i == 0) return vec2(0.00, 0.94); // lower left foot
-    if (i == 1) return vec2(0.61, 0.06); // upper left shoulder
-    if (i == 2) return vec2(0.90, 0.06); // short top bridge
-    if (i == 3) return vec2(0.90, 0.45); // inner vertical drop
-    if (i == 4) return vec2(1.15, 0.06); // rising centre diagonal
-    if (i == 5) return vec2(1.50, 0.06); // upper right shoulder
-    if (i == 6) return vec2(1.52, 0.94); // outer right foot
-    if (i == 7) return vec2(0.90, 0.94); // lower inner shelf
-    if (i == 8) return vec2(0.90, 0.55); // central notch
-    return vec2(0.67, 0.94);             // lower diagonal return
+    // Helvetica Bold-inspired upright M outline, normalized to a 1.50 x 1.00 box.
+    if (i == 0) return vec2(0.00, 0.00);
+    if (i == 1) return vec2(0.00, 1.00);
+    if (i == 2) return vec2(0.30, 1.00);
+    if (i == 3) return vec2(0.75, 0.40);
+    if (i == 4) return vec2(1.20, 1.00);
+    if (i == 5) return vec2(1.50, 1.00);
+    if (i == 6) return vec2(1.50, 0.00);
+    if (i == 7) return vec2(1.20, 0.00);
+    if (i == 8) return vec2(1.20, 0.48);
+    if (i == 9) return vec2(0.75, 0.02);
+    if (i == 10) return vec2(0.30, 0.48);
+    return vec2(0.30, 0.00);
 }
-
 vec4 drawMLogo(vec2 p, vec2 ctr, float h, vec4 c) {
     float sk = 0.42, w = h * 0.36, gap = h * 0.02;
     float y0 = ctr.y - h * 0.5, y1 = ctr.y + h * 0.5;
@@ -1240,9 +1242,9 @@ vec4 drawMLogo(vec2 p, vec2 ctr, float h, vec4 c) {
     if (mp.x >= -0.05 && mp.x <= 1.58 && mp.y >= -0.05 && mp.y <= 1.05) {
         float edge = 1e4;
         bool inside = false;
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 12; i++) {
             vec2 a = mLogoVertex(i);
-            vec2 b = mLogoVertex(i == 9 ? 0 : i + 1);
+            vec2 b = mLogoVertex(i == 11 ? 0 : i + 1);
             edge = min(edge, segD(mp, a, b));
             bool crosses = (a.y > mp.y) != (b.y > mp.y);
             if (crosses) {
