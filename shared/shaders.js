@@ -1342,7 +1342,8 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                     dM = dotDist(q, aTick, R * 0.768, R * 0.018);
                 }
             }
-            c = addMark(dM, c);
+            // 4000–5000 rpm marks are drawn once, after the warning bands, in the overlay pass below.
+            if (rpmTick < 4000.0) c = addMark(dM, c);
         }
 
         // 2. Fixed 500-rpm warning bands: amber 4000-4500, red 4500-5000.
