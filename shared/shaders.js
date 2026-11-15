@@ -1224,26 +1224,24 @@ float sdPump(vec2 p, vec2 ctr, float h) {
     return min(min(body, base), hose) * u;
 }
 
-// BMW M Motorsport mark, traced to the supplied reference image.
-// The stripes and the M share the same forward shear: their TOP edges move RIGHT.
-// The M is a single sharp polygon (not a stroked W); its deep outer legs and
-// stepped central notch reproduce the characteristic Motorsport block glyph.
-vec2 mLogoVertex(int i) {
-    // Helvetica Bold-inspired upright M outline, normalized to a 1.50 x 1.00 box.
+// Custom Motorsport-style ///W mark on the speedometer.
+// The three slanted stripes are retained; the final glyph is now a bold W.
+vec2 wLogoVertex(int i) {
+    // Bold W silhouette, normalized to a 1.50 x 1.00 box.
     if (i == 0) return vec2(0.00, 0.00);
     if (i == 1) return vec2(0.00, 1.00);
-    if (i == 2) return vec2(0.30, 1.00);
-    if (i == 3) return vec2(0.75, 0.40);
-    if (i == 4) return vec2(1.20, 1.00);
-    if (i == 5) return vec2(1.50, 1.00);
-    if (i == 6) return vec2(1.50, 0.00);
-    if (i == 7) return vec2(1.20, 0.00);
-    if (i == 8) return vec2(1.20, 0.48);
-    if (i == 9) return vec2(0.75, 0.02);
-    if (i == 10) return vec2(0.30, 0.48);
-    return vec2(0.30, 0.00);
+    if (i == 2) return vec2(0.27, 1.00);
+    if (i == 3) return vec2(0.50, 0.34);
+    if (i == 4) return vec2(0.73, 1.00);
+    if (i == 5) return vec2(1.00, 1.00);
+    if (i == 6) return vec2(1.00, 0.00);
+    if (i == 7) return vec2(0.78, 0.00);
+    if (i == 8) return vec2(0.63, 0.55);
+    if (i == 9) return vec2(0.50, 0.18);
+    if (i == 10) return vec2(0.37, 0.55);
+    return vec2(0.22, 0.00);
 }
-vec4 drawMLogo(vec2 p, vec2 ctr, float h, vec4 c) {
+vec4 drawWLogo(vec2 p, vec2 ctr, float h, vec4 c) {
     float sk = 0.42, w = h * 0.36, gap = h * 0.02;
     float y0 = ctr.y - h * 0.5, y1 = ctr.y + h * 0.5;
     if (p.y < y0 - 1.5 || p.y > y1 + 1.5) return c;
@@ -1274,8 +1272,8 @@ vec4 drawMLogo(vec2 p, vec2 ctr, float h, vec4 c) {
         float edge = 1e4;
         bool inside = false;
         for (int i = 0; i < 12; i++) {
-            vec2 a = mLogoVertex(i);
-            vec2 b = mLogoVertex(i == 11 ? 0 : i + 1);
+            vec2 a = wLogoVertex(i);
+            vec2 b = wLogoVertex(i == 11 ? 0 : i + 1);
             edge = min(edge, segD(mp, a, b));
             bool crosses = (a.y > mp.y) != (b.y > mp.y);
             if (crosses) {
@@ -1322,7 +1320,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         c = over(vec4(0.027, 0.031, 0.039, cov(length(q - pPin) - R * 0.022)), c);
 
         // Slanted ///M logo at y + 0.43 R (hub & needle drawn in E39NEEDLES above dial numbers)
-        c = drawMLogo(p, center + vec2(0.0, R * 0.43), R * 0.092, c);
+        c = drawWLogo(p, center + vec2(0.0, R * 0.43), R * 0.092, c);
     } else {
         // ---- TACHOMETER (0..5000 rpm; linear angular allocation) ----
         // Main ticks every 1000 rpm; intermediate dots every 500 rpm. Linear from 0 to 5000 rpm.
