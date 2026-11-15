@@ -1429,14 +1429,19 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
             // the narrow rounded dash used by the first pass. Keep the blue marker unchanged.
             float dPatch;
             if (s > 0) {
-                // Red zone is a curved annular segment, moved 2 px inward and 2 degrees counter-clockwise.
+                // Red zone: outer edge extended by 1 px, inner edge preserved;
+                // shifted 1 degree clockwise, with the smallest practical corner radius.
                 float radius = length(pq);
                 float angle = atan(pq.x, -pq.y) / D2R;
-                float radialDist = abs(radius - (R * 0.80 + 1.0)) - R * 0.070;
-                // Signed angular distances are negative inside the shifted 32.5..50.5 degree sector.
-                float edgeDist = radius * sin((angle - 50.5) * D2R);
-                float startDist = radius * sin((32.5 - angle) * D2R);
-                float dArc = max(radialDist, max(edgeDist, startDist));
+                float radialDist = abs(radius - (R * 0.80 + 1.5)) - (R * 0.070 + 0.5);
+                // Positive angle is clockwise in this coordinate convention.
+                float edgeDist = radius * sin((angle - 51.5) * D2R);
+                float startDist = radius * sin((33.5 - angle) * D2R);
+                // Rounded intersection gives subtly softened ends without changing the arc profile.
+                vec2 arcCorner = vec2(radialDist, max(edgeDist, startDist));
+                float cornerRadius = 0.75;
+                float dArc = min(max(arcCorner.x, arcCorner.y), 0.0)
+                           + length(max(arcCorner, vec2(0.0))) - cornerRadius;
                 // Keep the marker visible inside the dial face; positive distance is outside.
                 dPatch = max(dArc, radius - R * 0.90);
             } else {
