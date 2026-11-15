@@ -1329,8 +1329,8 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float aTick = rpmAngle(rpmTick);
             float dM = 10.0;
             if (abs(k - 9.0) < 0.1) {
-                // 4500 rpm is a round dot marking the amber/red transition, not a tick.
-                dM = dotDist(q, aTick, R * 0.735, R * 0.018);
+                // 4500 rpm dot is centered on the same radius as the inner ends of the 4000/5000 rpm ticks.
+                dM = dotDist(q, aTick, R * 0.768, R * 0.018);
             } else if (mod(k, 2.0) < 0.5) {
                 float r0 = rpmTick >= 4000.0 ? R * 0.768 : R * 0.77;
                 dM = tickDistInnerRound(q, aTick, r0, R * 0.875, R * 0.0155);
@@ -1425,7 +1425,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float rpmMark = 4000.0 + float(ti) * 500.0;
             float aMark = rpmAngle(rpmMark);
             float dMark = ti == 1
-                ? dotDist(q, aMark, R * 0.735, R * 0.018)
+                ? dotDist(q, aMark, R * 0.768, R * 0.018)
                 : tickDistInnerRound(q, aMark, R * 0.768, R * 0.875, R * 0.0155);
             c = addMark(dMark, c);
         }
