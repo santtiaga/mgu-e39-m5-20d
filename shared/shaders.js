@@ -1337,20 +1337,17 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         }
 
         // 2. Fixed 500-rpm warning bands: amber 4000-4500, red 4500-5000.
-        // Warning bands must use the same linear RPM-to-angle mapping as the tachometer ticks.
+        // Evaluate each rounded band independently, including its complete glow perimeter.
         float a4 = rpmAngle(4000.0);
         float a45 = rpmAngle(4500.0);
         float a5 = rpmAngle(5000.0);
-        // Evaluate the rounded-band SDF beyond its visible bounds so the glow
-        // has the same falloff at the inner/outer edges and at both arc ends.
-        {
-            bool redZone = ang >= a45;
+        for (int zi = 0; zi < 2; zi++) {
+            bool redZone = zi == 1;
             float a0 = redZone ? a45 : a4;
             float a1 = redZone ? a5 : a45;
             float ro = R * 0.875;
             float th = R * 0.088;
-            // Preserve the original 13.5 px outer gaps at 4000 and 5000 rpm.
-            // Use half that offset (6.75 px) on both sides of the 4500-rpm boundary.
+            // Preserve the 13.5 px outer gaps; use 6.75 px on both sides of 4500 rpm.
             // All four corners remain rounded by exactly 2 px.
             float aStart = a0 + (redZone ? 6.75 : 13.5) / (ro * D2R);
             float aEnd = a1 - (redZone ? 13.5 : 6.75) / (ro * D2R);
