@@ -19,7 +19,7 @@
  *   score.last -> { at, from, to, rpm, target, verdict } or null; score.peak, score.limiterHits
  */
 const WARM_OIL = 80;           // °C
-const COLD_LIMIT = 4500;       // rpm at 30 °C oil (Redline's petrol default)
+const COLD_LIMIT = 4500;       // fallback for apps that do not provide an engine-specific cold limit
 const PEAK_HOLD_MS = 15000;
 const isNum = (v) => typeof v === 'number' && isFinite(v);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -45,7 +45,9 @@ class ShiftScore {
     shiftPoint(oil) {
         const n = this._normal();
         if (!this.opts().coldGuard || !isNum(oil) || oil >= WARM_OIL) return { rpm: n, cold: false };
-        const cold = Math.min(COLD_LIMIT, n);
+        const configuredLimit = this.opts().coldLimit;
+        const coldLimit = isNum(configuredLimit) && configuredLimit > 0 ? configuredLimit : COLD_LIMIT;
+        const cold = Math.min(coldLimit, n);
         const f = clamp((oil - 30) / (WARM_OIL - 30), 0, 1);
         return { rpm: Math.round((cold + (n - cold) * f) / 50) * 50, cold: true };
     }

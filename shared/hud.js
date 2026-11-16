@@ -421,6 +421,7 @@ class HudApp {
         this.car.setRedline(this.setting('redline'));
         this.score = new ShiftScore(this.car, () => ({
             redline: this.setting('redline'), shiftBefore: this.setting('shiftBefore'), coldGuard: this.setting('coldGuard'),
+            coldLimit: this.config.engine && this.config.engine.coldLimitRpm,
         }), this.log);
     }
 
@@ -521,6 +522,7 @@ class HudApp {
         clearInterval(this.dmeTimer);
         clearTimeout(this.statusAskT);
         this.clients.forEach((c) => c.close());
+        if (this.car && typeof this.car.stop === 'function') this.car.stop();
         this.atlases.clear();
     }
 
@@ -779,7 +781,7 @@ class HudApp {
             const e = this.config.engine || {}, d = this.car.data();
             if (!isNum(d.torque)) return null;
             if (name === 'torquePct') return Math.max(0, d.torque) / (e.torqueNm || 500) * 100;
-            return isNum(d.rpm) ? Math.max(0, d.torque) * d.rpm / 9549 / (e.powerKw || 285) * 100 : null;
+            return isNum(d.rpm) && e.powerKw > 0 ? Math.max(0, d.torque) * d.rpm / 9549 / e.powerKw * 100 : null;
         }
         if (name.indexOf('setupLevel:') === 0) { const s = this._setup(); return s ? SETUP_LEVEL[s[name.slice(11)]] || 0 : 0; }
         const d = this.car.data();
@@ -841,11 +843,12 @@ class HudApp {
                 return (n > 0 ? '+' : '') + n;
             }
             case 'e39Odo': {
+                if (!this.car.data().demo) return '------'; // no odometer source is subscribed by this app
                 const odo = Math.floor(105432 + (us ? this.e39DistKm * 0.621371 : this.e39DistKm));
                 return String(odo % 1000000).padStart(6, '0');
             }
             case 'e39Trip': {
-                const tr = (318.4 + (us ? this.e39DistKm * 0.621371 : this.e39DistKm)) % 1000;
+                const tr = (us ? this.e39DistKm * 0.621371 : this.e39DistKm) % 1000;
                 return tr.toFixed(1).padStart(5, '0');
             }
             case 'e39GearBg': {
@@ -856,7 +859,8 @@ class HudApp {
             }
             case 'e39Amb': {
                 const v = this._raw('ambient');
-                const t = isNum(v) ? (us ? v * 9 / 5 + 32 : v) : (us ? 54.5 : 12.5);
+                if (!isNum(v)) return '--';
+                const t = us ? v * 9 / 5 + 32 : v;
                 const r = Math.round(t * 2) / 2;
                 const s = (r >= 0 ? '+' : '-') + Math.abs(r).toFixed(1) + (us ? '°F' : '°C');
                 return s;
@@ -903,15 +907,15 @@ class HudApp {
                 const bst = this._raw('boost');
                 const lim = this._e39LimitRpm();
                 const rDisp = isNum(this.rpmShown) ? this.rpmShown : (isNum(rpm) ? Math.round(rpm / 50) * 50 : 0);
-                if (isNum(rpm) && rpm >= 5000) {
+                if (isNum(rpm) && rpm >= this.setting('redline')) {
                     return Math.floor(Date.now() / 250) % 2 === 0
                         ? '! DREHZAHLBEGRENZER'
                         : 'SCHALTEN  ' + String(rDisp).padStart(4, ' ') + ' /MIN';
                 }
-                if (isNum(rpm) && isNum(oil) && oil < 75 && rpm >= lim) {
+                if (isNum(rpm) && isNum(oil) && oil < 80 && rpm >= lim) {
                     return 'OEL KALT   MAX ' + String(lim);
                 }
-                if (isNum(rpm) && rpm >= 4500) {
+                if (isNum(rpm) && rpm >= lim) {
                     return 'VORWARNFELD ' + String(rDisp) + '/MIN';
                 }
                 if (isNum(cool) && cool >= 115) {
@@ -921,18 +925,20 @@ class HudApp {
                 const modes = ['range', 'temps', 'power', 'tpms', 'gforce', 'boost', 'sprint', 'cons'];
                 const pick = obcMode !== 'auto' && modes.indexOf(obcMode) >= 0 ? obcMode : modes[Math.floor(Date.now() / 3500) % modes.length];
                 if (pick === 'range') {
-                    const rv = isNum(rng) ? Math.round(us ? rng * 0.621371 : rng) : 368;
-                    const fl = isNum(this.fuelL) ? Math.round(this.fuelL) : 45;
-                    return 'TANK ' + String(fl).padStart(2, ' ') + 'L  RW ' + String(rv).padStart(3, ' ') + (us ? ' MI' : ' KM');
+                    const rv = isNum(rng) ? String(Math.round(us ? rng * 0.621371 : rng)).padStart(3, ' ') : '---';
+                    const fl = isNum(this.fuelL) ? String(Math.round(this.fuelL)).padStart(2, ' ') : '--';
+                    return 'TANK ' + fl + 'L  RW ' + rv + (us ? ' MI' : ' KM');
                 }
                 if (pick === 'temps') {
-                    const ov = isNum(oil) ? Math.round(us ? oil * 9 / 5 + 32 : oil) : 92;
-                    const cv = isNum(cool) ? Math.round(us ? cool * 9 / 5 + 32 : cool) : 90;
-                    return 'OEL ' + String(ov).padStart(3, ' ') + '°C  KW ' + String(cv).padStart(3, ' ') + '°C';
+                    const unit = us ? 'F' : 'C';
+                    const ov = isNum(oil) ? String(Math.round(us ? oil * 9 / 5 + 32 : oil)).padStart(3, ' ') : '---';
+                    const cv = isNum(cool) ? String(Math.round(us ? cool * 9 / 5 + 32 : cool)).padStart(3, ' ') : '---';
+                    return 'OEL ' + ov + '°' + unit + '  KW ' + cv + '°' + unit;
                 }
                 if (pick === 'power') {
-                    const nm = isNum(trq) && trq > 0 ? Math.round(trq) : Math.round(Math.max(45, (isNum(rpm) ? rpm : 2400) / 6800 * 500));
-                    const ps = Math.min(750, Math.max(12, Math.round((nm * (isNum(rpm) ? rpm : 2400)) / 9549 * 1.35962)));
+                    if (!isNum(trq) || !isNum(rpm)) return 'M-POWER  ---PS  ---NM';
+                    const nm = Math.round(Math.max(0, trq));
+                    const ps = Math.round((nm * rpm) / 9549 * 1.35962);
                     return 'M-POWER ' + String(ps).padStart(3, ' ') + 'PS ' + String(nm).padStart(3, ' ') + 'NM';
                 }
                 if (pick === 'tpms') {
@@ -947,8 +953,7 @@ class HudApp {
                     return 'G-KRAFT ' + gNow.toFixed(2) + 'G M' + this.e39PeakG.toFixed(2);
                 }
                 if (pick === 'boost') {
-                    const b = isNum(bst) && bst > 0.02 ? bst : Math.max(0, ((isNum(rpm) ? rpm : 2000) - 1500) / 5500 * 0.95);
-                    return 'LADEDRUCK  +' + b.toFixed(2) + ' BAR';
+                    return isNum(bst) ? 'LADEDRUCK  +' + Math.max(0, bst).toFixed(2) + ' BAR' : 'LADEDRUCK  -- BAR';
                 }
                 if (pick === 'sprint') {
                     if (this.e39Sprint.state === 'running') {
@@ -986,13 +991,16 @@ class HudApp {
                     return 'V-MAX   ' + String(vm).padStart(3, ' ') + ' KM/H';
                 }
                 // Default 'telemetry': Row 1 = Power + Torque, Row 2 = Boost + G-Force
-                const nm = isNum(trq) && trq > 0 ? Math.round(trq) : Math.round(Math.max(45, (isNum(rpm) ? rpm : 2400) / 6800 * 500));
-                const ps = Math.min(750, Math.max(12, Math.round((nm * (isNum(rpm) ? rpm : 2400)) / 9549 * 1.35962)));
-                if (isRow1) return String(ps).padStart(3, ' ') + 'PS  ' + String(nm).padStart(3, ' ') + 'NM  M5';
-                const glat = this._raw('gLat') || 0, glon = this._raw('gLong') || 0;
-                const gNow = Math.min(2.5, Math.hypot(glat, glon));
-                const b = isNum(bst) && bst > 0.02 ? bst : Math.max(0, ((isNum(rpm) ? rpm : 2000) - 1500) / 5500 * 0.95);
-                return '+' + b.toFixed(1) + 'B  G:' + gNow.toFixed(2) + 'G';
+                if (isRow1) {
+                    if (!isNum(trq) || !isNum(rpm)) return '---PS  ---NM  20D';
+                    const nm = Math.round(Math.max(0, trq));
+                    const ps = Math.round((nm * rpm) / 9549 * 1.35962);
+                    return String(ps).padStart(3, ' ') + 'PS  ' + String(nm).padStart(3, ' ') + 'NM  20D';
+                }
+                const glat = this._raw('gLat'), glon = this._raw('gLong');
+                const gNow = isNum(glat) || isNum(glon) ? Math.min(2.5, Math.hypot(glat || 0, glon || 0)).toFixed(2) + 'G' : '--G';
+                const boostText = isNum(bst) && bst > 0.02 ? '+' + bst.toFixed(1) + 'B' : '--B';
+                return boostText + '  G:' + gNow;
             }
             case 'u:torque': return us ? 'lb-ft' : 'Nm';
             case 'torque': { const v = this._raw('torque'); return fix(isNum(v) ? (us ? v * 0.737562 : v) : v, 0); }
@@ -1488,10 +1496,8 @@ class HudApp {
 
     /** E39 20d oil-temperature-dependent shift warning (4000 /min cold .. 4500 /min warm). */
     _e39LimitRpm() {
-        const oil = this._raw('oil');
-        const oilC = isNum(oil) ? oil : 90;
-        const fWarm = Math.min(1, Math.max(0, (oilC - 45) / 45));
-        return 4000 + Math.round(fWarm * 1) * 500;
+        // Use the same engine-profile-aware cold guard as the shift indicator.
+        return this.score.shiftPoint(this._raw('oil')).rpm;
     }
 
     /**
