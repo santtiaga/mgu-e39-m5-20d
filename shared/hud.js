@@ -1658,7 +1658,7 @@ class HudApp {
                 spMode,
                 shSt,
                 brkTmp,
-                Math.min(5200, Math.max(isNum(rpm) ? rpm : 0, sweep * 5200)),
+                Math.min(6000, Math.max(isNum(rpm) ? rpm : 0, sweep * 6000)),
             ];
             const key = vals.join('|');
             if (!force && key === x.last) return;
@@ -1679,7 +1679,7 @@ class HudApp {
             const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 500) / 500;
             const vals = [
                 q(Math.max(isNum(sp) ? sp / (w.speedMax || 300) : 0, sweep)),
-                Math.max(0, Math.min(1.04, Math.max(isNum(rpm) ? rpm / (w.rpmMax || this.setting('redline')) : 0, sweep * 1.04))),
+                Math.max(0, Math.min(1.2, Math.max(isNum(rpm) ? rpm / (w.rpmMax || this.setting('redline')) : 0, sweep * 1.2))),
                 q(Math.max(isNum(fuel) ? fuel : 0.72, sweep)),
                 q(Math.max(isNum(oil) ? (oil - 50) / 100 : 0.4, sweep)),
                 q(Math.max(isNum(cool) ? (cool - 50) / 80 : 0.5, sweep)),
