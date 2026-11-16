@@ -2,7 +2,7 @@
 /**
  * Shift scoring and the cold-engine rev guard, for the Redline HUD layout. The rules are ported
  * from cauliflowermossgrape's Redline app (apps/redline/main.js, MIT, Copyright (c) 2026
- * cauliflowermossgrape), with the petrol defaults this car needs:
+ * cauliflowermossgrape), with the engine-specific cold limit supplied by app config:
  *
  *  - shift point = redline - "shiftBefore" (never below 2500 rpm)
  *  - cold guard ("coldGuard" on): until the oil reaches 80 °C the shift point is pulled down to
