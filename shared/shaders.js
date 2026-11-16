@@ -2042,6 +2042,21 @@ void main() {
         vec3 pinSideColor = mix(vec3(0.018, 0.021, 0.028), vec3(0.19, 0.20, 0.22), pinLight);
         c = over(vec4(pinSideColor, cov(pinD)), c);
 
+        // Visible ground-facing base: an ellipse whose narrow axis follows the cast-shadow direction.
+        // The grazing projection compresses the base along the light/shadow direction.
+        vec2 pinShadowDir = normalize(pinShadowAxis);
+        vec2 pinBaseAcross = vec2(-pinShadowDir.y, pinShadowDir.x);
+        vec2 pinBaseCenter = pinShadowA0;
+        vec2 pinBaseLocal = sq - pinBaseCenter;
+        vec2 pinBaseCoords = vec2(dot(pinBaseLocal, pinBaseAcross), dot(pinBaseLocal, pinShadowDir));
+        vec2 pinBaseRadii = vec2(pinRadius * 0.92, pinRadius * 0.38);
+        float pinBaseD = length(pinBaseCoords / pinBaseRadii) - 1.0;
+        float pinBaseRimD = length(pinBaseCoords / (pinBaseRadii + vec2(0.42, 0.42))) - 1.0;
+        c = over(vec4(vec3(0.006, 0.008, 0.012), cov(pinBaseRimD)), c);
+        vec3 pinBaseColor = mix(vec3(0.012, 0.015, 0.020), vec3(0.075, 0.082, 0.092),
+                                clamp(0.5 + dot(pinBaseAcross, normalize(vec2(-0.58, -0.82))) * 0.35, 0.0, 1.0));
+        c = over(vec4(pinBaseColor, cov(pinBaseD)), c);
+
         // Top face seen from slightly above: foreshortened into an ellipse, with the raised cap
         // displaced away from the viewer so the lower side wall remains visible.
         vec2 pinTopCenter = pPin + vec2(-0.45, -1.75);
