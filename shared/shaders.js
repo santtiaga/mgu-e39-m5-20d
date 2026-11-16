@@ -2069,7 +2069,7 @@ void main() {
         vec2 pinTopNormal = normalize(vec2(pinTopView.x, pinTopView.y / 0.72));
         float pinTopLight = clamp(dot(pinTopNormal, normalize(vec2(-0.62, -0.78))), 0.0, 1.0);
         // Dark, flat cap: a soft grey reflection rather than a bright polished-metal spot.
-        vec3 pinTopColor = mix(vec3(0.035, 0.040, 0.048), vec3(0. thirty, 0. thirty, 0. thirty), pow(pinTopLight, 1.25));
+        vec3 pinTopColor = mix(vec3(0.035, 0.040, 0.048), vec3(0.30, 0.32, 0.35), pow(pinTopLight, 1.25));
         c = over(vec4(vec3(0.012, 0.014, 0.019), cov(pinTopD + 0.65)), c);
         c = over(vec4(pinTopColor, cov(pinTopD)), c);
         // Restrained highlight on the far/upper edge of the visible top face.
