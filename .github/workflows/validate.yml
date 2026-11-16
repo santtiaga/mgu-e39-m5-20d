@@ -22,3 +22,14 @@ jobs:
           find apps/apex_dash/hud -type f -name '*.json' -print0 | xargs -0 -n1 python3 -m json.tool > /dev/null
       - name: Test diesel shift calibration
         run: node tests/shift_score.test.js
+      - name: Build installable Apex Dash packages
+        run: python3 kit/tools/build.py apex_dash
+      - name: Upload Apex Dash packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-dash-1.4.1
+          path: |
+            dist/apex_dash@1.4.1.mgu
+            dist/apex_dash@1.4.1.tgz
+          if-no-files-found: error
+          retention-days: 30
