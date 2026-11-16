@@ -294,6 +294,9 @@ class HudApp {
         this.fuelL = null; this.rangeKm = null; this.ambient = null;   // KombiIF tank / range, outside temperature
         this.tyres = { p: {}, t: {} };                                  // TPMS pressure (bar) and temperature (C) per corner FL FR RL RR
         this.activeName = null;          // the layout shown now ('off' = nothing)
+        this.vehicleOff = false;
+        this.deferredRebuild = false;
+        this.vehicleOffLogged = false;
         this.pixelBytes = 0;             // what the layout's image layers and glyph atlases cost of cluster-render's pixel memory
         this.atlases = new Map();        // "<conn>:<font>" -> { ref, c, ci, cols, rows, cellW, cellH, chars, bytes }: R8 assets, kept across rebuilds
         this.targetState = null;         // latest cluster-render target diagnostics
@@ -420,7 +423,7 @@ class HudApp {
                 },
             },
         };
-        this.car = new Car(this.ctx, ['rpm', 'speed', 'temps', 'accel', 'gear', 'torque'], extra);
+        this.car = new Car(this.ctx, ['rpm', 'speed', 'temps', 'accel', 'gear', 'torque', 'condition'], extra);
         this.car.setRedline(this.setting('redline'));
         this.score = new ShiftScore(this.car, () => ({
             redline: this.setting('redline'), shiftBefore: this.setting('shiftBefore'), coldGuard: this.setting('coldGuard'),
@@ -1107,18 +1110,29 @@ class HudApp {
 
     _rebuildInner() {
         if (!this.client.ready) return; // the 'ready' handler calls us again
+        const name = this._layoutName();
+        const vehicle = this._vehicleGate(this.car.data());
+        if (name !== 'off' && vehicle.hold) {
+            this.deferredRebuild = true;
+            if (vehicle.off) {
+                this._dropLayoutLayers();
+                this.vehicleOff = true;
+                if (!this.vehicleOffLogged) {
+                    this.vehicleOffLogged = true;
+                    this.log.info('vehicle state ' + vehicle.condition + ': cluster layers dropped; waiting for drive-ready');
+                }
+            }
+            return;
+        }
+        this.deferredRebuild = false;
+        this.vehicleOff = false;
+        this.vehicleOffLogged = false;
         this.e39BootAt = Date.now();
-        this._layerRefs().forEach((r) => r.c.drop(r.ref));
-        this.widgets.clear();
-        this.sheets = [];
-        this.pixelBytes = 0;
-        this.layerStates.clear();
-        this.refused = null;
+        this._dropLayoutLayers();
         clearTimeout(this.statusAskT); this.statusAskT = null;
         clearTimeout(this.offStatusT1); this.offStatusT1 = null;
         clearTimeout(this.offStatusT2); this.offStatusT2 = null;
         this.car.setRedline(this.setting('redline'));
-        const name = this._layoutName();
         this.activeName = name;
         if (name === 'off') {
             this.problem = null; this.layoutTheme = null; this.needsBoost = false;
@@ -1485,10 +1499,58 @@ class HudApp {
 
     _holeRadius(w) { return isNum(w.holeRadius) ? w.holeRadius : 28; }
 
+    /** BMW vehicle-state gate, ported from the newer Redline HUD shutdown fix. */
+    _vehicleGate(data) {
+        const d = data || {};
+        const c = d.condition;
+        const known = d.conditionKnown !== false;
+        const off = known && isNum(c) && (c <= 5 || c === 12);
+        return {
+            condition: c,
+            off: off,
+            hold: d.conditionKnown === false || (isNum(c) && (c <= 5 || c === 8 || c === 12)),
+        };
+    }
+
+    /** Drop only layout layers; keep the shared renderer connection and cached font assets alive. */
+    _dropLayoutLayers() {
+        this._layerRefs().forEach((r) => r.c.drop(r.ref));
+        this.widgets.clear();
+        this.sheets = [];
+        this.pixelBytes = 0;
+        this.layerStates.clear();
+        this.refused = null;
+    }
+
     _tick() {
         const now = Date.now();
         this._frameData = this.car.data();
         try {
+            const vehicle = this._vehicleGate(this._frameData);
+            if (vehicle.off) {
+                if (!this.vehicleOff) {
+                    this._dropLayoutLayers();
+                    this.vehicleOff = true;
+                    this.deferredRebuild = true;
+                    if (!this.vehicleOffLogged) {
+                        this.vehicleOffLogged = true;
+                        this.log.info('vehicle state ' + vehicle.condition + ': cluster layers dropped; waiting for drive-ready');
+                    }
+                    this._status();
+                }
+                return;
+            }
+            if (!vehicle.hold && (this.vehicleOff || this.deferredRebuild)) {
+                this.vehicleOff = false;
+                this.deferredRebuild = false;
+                this.vehicleOffLogged = false;
+                this._rebuild();
+                return;
+            }
+            if (vehicle.hold && this.widgets.size === 0) {
+                this.deferredRebuild = true;
+                return;
+            }
             this._smoothRpm(now);
             if (!this.client.ready) return;
             // shift light: blink the whole bar at 8 Hz once the rpm reaches the redline
