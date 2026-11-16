@@ -31,6 +31,6 @@ jobs:
           name: apex-dash-1.4.5
           path: |
             dist/apex_dash@1.4.5.mgu
-            dist/apex_dash@1.4.4.tgz
+            dist/apex_dash@1.4.5.tgz
           if-no-files-found: error
           retention-days: 30
