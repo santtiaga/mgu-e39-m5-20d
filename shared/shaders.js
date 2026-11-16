@@ -1413,7 +1413,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float ledArcEnd = a5 + tickSideAngle;
         float ledSpan = ledArcEnd - ledArcStart;
         float ledGapAngle = ledGap / (ledR * D2R);
-        // Ten equal rectangles and nine equal gaps fill the interval between the two tick side edges.
+        // Nine equal rectangles and eight equal gaps fill the interval between the 4100/5000 side edges.
         float ledWidth = (ledSpan - ledGapAngle * (SHIFT_LEDS - 1.0)) / SHIFT_LEDS;
         float ledStep = ledWidth + ledGapAngle;
         float ledIdx = floor(clamp((ang - ledArcStart) / ledStep, 0.0, SHIFT_LEDS - 0.0001));
@@ -1425,10 +1425,10 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float ledRpm = u_rpmActual;
         // Each remaining LED activates at its 100 rpm threshold: 4101 ... 4901.
         float ledThreshold = 4101.0 + ledIdx * 100.0;
-        // Let the endpoint glow breathe by 1 px beyond the 4000/5000 axes;
+        // Let the endpoint glow breathe by 1 px beyond the 4100/5000 range;
         // the LED bodies themselves remain aligned exactly to those axes.
         // Extend only the clipping mask beyond the endpoint LEDs so their glow remains visible.
-        // The LED geometry and the 4000/5000 alignment stay unchanged.
+        // The LED geometry remains aligned to the 4100/5000 range.
         float ledMaskPad = 12.0 / (ledR * D2R);
         bool ledGlowOn = ledRpm >= ledThreshold;
         bool ledOn = ang >= ledArcStart && ang <= ledArcEnd && ledGlowOn;
