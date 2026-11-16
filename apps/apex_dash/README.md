@@ -10,7 +10,7 @@ Custom E39 M5-inspired instrument cluster for the BMW G31 LCI 520d MHEV Stage 1 
 
 | Dash | Look |
 |---|---|
-| **E39 M5 Cluster** | Faithful daylight recreation of the BMW E39 M5 instrument cluster: dual 300 km/h speedometer and 8,000 RPM tachometer with italic numerals, oil temperature dial, coolant temperature, fuel gauge, dynamic 5-needle startup sweep self-test, Check Control OBC animation, dynamic LED warm-up arch (Vorwarnfeld), 5-segment Service-Interval display (SIA), and 7/8-speed Steptronic / DKG selector. |
+| **G31 520d MHEV — E39 M5 Style** | E39 M5-inspired cluster calibrated for the G31 LCI 520d MHEV Stage 1: 240 km/h speed scale, tach needle travel to 6,000 rpm, 530 Nm / 183 kW reference, 3,000 rpm cold-oil guard, 4,500 rpm warm shift prompt, live vehicle telemetry, and 8-speed ZF selector. |
 | **E39 M5 Night Cluster** | Authentic night illumination featuring iconic BMW amber gauge backlighting, dimmed instrument faces, and illuminated fluorescent red/orange needles. |
 
 ## Startup Animation Sequence (0.0s – 7.0s)
