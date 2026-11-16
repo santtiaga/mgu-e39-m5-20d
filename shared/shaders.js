@@ -1316,15 +1316,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                 c = addMark(dM, c);
             }
         }
-        // Stop pin just below 0 km/h
-        float aPin = -131.0 * D2R;
-        vec2 pPin = vec2(sin(aPin), -cos(aPin)) * (R * 0.62);
-        float pinD = length(q - pPin) - R * 0.022;
-        c = over(vec4(0.027, 0.031, 0.039, cov(pinD)), c);
-        // Explicit 1.5 px inner highlight band, clipped to the pin interior.
-        float pinInnerShadow = 0.95 * (1.0 - smoothstep(0.0, 1.5, -pinD)) * step(pinD, 0.0) * cov(pinD);
-        c = over(vec4(vec3(0.105, 0.109, 0.118), pinInnerShadow), c);
-
+        // Stop pin is rendered in the needle overlay so the needle cannot hide its inner edge.
         // Slanted ///M logo at y + 0.43 R (hub & needle drawn in E39NEEDLES above dial numbers)
         c = drawMLogo(p, center + vec2(0.0, R * 0.43), R * 0.092, c);
     } else {
@@ -2027,6 +2019,13 @@ void main() {
         float spdKmh = clamp(u_speed, 0.0, 1.0) * 240.0;
         float sAng = -128.0 + spdKmh * (261.0 / 240.0);
         c = drawE39Needle(sq, sAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, c);
+        // Stop pin on top of the needle: 1.5 px lighter inner bevel.
+        float aPin = -131.0 * D2R;
+        vec2 pPin = vec2(sin(aPin), -cos(aPin)) * (mR * 0.62);
+        float pinD = length(sq - pPin) - mR * 0.022;
+        c = over(vec4(0.027, 0.031, 0.039, cov(pinD)), c);
+        float pinInnerShadow = 0.95 * (1.0 - smoothstep(0.0, 1.5, -pinD)) * step(pinD, 0.0) * cov(pinD);
+        c = over(vec4(vec3(0.105, 0.109, 0.118), pinInnerShadow), c);
     }
 
     // 4. Main Tachometer + Oil Temp Sub-Dial Needles (center 1155, 295, R = 214)
