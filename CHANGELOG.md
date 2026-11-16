@@ -4,6 +4,10 @@ Newest first. Dates are when the build was pushed.
 
 ## Nov 16 2026
 
+- **Apex Dash 1.4.3:** port Redline's vehicle-state shutdown gate into the panel renderer: defer new layers during ignition transitions, drop active layers when the car switches off, and resume rendering when drive-ready. Add the optional BMW VehicleCondition signal.
+
+## Nov 16 2026
+
 - **Apex Dash 1.4.2:** update the bundled cluster-render client to the current upstream implementation; retain diagnostic target-state and retry telemetry for the in-app logs.
 
 ## Nov 16 2026
