@@ -6,7 +6,7 @@
  *
  *  - shift point = redline - "shiftBefore" (never below 2500 rpm)
  *  - cold guard ("coldGuard" on): until the oil reaches 80 °C the shift point is pulled down to
- *    4500 rpm at 30 °C oil and climbs with the oil temperature, in 50 rpm steps
+ *    the engine profile's coldLimit (3000 rpm for this diesel) and climbs with oil temperature, in 50 rpm steps
  *  - every upshift (gear number +1; or, with no gear signal, rpm falling over 18 % within 0.4 s
  *    while moving) is scored on the highest rpm in the 0.6 s before it:
  *    LIMITER (within 60 rpm of the redline), EARLY (over 250 under the shift point),

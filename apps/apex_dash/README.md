@@ -1,6 +1,6 @@
-# E39 M5 20d Digital Cluster (edited by Santtiaga)
+# G31 520d MHEV — E39 M5 Style Digital Cluster
 
-Custom instrument cluster layout recreating the classic BMW E39 M5 gauge cluster for BMW iDrive 7 and 8 head units (MGU / MGU22) through `cluster-render`.
+Custom E39 M5-inspired instrument cluster for the BMW G31 LCI 520d MHEV Stage 1 (245 hp / 530 Nm), running on iDrive 7/8 MGU through `cluster-render`. The vehicle profile uses a 530 Nm / 183 kW reference, a 5,000 rpm diesel shift ceiling and a 3,000 rpm cold-oil shift guard.
 
 <p align="center">
   <img src="../../docs/images/e39-cluster-animation.gif" width="900" alt="E39 M5 Cluster Live Animation">

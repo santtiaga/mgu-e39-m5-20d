@@ -1,7 +1,7 @@
 {
   "id": "apex_dash",
-  "title": "E39 M5 Cluster (Marko DEV)",
-  "description": "Authentic BMW E39 M5 digital cluster for iDrive 7 and 8 (MGU) by Marko DEV. Features 5-needle startup sweep self-test, Check Control OBC display, dynamic LED warm-up arch, 7/8-speed Steptronic/DKG selector, and Service-Interval indicator.",
+  "title": "G31 520d MHEV — E39 M5 Style Cluster",
+  "description": "E39 M5-inspired digital instrument cluster configured for the BMW G31 LCI 520d MHEV Stage 1 (245 hp / 530 Nm) on iDrive 7/8 MGU. Includes diesel cold-rev guard, 8-speed ZF selector, live vehicle telemetry and configurable themes.",
   "version": "1.2.0",
   "vendor": "custom",
   "loggingId": "OAD1",
