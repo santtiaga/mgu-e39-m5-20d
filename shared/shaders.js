@@ -1319,7 +1319,11 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         // Stop pin just below 0 km/h
         float aPin = -131.0 * D2R;
         vec2 pPin = vec2(sin(aPin), -cos(aPin)) * (R * 0.62);
-        c = over(vec4(0.027, 0.031, 0.039, cov(length(q - pPin) - R * 0.022)), c);
+        float pinD = length(q - pPin) - R * 0.022;
+        c = over(vec4(0.027, 0.031, 0.039, cov(pinD)), c);
+        // Subtle 1.5 px inner shadow, half a tone lighter than the pin surface.
+        float pinInnerShadow = 0.42 * exp(-max(-pinD, 0.0) / 1.5) * cov(pinD);
+        c = over(vec4(vec3(0.075, 0.078, 0.085), pinInnerShadow), c);
 
         // Slanted ///M logo at y + 0.43 R (hub & needle drawn in E39NEEDLES above dial numbers)
         c = drawMLogo(p, center + vec2(0.0, R * 0.43), R * 0.092, c);
