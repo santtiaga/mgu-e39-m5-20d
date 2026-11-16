@@ -1,0 +1,24 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 8.16.2
+      - name: Check JavaScript syntax on the MGU Node runtime
+        run: |
+          find apps shared kit bench design tools -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Validate app and layout JSON
+        run: |
+          python3 -m json.tool apps/apex_dash/app.json > /dev/null
+          find apps/apex_dash/hud -type f -name '*.json' -print0 | xargs -0 -n1 python3 -m json.tool > /dev/null
+      - name: Test diesel shift calibration
+        run: node tests/shift_score.test.js
