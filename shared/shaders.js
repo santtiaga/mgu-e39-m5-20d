@@ -1998,7 +1998,7 @@ void main() {
     // 1. Left Fuel Dial Needle (center 245, 398, R = 118, lowered pivot y + 0.44 R)
     vec2 fC = vec2(245.0, 398.0);
     float fR = 118.0;
-    if (length(p - fC) <= fR * 0.913 + 0.5) {
+    if (dot(p - fC, p - fC) <= (fR * 0.913 + 0.5) * (fR * 0.913 + 0.5)) {
         vec2 fpq = p - (fC + vec2(0.0, fR * 0.44));
         c = drawHub(fpq, fR * 0.235, c);
         float fAng = -54.0 + clamp(u_fuel, 0.0, 1.0) * 108.0;
@@ -2007,7 +2007,7 @@ void main() {
 
     // 2. Right Coolant Dial Needle (center 1735, 398, R = 118, lowered pivot y + 0.44 R)
     vec2 cC = vec2(1735.0, 398.0);
-    if (length(p - cC) <= fR * 0.913 + 0.5) {
+    if (dot(p - cC, p - cC) <= (fR * 0.913 + 0.5) * (fR * 0.913 + 0.5)) {
         vec2 cpq = p - (cC + vec2(0.0, fR * 0.44));
         c = drawHub(cpq, fR * 0.235, c);
         float cAng = -54.0 + clamp(u_coolant, 0.0, 1.0) * 108.0;
@@ -2018,7 +2018,7 @@ void main() {
     vec2 sC = vec2(625.0, 295.0);
     float mR = 214.0;
     vec2 sq = p - sC;
-    if (length(sq) <= mR * 0.92) {
+    if (dot(sq, sq) <= (mR * 0.92) * (mR * 0.92)) {
         c = drawHub(sq, mR * 0.162, c);
         float spdKmh = clamp(u_speed, 0.0, 1.0) * 240.0;
         float sAng = -128.0 + spdKmh * (261.0 / 240.0);
@@ -2044,7 +2044,7 @@ void main() {
     // 4. Main Tachometer + Oil Temp Sub-Dial Needles (center 1155, 295, R = 214)
     vec2 tC = vec2(1155.0, 295.0);
     vec2 tq = p - tC;
-    if (length(tq) <= mR * 0.92) {
+    if (dot(tq, tq) <= (mR * 0.92) * (mR * 0.92)) {
         vec2 oq = p - (tC + vec2(0.0, mR * 0.40));
         c = drawHub(tq, mR * 0.162, c);
         c = drawHub(oq, mR * 0.122, c);

@@ -16,6 +16,9 @@ const data = require('./hud_data');
 
 const loadedFonts = new Map();
 const warnedMissing = new Set();
+// Reuse the two intermediate coverage masks: text rasterisation is synchronous, and
+// widgets of a given size are painted sequentially on the app's single JS thread.
+const blurScratch = new Map();
 
 function loadFont(name) {
     if (loadedFonts.has(name)) return loadedFonts.get(name);

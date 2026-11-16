@@ -4,6 +4,10 @@ Newest first. Dates are when the build was pushed.
 
 ## Nov 17 2026
 
+- **Apex Dash 1.4.5:** reuse text-glow blur scratch buffers instead of allocating intermediate masks on every repaint; replace four needle-layer distance square roots used only for circular bounds checks with equivalent squared-distance tests. Visual geometry and effect parameters are unchanged.
+
+## Nov 17 2026
+
 - **Apex Dash 1.4.4:** add a configurable 400 rpm stopped-engine floor for the B47 MHEV's residual engine-speed signal; prevent pending SOME/IP reads and notifications from updating data after shutdown; release the layouts filesystem watcher and debounce timer on stop; stop DME boost polling when layout layers are dropped; make HUD shutdown idempotent and clear its pending status timer. CI now runs every `tests/*.test.js` file.
 
 ## Nov 16 2026
