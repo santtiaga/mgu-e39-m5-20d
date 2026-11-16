@@ -2035,18 +2035,21 @@ void main() {
         vec3 pinSideColor = mix(vec3(0.018, 0.021, 0.028), vec3(0.19, 0.20, 0.22), pinLight);
         c = over(vec4(pinSideColor, cov(pinD)), c);
 
-        // Raised top cap, shifted up-left to reveal the cylinder's side wall below it.
-        vec2 pinTopCenter = pPin + vec2(-1.15, -1.55);
-        float pinTopRadius = pinRadius * 0.70;
+        // Top face seen from slightly above: foreshortened into an ellipse, with the raised cap
+        // displaced away from the viewer so the lower side wall remains visible.
+        vec2 pinTopCenter = pPin + vec2(-0.45, -1.75);
+        float pinTopRadius = pinRadius * 0.72;
         vec2 pinTopLocal = sq - pinTopCenter;
-        float pinTopD = length(pinTopLocal) - pinTopRadius;
-        float pinTopLight = clamp(dot(pinTopLocal / max(length(pinTopLocal), 0.001), normalize(vec2(-0.62, -0.78))), 0.0, 1.0);
+        vec2 pinTopView = vec2(pinTopLocal.x, pinTopLocal.y / 0.72);
+        float pinTopD = length(pinTopView) - pinTopRadius;
+        vec2 pinTopNormal = normalize(vec2(pinTopView.x, pinTopView.y / 0.72));
+        float pinTopLight = clamp(dot(pinTopNormal, normalize(vec2(-0.62, -0.78))), 0.0, 1.0);
         vec3 pinTopColor = mix(vec3(0.045, 0.050, 0.060), vec3(0.31, 0.32, 0.34), pinTopLight);
         c = over(vec4(vec3(0.012, 0.014, 0.019), cov(pinTopD + 0.65)), c);
         c = over(vec4(pinTopColor, cov(pinTopD)), c);
-        // Small specular edge on the upper-left quadrant.
-        float pinGlintD = length(pinTopLocal - vec2(0.75, 0.65)) - 0.75;
-        c = over(vec4(vec3(0.48, 0.50, 0.54), 0.42 * cov(pinGlintD)), c);
+        // Restrained highlight on the far/upper edge of the visible top face.
+        float pinGlintD = length(pinTopView - vec2(-0.25, -0.45)) - 0.52;
+        c = over(vec4(vec3(0.48, 0.50, 0.54), 0.34 * cov(pinGlintD)), c);
     }
 
     // 4. Main Tachometer + Oil Temp Sub-Dial Needles (center 1155, 295, R = 214)
