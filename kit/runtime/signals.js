@@ -51,18 +51,24 @@ function loadConfig(iface) {
  * fields a car may not notify (BMW's x_call only ever reads TPMS, it never subscribes).
  */
 async function watch(iface, instance, handlers, log, opts) {
+    let pollTimer = null;
+    const fetching = Object.create(null);
     const res = { iface, available: false, proxy: null, error: null, shutdown: () => Promise.resolve() };
     if (!someip) { res.error = 'someip native module not available'; return res; }
     try {
         const cfg = loadConfig(iface);
         const p = await nativeTick(() => someip.buildProxy(cfg, String(instance)).then((px) => px.init().then(() => px)));
         res.proxy = p;
-        res.shutdown = () => Promise.resolve().then(() => p.shutdown && p.shutdown()).catch(() => {});
+        res.shutdown = () => {
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = null;
+            return Promise.resolve().then(() => p.shutdown && p.shutdown()).catch(() => {});
+        };
         const fields = Object.keys(handlers || {});
         const fetchAll = () => fields.forEach((f) => {
-            if (cfg.fields && cfg.fields[f] && cfg.fields[f].getter) {
-                p.getValue(f, 3000).then((v) => handlers[f](v)).catch(() => {});
-            }
+            if (!(cfg.fields && cfg.fields[f] && cfg.fields[f].getter) || fetching[f]) return;
+            fetching[f] = true;
+            p.getValue(f, 3000).then((v) => handlers[f](v)).catch(() => {}).then(() => { fetching[f] = false; });
         });
         await nativeTick(() => {
             try { return p.subscribeToAvailability((a) => { res.available = !!a; if (a) setImmediate(fetchAll); }); } catch (e) { return null; /* older binding */ }
@@ -75,7 +81,7 @@ async function watch(iface, instance, handlers, log, opts) {
             }
         }
         if (p.isAvailable && p.isAvailable()) { res.available = true; fetchAll(); }
-        if (opts && opts.pollMs) setInterval(() => { if (res.available) setImmediate(fetchAll); }, opts.pollMs);
+        if (opts && opts.pollMs) pollTimer = setInterval(() => { if (res.available) setImmediate(fetchAll); }, opts.pollMs);
     } catch (e) {
         res.error = String(e);
         if (log) log.warn('signals ' + iface + ': ' + e);
