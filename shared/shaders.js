@@ -2023,15 +2023,15 @@ void main() {
         float aPin = -131.0 * D2R;
         vec2 pPin = vec2(sin(aPin), -cos(aPin)) * (mR * 0.62);
         float pinRadius = mR * 0.022;
-        // Cylindrical cast shadow: a clearly visible, tapered projection down-right from the pin.
-        // Extend it beyond the pin's footprint while retaining the needle shadow's softness and opacity.
+        // Cylindrical cast shadow: a straight-sided capsule with constant width, not a tapered cone.
+        // The parallel edges preserve the silhouette of a cylinder; only the two ends are rounded.
         vec2 pinShadowA0 = pPin + vec2(1.0, 2.0);
         vec2 pinShadowA1 = pPin + vec2(10.0, 14.0);
         vec2 pinShadowAxis = pinShadowA1 - pinShadowA0;
         float pinShadowT = clamp(dot(sq - pinShadowA0, pinShadowAxis) / dot(pinShadowAxis, pinShadowAxis), 0.0, 1.0);
-        float pinShadowRadius = mix(pinRadius * 0.78, pinRadius * 0.22, pinShadowT);
+        float pinShadowRadius = pinRadius * 0.58;
         float pinShadowD = length(sq - (pinShadowA0 + pinShadowAxis * pinShadowT)) - pinShadowRadius;
-        float pinShadowA = 0.42 * exp(-max(pinShadowD, 0.0) / 2.5) * (1.0 - 0.28 * pinShadowT);
+        float pinShadowA = 0.42 * exp(-max(pinShadowD, 0.0) / 2.5);
         c = over(vec4(0.0, 0.0, 0.0, pinShadowA), c);
 
         // Dark cylindrical wall. Directional shading gives the stem a rounded profile.
