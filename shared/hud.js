@@ -943,9 +943,9 @@ class HudApp {
                 }
                 if (pick === 'tpms') {
                     const pf = this._tyre('p', 'FL'), pr = this._tyre('p', 'RL'), tf = this._tyre('t', 'FL');
-                    const p1 = isNum(pf) ? pf.toFixed(1) : '2.3', p2 = isNum(pr) ? pr.toFixed(1) : '2.5';
-                    const t1 = isNum(tf) ? Math.round(tf) : 26;
-                    return 'RDK ' + p1 + '/' + p2 + 'B   ' + String(t1).padStart(2, ' ') + '°C';
+                    const p1 = isNum(pf) ? pf.toFixed(1) : '--.-', p2 = isNum(pr) ? pr.toFixed(1) : '--.-';
+                    const t1 = isNum(tf) ? String(Math.round(tf)).padStart(2, ' ') : '--';
+                    return 'RDK ' + p1 + '/' + p2 + 'B   ' + t1 + '°C';
                 }
                 if (pick === 'gforce') {
                     const glat = this._raw('gLat'), glon = this._raw('gLong');
