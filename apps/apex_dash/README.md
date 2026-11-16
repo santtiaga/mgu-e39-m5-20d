@@ -1,4 +1,4 @@
-# E39 M5 Digital Cluster (Marko DEV)
+# E39 M5 20d Digital Cluster (edited by Santtiaga)
 
 Custom instrument cluster layout recreating the classic BMW E39 M5 gauge cluster for BMW iDrive 7 and 8 head units (MGU / MGU22) through `cluster-render`.
 
