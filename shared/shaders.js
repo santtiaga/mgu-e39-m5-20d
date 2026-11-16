@@ -1886,20 +1886,6 @@ void main() {
     c = sideDial(p, vec2(245.0, 398.0), 118.0, u_fuel, false, c);
     c = sideDial(p, vec2(1735.0, 398.0), 118.0, u_coolant, true, c);
     c = mainDial(p, vec2(625.0, 295.0), 214.0, u_speed, false, 0.0, c);
-    // Light-grey under-needle shadow in the dial layer; same tapered geometry as the speed needle.
-    {
-        vec2 shQ = p - (vec2(625.0, 295.0) - vec2(2.5, 5.0));
-        float shAngle = (-128.0 + clamp(u_speed, 0.0, 1.0) * 261.0) * D2R;
-        vec2 shDir = vec2(sin(shAngle), -cos(shAngle));
-        vec2 shNrm = vec2(-shDir.y, shDir.x);
-        float shAlong = dot(shQ, shDir);
-        float shAcross = abs(dot(shQ, shNrm));
-        float shT = clamp((shAlong + 214.0 * 0.205) / (214.0 * (0.865 + 0.205)), 0.0, 1.0);
-        float shHalfWidth = mix(214.0 * 0.04, 214.0 * 0.021, shT) * 0.5;
-        float shDist = max(shAcross - shHalfWidth, max(-shAlong - 214.0 * 0.205, shAlong - 214.0 * 0.865));
-        float shAlpha = 0.48 * cov(shDist);
-        c = over(vec4(vec3(0.62, 0.63, 0.65), shAlpha), c);
-    }
     c = mainDial(p, vec2(1155.0, 295.0), 214.0, u_rpm, true, u_oil, c);
 
     // 4. Subtle cover glass diagonal reflection
