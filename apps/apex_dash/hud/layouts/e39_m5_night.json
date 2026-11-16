@@ -409,18 +409,46 @@
       "glow": true
     },
     {
-      "id": "e39_fuel_half",
       "type": "text",
       "z": 5,
       "x": 213,
       "y": 308,
       "w": 48,
       "h": 21,
-      "text": "½",
       "font": "e39_sub",
       "color": "fg",
       "align": "center",
-      "glow": true
+      "glow": true,
+      "id": "e39_fuel_half",
+      "text": "1"
+    },
+    {
+      "type": "text",
+      "z": 5,
+      "x": 221,
+      "y": 308,
+      "w": 48,
+      "h": 31,
+      "font": "e39_sub",
+      "color": "fg",
+      "align": "center",
+      "glow": true,
+      "id": "e39_fuel_half_slash",
+      "text": "/"
+    },
+    {
+      "type": "text",
+      "z": 5,
+      "x": 227,
+      "y": 318,
+      "w": 48,
+      "h": 21,
+      "font": "e39_sub",
+      "color": "fg",
+      "align": "center",
+      "glow": true,
+      "id": "e39_fuel_half_2",
+      "text": "2"
     },
     {
       "id": "e39_fuel_full",
