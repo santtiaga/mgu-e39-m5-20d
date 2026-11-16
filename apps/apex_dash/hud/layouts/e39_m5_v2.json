@@ -451,18 +451,46 @@
       "text": "2"
     },
     {
-      "id": "e39_fuel_full",
       "type": "text",
       "z": 5,
-      "x": 308,
-      "y": 363,
       "w": 48,
       "h": 21,
-      "text": "1/1",
       "font": "e39_sub",
       "color": "fg",
       "align": "center",
-      "glow": false
+      "glow": false,
+      "id": "e39_fuel_full_1",
+      "x": 301,
+      "y": 363,
+      "text": "1"
+    },
+    {
+      "type": "text",
+      "z": 5,
+      "w": 48,
+      "h": 31,
+      "font": "e39_sub",
+      "color": "fg",
+      "align": "center",
+      "glow": false,
+      "id": "e39_fuel_full_slash",
+      "x": 309,
+      "y": 366,
+      "text": "/"
+    },
+    {
+      "type": "text",
+      "z": 5,
+      "w": 48,
+      "h": 21,
+      "font": "e39_sub",
+      "color": "fg",
+      "align": "center",
+      "glow": false,
+      "id": "e39_fuel_full_2",
+      "x": 316,
+      "y": 369,
+      "text": "1"
     },
     {
       "id": "v2_svc_1",
