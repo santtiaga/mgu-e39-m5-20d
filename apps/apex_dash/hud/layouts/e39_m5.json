@@ -819,7 +819,7 @@
       "y": 0,
       "w": 1920,
       "h": 720,
-      "speedMax": 240,
+      "speedMax": 260,
       "rpmMax": 5000,
       "night": false
     }

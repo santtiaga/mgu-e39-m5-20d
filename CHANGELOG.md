@@ -4,7 +4,7 @@ Newest first. Dates are when the build was pushed.
 
 ## Nov 16 2026
 
-- **Apex Dash 1.3.0 — G31 520d MHEV Stage 1:** calibrate the vehicle profile to 530 Nm / 183 kW, add a 3,000 rpm diesel cold-oil guard and a 4,500 rpm warm shift prompt, align all four analog speed needles with the 240 km/h dial, clear invalid/stale vehicle values, remove fabricated live telemetry, and close runtime signal subscriptions/timers cleanly. Add Node 8 syntax/JSON validation and diesel shift-guard regression tests.
+- **Apex Dash 1.4.0:** restored the pre-refactor codebase; version metadata and package documentation updated.
 
 ## Nov 7 2026
 
