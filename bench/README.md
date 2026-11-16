@@ -48,3 +48,12 @@ The page draws whichever target the app's `app.json` `config.target` names. One 
 ```
 
 (800x480 for the HUD.) `?dbg=1` shows whether it worked: `images N px N` means every image layer's pixels arrived.
+
+
+## Graphics benchmark
+
+Open the bench and use the **Graphics performance** panel. For repeatable runs, select **Manual**, set the same signal values, and keep the layout, layer cap and values unchanged. The test warms up for 2 seconds and measures for 10 seconds; export JSON to compare runs.
+
+It records browser frame intervals, redraw CPU time, per-effect WebGL command-submission time, active layer inventory, browser/device metadata and JavaScript heap snapshots when available.
+
+**Interpretation:** WebGL command-submission timings are not GPU execution timings. Frame pacing includes browser/compositor scheduling. Garbage-collection counts are not exposed. This is a desktop/browser regression benchmark for the app's real shader/layer stream, not a substitute for measuring the MGU's GPU, CPU, memory and actual cluster output.

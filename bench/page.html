@@ -85,6 +85,13 @@
       <div id="sliders"></div>
       <div class="note" id="sigNote">Demo drive is the kit's simulator (sim.js). It has no boost signal, so boost reads "--" here, as on a car that does not fill that field.</div>
     </section>
+    <section id="performance">
+      <h2>Graphics performance</h2>
+      <div class="srow"><span>Benchmark</span><button id="perfStart">Run 10 s test</button></div>
+      <div class="status" id="perfStatus">Ready. Select Manual signals and keep their values unchanged for repeatable runs.</div>
+      <pre id="perfResults" class="note">Measures browser frame pacing, redraw CPU time and WebGL draw-call submission time. It does not measure the MGU GPU.</pre>
+      <div class="srow"><button id="perfExport" disabled>Export JSON</button></div>
+    </section>
     <section>
       <h2>Layers</h2>
       <table><thead><tr><th>conn:ref</th><th>kind</th><th>class/z</th><th>rect</th><th>car</th></tr></thead><tbody id="layers"></tbody></table>
@@ -300,9 +307,51 @@
   if (/[?&]backdrop=1/.test(location.search)) document.getElementById('road').checked = true;
   if (/[?&]car=0/.test(location.search)) document.getElementById('carview').checked = false;
   let frames = 0, lastFpsT = performance.now();
+  const perf = { phase: 'idle', warmUntil: 0, endAt: 0, lastFrame: 0, intervals: [], renders: [], effects: {}, startedAt: 0, memoryStart: null, result: null };
+  const perfStatus = document.getElementById('perfStatus');
+  const perfResults = document.getElementById('perfResults');
+  const perfStart = document.getElementById('perfStart');
+  const perfExport = document.getElementById('perfExport');
+  function avg(a) { return a.length ? a.reduce((x, y) => x + y, 0) / a.length : null; }
+  function pct(a, p) { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.ceil(p * s.length) - 1)]; }
+  function heap() { const m = performance.memory; return m ? { used: m.usedJSHeapSize, total: m.totalJSHeapSize, limit: m.jsHeapSizeLimit } : null; }
+  function finishPerf() {
+    const duration = perf.endAt - perf.startedAt, effects = {};
+    Object.keys(perf.effects).forEach((k) => { const a = perf.effects[k]; effects[k] = { draws: a.length, meanMs: avg(a), p95Ms: pct(a, .95), totalMs: a.reduce((x, y) => x + y, 0) }; });
+    const meanFrame = avg(perf.intervals);
+    perf.result = {
+      schema: 'apex-dash-graphics-benchmark-v1', capturedAt: new Date().toISOString(),
+      environment: { userAgent: navigator.userAgent, platform: navigator.platform, devicePixelRatio: devicePixelRatio, target: view, width: VW, height: VH, webglVersion: gl ? gl.getParameter(gl.VERSION) : null, webglRenderer: gl ? gl.getParameter(gl.RENDERER) : null },
+      workload: { durationMs: duration, warmupMs: 2000, layers: scene.filter((l) => l.target === view && l.visible && l.state !== 'waiting' && l.kind !== 'asset').map((l) => ({ kind: l.kind, ref: l.ref, width: l.w, height: l.h })) },
+      framePacing: { samples: perf.intervals.length, meanIntervalMs: meanFrame, p95IntervalMs: pct(perf.intervals, .95), maxIntervalMs: perf.intervals.length ? Math.max.apply(null, perf.intervals) : null, estimatedFps: meanFrame ? 1000 / meanFrame : null },
+      redraw: { samples: perf.renders.length, meanCpuMs: avg(perf.renders), p95CpuMs: pct(perf.renders, .95), maxCpuMs: perf.renders.length ? Math.max.apply(null, perf.renders) : null, redrawsPerSecond: perf.renders.length * 1000 / duration },
+      effects: effects, memory: { start: perf.memoryStart, end: heap() },
+      limitations: ['WebGL timings are JavaScript command-submission time, not GPU execution time.', 'Frame pacing includes browser and compositor scheduling.', 'Garbage-collection counts are not exposed.', 'This is not an on-device MGU benchmark.']
+    };
+    perf.phase = 'done'; perfStart.disabled = false; perfStart.textContent = 'Run again'; perfExport.disabled = false;
+    perfStatus.textContent = 'Completed: ' + perf.renders.length + ' redraws; mean redraw CPU ' + (avg(perf.renders) || 0).toFixed(2) + ' ms; estimated ' + (perf.result.framePacing.estimatedFps || 0).toFixed(1) + ' FPS.';
+    perfResults.textContent = JSON.stringify(perf.result, null, 2);
+  }
+  perfStart.addEventListener('click', () => {
+    perf.intervals = []; perf.renders = []; perf.effects = {}; perf.result = null;
+    perf.startedAt = performance.now(); perf.warmUntil = perf.startedAt + 2000; perf.endAt = perf.warmUntil + 10000;
+    perf.lastFrame = 0; perf.memoryStart = heap(); perf.phase = 'warmup';
+    perfStart.disabled = true; perfExport.disabled = true; perfStatus.textContent = '2 s warm-up, then 10 s measurement…';
+  });
+  perfExport.addEventListener('click', () => {
+    if (!perf.result) return;
+    const blob = new Blob([JSON.stringify(perf.result, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = 'apex-dash-graphics-benchmark.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  });
   function frame(t) {
+    const perfNow = performance.now();
+    if (perf.phase === 'warmup' && perfNow >= perf.warmUntil) { perf.phase = 'measure'; perf.lastFrame = perfNow; perfStatus.textContent = 'Measuring…'; }
+    else if (perf.phase === 'measure') { if (perf.lastFrame) perf.intervals.push(perfNow - perf.lastFrame); perf.lastFrame = perfNow; }
+    let perfRenderStart = 0;
     const animated = scene.some((l) => l.kind === 'effect' && l.time);
     if (dirty || animated) {
+      perfRenderStart = performance.now();
       dirty = false;
       ctx.clearRect(0, 0, VW, VH);
       if (document.getElementById('road').checked) (view === 'panel' ? drawStockCluster : drawRoad)();
@@ -314,7 +363,7 @@
       hud.slice(start).forEach((l) => {
         ctx.globalAlpha = l.opacity === undefined ? 1 : l.opacity;
         if (l.kind === 'image') { const c = images.get(l.key); if (c) ctx.drawImage(c, l.x, l.y, l.w, l.h); }
-        else if (l.kind === 'effect') { const c = drawEffect(l, t); if (c) ctx.drawImage(c, l.x, l.y, l.w, l.h); }
+        else if (l.kind === 'effect') { const effectStart = perf.phase === 'measure' ? performance.now() : 0; const c = drawEffect(l, t); if (perf.phase === 'measure') { const k = String(l.ref); (perf.effects[k] || (perf.effects[k] = [])).push(performance.now() - effectStart); } if (c) ctx.drawImage(c, l.x, l.y, l.w, l.h); }
         ctx.globalAlpha = 1;
       });
       if (document.getElementById('outlines').checked) {
@@ -326,8 +375,10 @@
       }
       if (document.getElementById('carview').checked) drawCarView();
       if (/[?&]dbg=1/.test(location.search)) { ctx.fillStyle = '#ff0'; ctx.font = '20px monospace'; ctx.fillText('msgs ' + dbgN + ' last ' + dbgLast + ' images ' + images.size + ' px ' + dbgPx + ' reads ' + dbgReads + ' buf ' + dbgBuf + ' err ' + dbgErr, 20, VH - 20); }
+      if (perf.phase === 'measure') perf.renders.push(performance.now() - perfRenderStart);
       frames++;
     }
+    if (perf.phase === 'measure' && performance.now() >= perf.endAt) finishPerf();
     if (t - lastFpsT > 1000) { document.getElementById('fps').textContent = frames + ' redraws/s'; frames = 0; lastFpsT = t; }
     requestAnimationFrame(frame);
   }
