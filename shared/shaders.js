@@ -2034,24 +2034,29 @@ void main() {
         float pinShadowA = 0.42 * exp(-max(pinShadowD, 0.0) / 2.5);
         c = over(vec4(0.0, 0.0, 0.0, pinShadowA), c);
 
-        // Dark cylindrical wall. Directional shading gives the stem a rounded profile.
+        // Flat bottom end face, foreshortened by the viewing angle and aligned to the shadow.
+        // Draw it first so the cylindrical wall naturally occludes its rear portion,
+        // leaving only the visible lower crescent where the pin meets the dial.
+        vec2 pinShadowDir = normalize(pinShadowAxis);
+        vec2 pinBaseAcross = vec2(-pinShadowDir.y, pinShadowDir.x);
+        vec2 pinBaseCenter = pPin + pinShadowDir * 1.05;
+        vec2 pinBaseLocal = sq - pinBaseCenter;
+        vec2 pinBaseCoords = vec2(dot(pinBaseLocal, pinBaseAcross), dot(pinBaseLocal, pinShadowDir));
+        vec2 pinBaseRadii = vec2(pinRadius * 0.96, pinRadius * 0.43);
+        float pinBaseD = length(pinBaseCoords / pinBaseRadii) - 1.0;
+        float pinBaseOuterD = length(pinBaseCoords / (pinBaseRadii + vec2(0.48, 0.48))) - 1.0;
+        c = over(vec4(vec3(0.004, 0.006, 0.009), cov(pinBaseOuterD)), c);
+        vec3 pinBaseColor = mix(vec3(0.018, 0.021, 0.027), vec3(0.085, 0.092, 0.102),
+                                clamp(0.5 + dot(pinBaseAcross, normalize(vec2(-0.58, -0.82))) * 0.30, 0.0, 1.0));
+        c = over(vec4(pinBaseColor, cov(pinBaseD)), c);
+
+        // Dark cylindrical wall overlays the rear of the bottom face, joining both forms.
         vec2 pinLocal = sq - pPin;
         float pinD = length(pinLocal) - pinRadius;
         vec2 pinNormal = pinLocal / max(length(pinLocal), 0.001);
         float pinLight = clamp(dot(pinNormal, normalize(vec2(-0.58, -0.82))), 0.0, 1.0);
         vec3 pinSideColor = mix(vec3(0.018, 0.021, 0.028), vec3(0.19, 0.20, 0.22), pinLight);
         c = over(vec4(pinSideColor, cov(pinD)), c);
-
-        // Subtle lower contact rim: a compressed crescent integrated into the cylinder foot.
-        // Its orientation follows the shadow angle; avoid a separate bright ellipse or disc.
-        vec2 pinShadowDir = normalize(pinShadowAxis);
-        vec2 pinBaseAcross = vec2(-pinShadowDir.y, pinShadowDir.x);
-        vec2 pinBaseLocal = sq - (pPin + pinShadowDir * 0.72);
-        vec2 pinBaseCoords = vec2(dot(pinBaseLocal, pinBaseAcross), dot(pinBaseLocal, pinShadowDir));
-        vec2 pinBaseRadii = vec2(pinRadius * 0.94, pinRadius * 0.30);
-        float pinBaseD = length(pinBaseCoords / pinBaseRadii) - 1.0;
-        float pinBaseA = 0.34 * cov(pinBaseD);
-        c = over(vec4(vec3(0.004, 0.006, 0.009), pinBaseA), c);
 
         // Top face seen from slightly above: foreshortened into an ellipse, with the raised cap
         // displaced away from the viewer so the lower side wall remains visible.
