@@ -1397,25 +1397,25 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                 if (redZone) c = over(vec4(coreCol, 0.29 * coreProfile), c);
             }
         }
-        // Nine equally spaced LEDs span the 4100-5000 rpm warning arc; the 4000-4100 segment is removed.
-        // Each remaining segment lights at its own 100 rpm threshold: 4101 ... 4901.
-        // Keep the original arc radius, thickness and 2 px corner treatment unchanged; slightly widen the gaps.
-        const float SHIFT_LEDS = 9.0;
+        // Keep the original nine LED positions across 4100-5000 rpm and append two more at the same pitch.
+        // The eleven segments activate at 4101, 4201 ... 5101 and 5201 rpm.
+        // Preserve the original arc radius, thickness, segment width, gaps and 2 px corner treatment.
+        const float SHIFT_LEDS = 11.0;
+        const float BASE_SHIFT_LEDS = 9.0;
         float ledGap = 3.0;
         float ledR = R * 0.934 + 2.0; // Move shift LEDs 2 px toward the grey bezel ring.
         float ledTh = R * 0.026;
-        // Align the outer LED endpoints with the inner-facing side edges of the 4100/5000 range.
-        // The tick half-width is measured normal to its radial axis; project that side edge to ledR.
+        // The first nine LEDs retain their exact positions, aligned to the 4100/5000 range edges.
         float tickHalfWidth = R * 0.0155;
         float tickSideAngle = asin(clamp(tickHalfWidth / ledR, 0.0, 0.999)) / D2R;
-        // Use the outward-facing side edges of the 4100/5000 range.
         float ledArcStart = rpmAngle(4100.0) - tickSideAngle;
         float ledArcEnd = a5 + tickSideAngle;
         float ledSpan = ledArcEnd - ledArcStart;
         float ledGapAngle = ledGap / (ledR * D2R);
-        // Nine equal rectangles and eight equal gaps fill the interval between the 4100/5000 side edges.
-        float ledWidth = (ledSpan - ledGapAngle * (SHIFT_LEDS - 1.0)) / SHIFT_LEDS;
+        // Size segments using the original nine-LED span; the two new segments continue at identical pitch.
+        float ledWidth = (ledSpan - ledGapAngle * (BASE_SHIFT_LEDS - 1.0)) / BASE_SHIFT_LEDS;
         float ledStep = ledWidth + ledGapAngle;
+        float ledExtendedEnd = ledArcEnd + ledStep * (SHIFT_LEDS - BASE_SHIFT_LEDS);
         float ledIdx = floor(clamp((ang - ledArcStart) / ledStep, 0.0, SHIFT_LEDS - 0.0001));
         float ledStart = ledArcStart + ledIdx * ledStep;
         float ledEnd = ledStart + ledWidth;
@@ -1423,16 +1423,11 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float ledDR = max(ledR - ledTh - r, r - ledR);
         float ledD = max(ledDA, ledDR);
         float ledRpm = u_rpmActual;
-        // Each remaining LED activates at its 100 rpm threshold: 4101 ... 4901.
         float ledThreshold = 4101.0 + ledIdx * 100.0;
-        // Let the endpoint glow breathe by 1 px beyond the 4100/5000 range;
-        // the LED bodies themselves remain aligned exactly to those axes.
-        // Extend only the clipping mask beyond the endpoint LEDs so their glow remains visible.
-        // The LED geometry remains aligned to the 4100/5000 range.
         float ledMaskPad = 12.0 / (ledR * D2R);
         bool ledGlowOn = ledRpm >= ledThreshold;
-        bool ledOn = ang >= ledArcStart && ang <= ledArcEnd && ledGlowOn;
-        if (ang >= ledArcStart - ledMaskPad && ang <= ledArcEnd + ledMaskPad && r > ledR - ledTh - 15.0 && r < ledR + ledTh + R * 0.004) {
+        bool ledOn = ang >= ledArcStart && ang <= ledExtendedEnd && ledGlowOn;
+        if (ang >= ledArcStart - ledMaskPad && ang <= ledExtendedEnd + ledMaskPad && r > ledR - ledTh - 15.0 && r < ledR + ledTh + R * 0.004) {
             bool ledRed = ledIdx >= SHIFT_LEDS * 0.5;
             vec3 ledCol = ledRed ? vec3(1.0, 0.16, 0.10) : vec3(1.0, 0.72, 0.12);
             float ledAlpha = ledOn ? 0.98 : 0.12;
