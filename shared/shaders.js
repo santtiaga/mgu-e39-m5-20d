@@ -2019,17 +2019,34 @@ void main() {
         float spdKmh = clamp(u_speed, 0.0, 1.0) * 240.0;
         float sAng = -128.0 + spdKmh * (261.0 / 240.0);
         c = drawE39Needle(sq, sAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, c);
-        // Stop-pin shadow: same offset, exponential spread and intensity as the speed-needle shadow.
+        // Raised cylindrical stop pin: soft cast shadow, shaded side wall and offset top face.
         float aPin = -131.0 * D2R;
         vec2 pPin = vec2(sin(aPin), -cos(aPin)) * (mR * 0.62);
-        float pinShadowD = length((sq - vec2(2.5, 5.0)) - pPin) - mR * 0.022;
+        float pinRadius = mR * 0.022;
+        float pinShadowD = length((sq - vec2(2.5, 5.0)) - pPin) - pinRadius;
         float pinShadowA = 0.42 * exp(-max(pinShadowD, 0.0) / 2.5);
         c = over(vec4(0.0, 0.0, 0.0, pinShadowA), c);
-        // Stop pin on top of its shadow: 1.5 px lighter inner bevel.
-        float pinD = length(sq - pPin) - mR * 0.022;
-        c = over(vec4(0.027, 0.031, 0.039, cov(pinD)), c);
-        float pinInnerShadow = 0.95 * (1.0 - smoothstep(0.0, 1.5, -pinD)) * step(pinD, 0.0) * cov(pinD);
-        c = over(vec4(vec3(0.105, 0.109, 0.118), pinInnerShadow), c);
+
+        // Dark cylindrical wall. Directional shading gives the stem a rounded profile.
+        vec2 pinLocal = sq - pPin;
+        float pinD = length(pinLocal) - pinRadius;
+        vec2 pinNormal = pinLocal / max(length(pinLocal), 0.001);
+        float pinLight = clamp(dot(pinNormal, normalize(vec2(-0.58, -0.82))), 0.0, 1.0);
+        vec3 pinSideColor = mix(vec3(0.018, 0.021, 0.028), vec3(0.19, 0.20, 0.22), pinLight);
+        c = over(vec4(pinSideColor, cov(pinD)), c);
+
+        // Raised top cap, shifted up-left to reveal the cylinder's side wall below it.
+        vec2 pinTopCenter = pPin + vec2(-1.15, -1.55);
+        float pinTopRadius = pinRadius * 0.70;
+        vec2 pinTopLocal = sq - pinTopCenter;
+        float pinTopD = length(pinTopLocal) - pinTopRadius;
+        float pinTopLight = clamp(dot(pinTopLocal / max(length(pinTopLocal), 0.001), normalize(vec2(-0.62, -0.78))), 0.0, 1.0);
+        vec3 pinTopColor = mix(vec3(0.045, 0.050, 0.060), vec3(0.31, 0.32, 0.34), pinTopLight);
+        c = over(vec4(vec3(0.012, 0.014, 0.019), cov(pinTopD + 0.65)), c);
+        c = over(vec4(pinTopColor, cov(pinTopD)), c);
+        // Small specular edge on the upper-left quadrant.
+        float pinGlintD = length(pinTopLocal - vec2(0.75, 0.65)) - 0.75;
+        c = over(vec4(vec3(0.48, 0.50, 0.54), 0.42 * cov(pinGlintD)), c);
     }
 
     // 4. Main Tachometer + Oil Temp Sub-Dial Needles (center 1155, 295, R = 214)
