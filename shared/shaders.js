@@ -1599,7 +1599,7 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
 // Recessed Display Window
 vec4 drawWin(vec2 p, vec4 rect, bool isLamp, vec4 c) {
     // The four lower information displays use a fourth-power superellipse (squircle) cutout.
-    float d = sdSquircleBox(p, rect, 12.0);
+    float d = sdSquircleBox(p, rect, 15.0);
     if (d > 2.0) return c;
     vec3 bg = isLamp ? mix(vec3(0.047, 0.051, 0.059), vec3(0.020, 0.016, 0.016), u_night)
                      : mix(vec3(0.039, 0.031, 0.031), vec3(0.031, 0.016, 0.012), u_night);
