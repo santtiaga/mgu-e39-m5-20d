@@ -532,7 +532,7 @@
       "lon": -80.8431
     },
     "utcOffsetMinutes": null,
-    "_comment": "target panel: the whole 1920x720 instrument cluster, drawn over BMW's gauges. socketPath: cluster-render's documented default. location and utcOffsetMinutes: as in HUD Widgets (the clock box). tankLitres: the fuel gauge's full mark (the car sends litres, not the tank size; a G01 X3 holds 65). engine: the tuned G31 520d MHEV Stage 1 crank reference (530 Nm, 183 kW / approx. 245 hp); coldLimitRpm is the diesel cold-engine shift guard.",
+    "_comment": "target panel: the whole 1920x720 instrument cluster, drawn over BMW's gauges. socketPath: cluster-render's documented default. location and utcOffsetMinutes: as in HUD Widgets (the clock box). tankLitres: G31 520d diesel tank reference, approx. 66 litres. engine: the tuned G31 520d MHEV Stage 1 crank reference (530 Nm, 183 kW / approx. 245 hp); coldLimitRpm is the diesel cold-engine shift guard.",
     "dme": {
       "comment": "Boost from the engine unit (DME, ecu 18) over read-only UDS 0x22, only while the sport display sends no boost and a boost readout is shown. Absolute kPa, the outside air pressure (baro) is subtracted. Candidates tried in order, the first plausible one wins. From cauliflowermossgrape's car_vitals (MIT).",
       "ecu": 18,
@@ -601,7 +601,7 @@
         }
       ]
     },
-    "tankLitres": 68,
+    "tankLitres": 66,
     "engine": {
       "fuel": "diesel",
       "torqueNm": 530,
