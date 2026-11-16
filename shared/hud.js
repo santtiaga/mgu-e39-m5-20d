@@ -1494,7 +1494,7 @@ class HudApp {
         if (!isNum(this.rpmShown) || Math.abs(this.rpmF - this.rpmShown) >= 40) this.rpmShown = Math.max(0, Math.round(this.rpmF / 50) * 50);
     }
 
-    /** E39 20d oil-temperature-dependent shift warning (4000 /min cold .. 4500 /min warm). */
+    /** Diesel shift warning uses the engine-profile-aware cold guard and configured redline. */
     _e39LimitRpm() {
         // Use the same engine-profile-aware cold guard as the shift indicator.
         return this.score.shiftPoint(this._raw('oil')).rpm;
@@ -1639,8 +1639,8 @@ class HudApp {
             const stg = d.stage === 'P' ? 0 : d.stage === 'R' ? 1 : d.stage === 'N' ? 2 : (this._program(d) === 'S' ? 5 : this._program(d) === 'M' ? 6 : 3);
             const gr = (d.stage === 'P' || d.stage === 'R' || d.stage === 'N') ? 0 : (isNum(d.gear) && d.gear >= 1 && d.gear <= 8 ? Math.round(d.gear) : (d.demo ? 1 : 0));
             const lim = this._e39LimitRpm();
-            const inWarn = isNum(rpm) && ((oil < 75 && rpm >= lim) || rpm >= 5000);
-            const inLim = isNum(rpm) && rpm >= 5000;
+            const inWarn = isNum(rpm) && ((isNum(oil) && oil < 80 && rpm >= lim) || rpm >= this.setting('redline'));
+            const inLim = isNum(rpm) && rpm >= this.setting('redline');
             const fl = (sweep >= 0.85) ? 1 : (inWarn ? (Math.floor(now / (inLim ? 80 : 100)) % 3 === 2 ? 1 : 0) : 0);
             const svc = this._e39Service();
             const glat = this._raw('gLat') || 0, glon = this._raw('gLong') || 0;
@@ -1649,12 +1649,13 @@ class HudApp {
             const shSt = (isSweepCheck || inLim) ? 2 : (isNum(rpm) && rpm >= lim - 250 ? 1 : 0);
             const brkTmp = isSweepCheck ? 2 : ((glon <= -0.25 || (isNum(cool) && cool >= 112)) ? 2 : ((isNum(oil) && oil < 65) ? 1 : 0));
             const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 500) / 500;
+            const demo = d.demo;
             const vals = [
                 q(Math.max(isNum(sp) ? sp / (w.speedMax || 300) : 0, sweep)),
                 q(Math.max(isNum(rpm) ? rpm / (w.rpmMax || this.setting('redline')) : 0, sweep)),
-                q(Math.max(isNum(fuel) ? fuel : 0.72, sweep)),
-                q(Math.max(isNum(oil) ? (oil - 50) / 100 : 0.4, sweep)),
-                q(Math.max(isNum(cool) ? (cool - 50) / 80 : 0.5, sweep)),
+                q(Math.max(isNum(fuel) ? fuel : (demo ? 0.72 : 0), sweep)),
+                q(Math.max(isNum(oil) ? (oil - 50) / 100 : (demo ? 0.4 : 0), sweep)),
+                q(Math.max(isNum(cool) ? (cool - 50) / 80 : (demo ? 0.5 : 0), sweep)),
                 stg,
                 gr,
                 fl,
@@ -1681,14 +1682,15 @@ class HudApp {
             x.c.uniform(x.ref, 'u_rpmActual', [vals[14]]);
         } else if (w.type === 'e39needles') {
             const sweep = this._e39Sweep(now);
+            const d = this.car.data();
             const sp = this._raw('speed'), rpm = isNum(this.rpmNeedleF) ? this.rpmNeedleF : this._raw('rpm'), fuel = this._raw('fuel'), oil = this._raw('oil'), cool = this._raw('coolant');
             const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 500) / 500;
             const vals = [
                 q(Math.max(isNum(sp) ? sp / (w.speedMax || 300) : 0, sweep)),
                 Math.max(0, Math.min(1.2, Math.max(isNum(rpm) ? rpm / (w.rpmMax || this.setting('redline')) : 0, sweep * 1.2))),
-                q(Math.max(isNum(fuel) ? fuel : 0.72, sweep)),
-                q(Math.max(isNum(oil) ? (oil - 50) / 100 : 0.4, sweep)),
-                q(Math.max(isNum(cool) ? (cool - 50) / 80 : 0.5, sweep)),
+                q(Math.max(isNum(fuel) ? fuel : (d.demo ? 0.72 : 0), sweep)),
+                q(Math.max(isNum(oil) ? (oil - 50) / 100 : (d.demo ? 0.4 : 0), sweep)),
+                q(Math.max(isNum(cool) ? (cool - 50) / 80 : (d.demo ? 0.5 : 0), sweep)),
             ];
             const key = vals.join('|');
             if (!force && key === x.last) return;
