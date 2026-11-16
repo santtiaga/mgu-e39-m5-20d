@@ -331,7 +331,7 @@
       "label": "Shift point before redline",
       "type": "number",
       "unit": "rpm",
-      "default": 300,
+      "default": 500,
       "steps": [
         0,
         100,
