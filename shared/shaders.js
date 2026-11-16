@@ -2024,10 +2024,10 @@ void main() {
         vec2 pPin = vec2(sin(aPin), -cos(aPin)) * (mR * 0.62);
         // Capsule shadow projected along the down-right offset; constant width with semicircular ends.
         vec2 pinShadowV = vec2(2.5, 5.0);
-        vec2 pinShadowQ = sq - pPin - pinShadowV * 0.5;
+        vec2 pinShadowQ = sq - pPin;
         float pinShadowT = clamp(dot(pinShadowQ, pinShadowV) / dot(pinShadowV, pinShadowV), 0.0, 1.0);
         float pinShadowD = length(pinShadowQ - pinShadowV * pinShadowT) - mR * 0.018;
-        float pinShadowFade = mix(1.0, 0.18, smoothstep(0.0, 1.0, pinShadowT));
+        float pinShadowFade = mix(1.0, 0.55, smoothstep(0.0, 1.0, pinShadowT));
         float pinShadowA = 0.42 * pinShadowFade * exp(-max(pinShadowD, 0.0) / 2.5);
         c = over(vec4(0.0, 0.0, 0.0, pinShadowA), c);
         // Stop pin on top of its shadow: 1.5 px lighter inner bevel.
