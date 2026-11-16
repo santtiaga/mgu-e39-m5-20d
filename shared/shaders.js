@@ -1317,7 +1317,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             }
         }
         // Stop pin just below 0 km/h
-        float aPin = -130.0 * D2R;
+        float aPin = -131.0 * D2R;
         vec2 pPin = vec2(sin(aPin), -cos(aPin)) * (R * 0.62);
         c = over(vec4(0.027, 0.031, 0.039, cov(length(q - pPin) - R * 0.022)), c);
 
