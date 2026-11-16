@@ -52,6 +52,7 @@ function loadConfig(iface) {
  */
 async function watch(iface, instance, handlers, log, opts) {
     let pollTimer = null;
+    let active = true;
     const fetching = Object.create(null);
     const res = { iface, available: false, proxy: null, error: null, shutdown: () => Promise.resolve() };
     if (!someip) { res.error = 'someip native module not available'; return res; }
@@ -60,28 +61,34 @@ async function watch(iface, instance, handlers, log, opts) {
         const p = await nativeTick(() => someip.buildProxy(cfg, String(instance)).then((px) => px.init().then(() => px)));
         res.proxy = p;
         res.shutdown = () => {
+            if (!active) return Promise.resolve();
+            active = false;
+            res.available = false;
             if (pollTimer) clearInterval(pollTimer);
             pollTimer = null;
             return Promise.resolve().then(() => p.shutdown && p.shutdown()).catch(() => {});
         };
         const fields = Object.keys(handlers || {});
-        const fetchAll = () => fields.forEach((f) => {
-            if (!(cfg.fields && cfg.fields[f] && cfg.fields[f].getter) || fetching[f]) return;
-            fetching[f] = true;
-            p.getValue(f, 3000).then((v) => handlers[f](v)).catch(() => {}).then(() => { fetching[f] = false; });
-        });
+        const fetchAll = () => {
+            if (!active) return;
+            fields.forEach((f) => {
+                if (!active || !(cfg.fields && cfg.fields[f] && cfg.fields[f].getter) || fetching[f]) return;
+                fetching[f] = true;
+                p.getValue(f, 3000).then((v) => { if (active) handlers[f](v); }).catch(() => {}).then(() => { fetching[f] = false; });
+            });
+        };
         await nativeTick(() => {
-            try { return p.subscribeToAvailability((a) => { res.available = !!a; if (a) setImmediate(fetchAll); }); } catch (e) { return null; /* older binding */ }
+            try { return p.subscribeToAvailability((a) => { if (!active) return; res.available = !!a; if (a) setImmediate(() => { if (active) fetchAll(); }); }); } catch (e) { return null; /* older binding */ }
         });
         for (const f of fields) {
             try {
-                await nativeTick(() => p.subscribe({ name: f, onReceive: (v) => { try { handlers[f](v); } catch (e) { if (log) log.warn(iface + '.' + f + ': ' + e); } } }));
+                await nativeTick(() => p.subscribe({ name: f, onReceive: (v) => { if (!active) return; try { handlers[f](v); } catch (e) { if (log) log.warn(iface + '.' + f + ': ' + e); } } }));
             } catch (e) {
                 if (log) log.warn('subscribe ' + iface + '.' + f + ': ' + e);
             }
         }
-        if (p.isAvailable && p.isAvailable()) { res.available = true; fetchAll(); }
-        if (opts && opts.pollMs) pollTimer = setInterval(() => { if (res.available) setImmediate(fetchAll); }, opts.pollMs);
+        if (active && p.isAvailable && p.isAvailable()) { res.available = true; fetchAll(); }
+        if (opts && opts.pollMs) pollTimer = setInterval(() => { if (active && res.available) setImmediate(() => { if (active) fetchAll(); }); }, opts.pollMs);
     } catch (e) {
         res.error = String(e);
         if (log) log.warn('signals ' + iface + ': ' + e);

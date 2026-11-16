@@ -46,6 +46,9 @@ class Layouts {
         this.dir = path.join(dataDir, 'layouts');
         this.log = log;
         this.changeListeners = [];
+        this.watcher = null;
+        this._timer = null;
+        this.stopped = false;
         this._watch();
     }
 
@@ -96,12 +99,13 @@ class Layouts {
     }
 
     /** cb() after <data>/layouts/ changes on disk. */
-    onChange(cb) { this.changeListeners.push(cb); }
+    onChange(cb) { if (!this.stopped) this.changeListeners.push(cb); }
 
     _watch() {
         try { fs.mkdirSync(this.dir); } catch (e) { /* there already, or the data folder is read-only */ }
         try {
-            fs.watch(this.dir, { persistent: false }, () => {
+            this.watcher = fs.watch(this.dir, { persistent: false }, () => {
+                if (this.stopped) return;
                 // debounce: an rsync push touches several files in quick succession
                 clearTimeout(this._timer);
                 this._timer = setTimeout(() => {
@@ -112,6 +116,17 @@ class Layouts {
         } catch (e) {
             this.log.warn('layouts: cannot watch ' + this.dir + ' (' + e.message + '); a pushed layout shows after an app restart');
         }
+    }
+
+    /** Release the filesystem watcher and its debounce timer when the app stops. */
+    stop() {
+        if (this.stopped) return;
+        this.stopped = true;
+        if (this._timer) clearTimeout(this._timer);
+        this._timer = null;
+        if (this.watcher) { try { this.watcher.close(); } catch (e) { /* already closed */ } }
+        this.watcher = null;
+        this.changeListeners.length = 0;
     }
 }
 

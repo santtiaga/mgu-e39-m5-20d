@@ -275,6 +275,7 @@ class HudApp {
         this.socketPath = process.env.HUD_CLUSTER_SOCKET || this.config.socketPath || DEFAULT_PATH;
         this.clients = [];               // the connections to cluster-render: [0] the app's own, more for "conn" widgets
         this.started = false;
+        this.stopped = false;
         this.layerStates = new Map();    // "<conn>:<ref>" -> { state, reason } from cluster-render
         this.client = this._clientAt(0);
         this.target = TARGET_SIZES[this.config.target] ? this.config.target : 'hud';
@@ -485,6 +486,7 @@ class HudApp {
     }
 
     start() {
+        if (this.started || this.stopped) return;
         this.log.info('connecting to cluster-render at ' + this.socketPath);
         this.started = true;
         this.clients.forEach((c) => c.connect());
@@ -501,6 +503,7 @@ class HudApp {
 
     /** Boost from the engine unit when the sport display's value isn't there (config.dme, read-only UDS). */
     _startDme() {
+        if (this.stopped) return;
         const dme = this.config.dme;
         if (!dme || !Array.isArray(dme.boost) || !dme.boost.length) return;
         let rd = null, busy = false, baro = 101.3, baroAt = 0;
@@ -514,30 +517,39 @@ class HudApp {
         } catch (e) { this.log.info('engine unit boost off: ' + (e && e.message || e)); return; }
         this.dmeTimer = setInterval(() => this._guard('engine unit boost', () => {
             const now = Date.now();
-            if (busy || !this.needsBoost || this._data().demo || now - this.boostFesAt < FRESH_MS) return;
+            if (this.stopped || busy || !this.needsBoost || this._data().demo || now - this.boostFesAt < FRESH_MS) return;
             busy = true;
             (async () => {
                 if (now - baroAt > 60000 && Array.isArray(dme.baro)) {
                     baroAt = now;
                     const b = await rd.value('baro', dme.baro);
+                    if (this.stopped) return;
                     if (isNum(b)) baro = b;
                 }
+                if (this.stopped) return;
                 const m = await rd.value('boost', dme.boost);
+                if (this.stopped) return;
                 if (isNum(m)) { this.boostDme = (m - baro) / 100; this.boostDmeAt = Date.now(); }
             })().catch((e) => this.log.info('engine unit boost: ' + (e && e.message || e))).then(() => { busy = false; });
         }), 400);
     }
 
     stop() {
+        if (this.stopped) return;
+        this.stopped = true;
+        this.started = false;
         clearInterval(this.tickTimer);
         clearInterval(this.themeTimer);
         clearInterval(this.statusTimer);
         clearInterval(this.dmeTimer);
         clearTimeout(this.statusAskT);
+        clearTimeout(this._statusT);
+        this._statusT = null;
         clearTimeout(this.offStatusT1);
         clearTimeout(this.offStatusT2);
         this.statusAskT = this.offStatusT1 = this.offStatusT2 = null;
         this.clients.forEach((c) => c.close());
+        if (this.layouts && typeof this.layouts.stop === 'function') this.layouts.stop();
         if (this.car && typeof this.car.stop === 'function') this.car.stop();
         this.atlases.clear();
     }
@@ -660,7 +672,7 @@ class HudApp {
     _layerCount(n) { return n === 1 ? '1 layer' : n + ' layers'; }
 
     _statusSoon() {
-        if (this._statusT) return;
+        if (this.stopped || this._statusT) return;
         this._statusT = setTimeout(() => { this._statusT = null; this._guard('status', () => this._status()); }, 500);
     }
 
@@ -1104,6 +1116,7 @@ class HudApp {
     /* ---------------- layers ---------------- */
 
     _rebuild() {
+        if (this.stopped) return;
         this._guard('rebuild', () => this._rebuildInner());
         this._status();
     }
@@ -1514,6 +1527,7 @@ class HudApp {
 
     /** Drop only layout layers; keep the shared renderer connection and cached font assets alive. */
     _dropLayoutLayers() {
+        this.needsBoost = false;
         this._layerRefs().forEach((r) => r.c.drop(r.ref));
         this.widgets.clear();
         this.sheets = [];
@@ -1523,6 +1537,7 @@ class HudApp {
     }
 
     _tick() {
+        if (this.stopped) return;
         const now = Date.now();
         this._frameData = this.car.data();
         try {

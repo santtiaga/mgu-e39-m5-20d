@@ -58,6 +58,12 @@ function programOf(o) {
 const CONDITIONS = { PARKEN_BN_NIO: 1, PARKEN_BN_IO: 2, STANDFUNKTIONEN_KUNDE_NICHT_IM_FZG: 3, WOHNEN: 5,
     PRUEFEN_ANALYSE_DIAGNOSE: 7, FAHRBEREITSCHAFT_HERSTELLEN: 8, FAHREN: 10, FAHRBEREITSCHAFT_BEENDEN: 12 };
 const conditionOf = (x) => { const n = typeof x === 'number' ? x : CONDITIONS[x]; return n >= 1 && n <= 12 ? n : undefined; };
+
+// On the B47 MHEV the engine-speed signal can remain near 160 rpm after the ICE has stopped.
+// Apply the configured floor to the scaled rpm, not the raw SOME/IP value.
+function engineRpm(value, stoppedRpm) {
+    return typeof value === 'number' && typeof stoppedRpm === 'number' && stoppedRpm > 0 && value < stoppedRpm ? 0 : value;
+}
 /**
  * DataPowerTrain2.statusGearSelectionDrive: P / R / N and the engaged gear in one enum, names or
  * wire numbers (N = 1, R = 2, P = 3, NP = 4, _1 = 5 ... _9 = 13) -> { stage, gear } or undefined.
@@ -111,6 +117,7 @@ class Car {
         this.sim = new Sim(); this.simData = this.sim.sample();
         this.demoActive = false; this.guess = new GearGuess();
         this.stopped = false; this.simTimer = null; this.subs = []; this.watchPromises = [];
+        const engineStoppedRpm = ctx.spec.config && ctx.spec.config.engine && ctx.spec.config.engine.stoppedRpm;
         const sc = (k, raw) => {
             const c = this.S[k];
             if (!c || raw === undefined || raw === null || raw === c.invalid || (c.invalidFrom !== undefined && raw >= c.invalidFrom)) return null;
@@ -133,7 +140,7 @@ class Car {
         };
         const watches = {};
         const add = (iface, field, fn) => { (watches[iface] = watches[iface] || {})[field] = fn; };
-        if (groups.includes('rpm')) add('de.bmw.infotainment.vehicle.CDS', 'statusEngineSpeed2', (v) => put('rpm', sc('rpm', v.actualValueRPMEngineCrankshaft), true));
+        if (groups.includes('rpm')) add('de.bmw.infotainment.vehicle.CDS', 'statusEngineSpeed2', (v) => put('rpm', engineRpm(sc('rpm', v.actualValueRPMEngineCrankshaft), engineStoppedRpm), true));
         if (groups.includes('temps')) add('de.bmw.infotainment.vehicle.CDS', 'statusEngineTemperature', (v) => { put('coolant', sc('temp', v.temperatureEngineDrive)); put('oil', sc('temp', v.temperatureEngineOilDrive)); });
         if (groups.includes('speed')) add('de.bmw.infotainment.vehicle.Vehicle2', 'statusCarSpeed2', (v) => put('speed', sc('speed', v.speedVehicleCentreOfGravity), true));
         if (groups.includes('accel')) {
@@ -244,4 +251,5 @@ Car.SIGNALS = SIGNALS;
 Car.GearGuess = GearGuess;
 Car.selectionOf = selectionOf;
 Car.conditionOf = conditionOf;
+Car.engineRpm = engineRpm;
 module.exports = Car;
