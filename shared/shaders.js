@@ -2028,7 +2028,7 @@ void main() {
         float pinShadowT = clamp(dot(pinShadowQ, pinShadowV) / dot(pinShadowV, pinShadowV) + 0.5, 0.0, 1.0);
         float pinShadowD = length(pinShadowQ - pinShadowV * (pinShadowT - 0.5)) - mR * 0.018;
         float pinShadowFade = mix(2.0, 1.0, smoothstep(0.0, 1.0, pinShadowT));
-        float pinShadowA = 0.42 * pinShadowFade * exp(-max(pinShadowD, 0.0) / 2.5);
+        float pinShadowA = 0.38 * pinShadowFade * exp(-max(pinShadowD, 0.0) / 2.5);
         c = over(vec4(0.0, 0.0, 0.0, pinShadowA), c);
         // Stop pin on top of its shadow: 1.5 px lighter inner bevel.
         float pinD = length(sq - pPin) - mR * 0.022;
