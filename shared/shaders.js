@@ -943,8 +943,8 @@ const float PI = 3.14159265359;
 const float D2R = 3.14159265359 / 180.0;
 
 float rpmAngle(float rpm) {
-    // Preserve the 0-5000 scale and extend its upper travel to the two added LED positions.
-    return -124.6 + (clamp(rpm, 0.0, 5200.0) / 5000.0) * 246.0;
+    // Keep the visible 0-5000 scale unchanged; allow the needle to travel further up to 6000 rpm.
+    return -124.6 + (clamp(rpm, 0.0, 6000.0) / 5000.0) * 246.0;
 }
 
 float rpmZoneAngle(float rpm) {
@@ -1911,8 +1911,8 @@ const float D2R = 3.14159265359 / 180.0;
 
 // Keep this mapping local: E39NEEDLES is compiled as an independent GLSL program.
 float rpmAngle(float rpm) {
-    // Preserve the 0-5000 scale and extend its upper travel to the two added LED positions.
-    return -124.6 + (clamp(rpm, 0.0, 5200.0) / 5000.0) * 246.0;
+    // Keep the visible 0-5000 scale unchanged; allow the needle to travel further up to 6000 rpm.
+    return -124.6 + (clamp(rpm, 0.0, 6000.0) / 5000.0) * 246.0;
 }
 
 
@@ -2041,7 +2041,7 @@ void main() {
         c = drawHub(oq, mR * 0.122, c);
         float oilAng = 237.0 - clamp(u_oil, 0.0, 1.0) * 114.0;
         c = drawE39Needle(oq, oilAng, mR * 0.555, -mR * 0.105, mR * 0.034, mR * 0.020, mR * 0.19, c);
-        float taAng = rpmAngle(clamp(u_rpm, 0.0, 1.04) * 5000.0);
+        float taAng = rpmAngle(clamp(u_rpm, 0.0, 1.2) * 5000.0);
         c = drawE39Needle(tq, taAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, c);
     }
 
