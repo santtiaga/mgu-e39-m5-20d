@@ -977,6 +977,14 @@ float sdRoundBox(vec2 p, vec4 b, float r) {
     vec2 q = abs(p - (b.xy + hs)) - (hs - vec2(r));
     return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
+float sdSquircleBox(vec2 p, vec4 b, float r) {
+    vec2 hs = b.zw * 0.5;
+    vec2 q = abs(p - (b.xy + hs)) - (hs - vec2(r));
+    vec2 outside = max(q, 0.0);
+    // Fourth-power superellipse: squircle corners instead of circular rounded-rectangle corners.
+    float corner = pow(pow(outside.x, 4.0) + pow(outside.y, 4.0), 0.25);
+    return corner + min(max(q.x, q.y), 0.0) - r;
+}
 float hash12(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
     p3 += dot(p3, p3.yzx + 33.33);
@@ -1590,7 +1598,8 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
 
 // Recessed Display Window
 vec4 drawWin(vec2 p, vec4 rect, bool isLamp, vec4 c) {
-    float d = sdRoundBox(p, rect, 5.0);
+    // The four lower information displays use a fourth-power superellipse (squircle) cutout.
+    float d = sdSquircleBox(p, rect, 5.0);
     if (d > 2.0) return c;
     vec3 bg = isLamp ? mix(vec3(0.047, 0.051, 0.059), vec3(0.020, 0.016, 0.016), u_night)
                      : mix(vec3(0.039, 0.031, 0.031), vec3(0.031, 0.016, 0.012), u_night);
