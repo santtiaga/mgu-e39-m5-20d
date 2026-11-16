@@ -2,7 +2,7 @@
   "id": "apex_dash",
   "title": "G31 520d MHEV — E39 M5 Style Cluster",
   "description": "E39 M5-inspired digital instrument cluster configured for the BMW G31 LCI 520d MHEV Stage 1 (245 hp / 530 Nm) on iDrive 7/8 MGU. Includes diesel cold-rev guard, 8-speed ZF selector, live vehicle telemetry and configurable themes.",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "vendor": "custom",
   "loggingId": "OAD1",
   "iconGlyph": "APX",

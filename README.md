@@ -1,4 +1,4 @@
-# BMW E39 M5d for iDrive 7 / 8 (MGU)
+# BMW G31 520d MHEV — E39 M5-Inspired Cluster for iDrive 7 / 8 (MGU)
 
 <p align="center">
   </a>
@@ -94,18 +94,18 @@ Ein Projekt wie dieses entsteht nicht im luftleeren Raum. Ich möchte mich an di
 Dieses Kombiinstrument wurde von Grund auf so konstruiert, dass es maximale optische Authentizität mit den strikten Hardware- und Performance-Grenzen der BMW MGU vereint:
 
 #### 1. Mathematische Zeigergeometrie & Physischer Overlay-Shader (`z: 10`)
-* **5 Analoge Nadeln:** Tacho (300 km/h), Drehzahlmesser (8.000 U/min), Öltemperatur (°C), Kühlwassertemperatur und Tankanzeige.
-* **Zeiger über den Zahlen:** Bei einfachen 2D-Flächen werden Zeiger oft unschön von Ziffern oder Beschriftungen überdeckt. Wir haben in [`shared/shaders.js`](file:///C:/Users/Lenovo%202024/orca/workspaces/test-bmw-mgu2/test-bmw-mgu-infos-repos/shared/shaders.js) einen separaten physikalischen Shader-Overlay-Pass auf Layer `z: 10` implementiert. Dadurch gleiten alle 5 Nadeln physikalisch **über** den Skalenzahlen.
+* **5 analoge Anzeigen:** Tacho bis 240 km/h, Drehzahlmesser mit Zeigerweg bis 6.000 U/min (Skalenmarkierungen bis 5.000), Öltemperatur, Kühlmitteltemperatur und Tankfüllstand.
+* **Zeiger über den Zahlen:** Bei einfachen 2D-Flächen werden Zeiger oft unschön von Ziffern oder Beschriftungen überdeckt. Wir haben in [`shared/shaders.js`](shared/shaders.js) einen separaten physikalischen Shader-Overlay-Pass auf Layer `z: 10` implementiert. Dadurch gleiten alle 5 Nadeln physikalisch **über** den Skalenzahlen.
 
 #### 2. Die 4-Phasen Start-Animations-Sequenz (Nadeltest)
-Beim Starten der Zündung durchläuft das Kombiinstrument eine realistische Selbsttest-Sequenz (0,0 s – 7,0 s) in [`shared/hud.js`](file:///C:/Users/Lenovo%202024/orca/workspaces/test-bmw-mgu2/test-bmw-mgu-infos-repos/shared/hud.js):
+Beim Starten der Zündung durchläuft das Kombiinstrument eine realistische Selbsttest-Sequenz (0,0 s – 7,0 s) in [`shared/hud.js`](shared/hud.js):
 * **Phase 1 (0,0 – 2,6 s):** Alle 5 Nadeln vollziehen synchron einen weichen Sweep bis zum maximalen Skalenanschlag und zurück. Gleichzeitig blinkt das rote Drehzahlbegrenzer-Band auf, alle Kontrolllampen leuchten auf und das Service-Intervall zeigt volle 5 grüne Balken. Im Bordcomputer (OBC) läuft die Check-Control-Diagnose: `CHECK` &rarr; `CONTROL` &rarr; `CHECK CONTROL OK`.
 * **Phase 2 (2,6 – 4,8 s):** Die Nadeln fallen auf die Leerlaufposition zurück. Das OBC-Display blendet die pulsierende Signatur `>> /// M-POWER <<` ein.
 * **Phase 3 (4,8 – 7,0 s):** Im OBC-Display erscheint zentriert das Entwickler-Branding `MARKO DEV` in nativer Punktmatrix.
 * **Phase 4 (ab 7,0 s):** Nahtloser Wechsel in die Live-Fahrtelemetrie (Geschwindigkeit, Reichweite, Durchschnittsverbrauch, Motortemperaturen, Tageskilometerzähler).
 
 #### 3. Dynamisches LED-Vorwarnfeld (LED-Drehzahlband)
-* Wie beim echten BMW M5 wandert das gelbe und rote LED-Vorwarnband im Drehzahlmesser abhängig von der realen Motoröltemperatur dynamisch zwischen 4.000 U/min (kalter Motor) und 7.000 U/min (betriebswarmer Motor).
+* **Drehzahlwarnung für den B47:** Das feste amberfarbene Band liegt bei 4.000–4.500 U/min, das rote Band bei 4.500–5.000 U/min. Elf Schalt-LEDs aktivieren sich ab 4.101 bis 5.201 U/min. Die separate Schaltwarnung berücksichtigt die Öltemperatur: beim konfigurierten Dieselprofil 3.000 U/min kalt und standardmäßig 4.500 U/min bei warmem Öl.
 
 #### 4. 7- & 8-Gang Steptronic / DKG Matrix (ZF 8HP)
 * Da die meisten modernen Fahrzeuge 7- oder 8-Gang-Getriebe besitzen, wurde das klassische E39-Gitter (`P R N D S M`) erweitert.
@@ -115,10 +115,10 @@ Beim Starten der Zündung durchläuft das Kombiinstrument eine realistische Selb
 * Nachbildung des BMW Service-Systems mit 5 grünen Leuchtbalken, die mit zunehmender Fahrleistung abnehmen.
 * Bei Erreichen des Intervalls leuchten das gelbe Uhrensymbol und der `OILSERVICE`- bzw. `INSPEKTION`-Schriftzug auf; bei Überziehung schaltet die Anzeige auf das rote Warnquadrat.
 
-#### 6. Hardware-Budget & 60 FPS Performance
-* **Layer-Budget:** Exakt 8 Layer (2 Effect Passes, 6 dynamic Texture Sheets) – exakt innerhalb des MGU-Grenzwerts.
-* **VRAM-Footprint:** Nur ca. 5,2 MiB VRAM (deutlich unter dem 16 MiB MGU-Limit).
-* **Flüssiges Rendering:** Null Garbage-Collection im Renderloop garantiert ruckelfreie 60 Bilder pro Sekunde.
+#### 6. Hardware-Budget & Performance
+* **Layer-Budget:** Der Renderer begrenzt jede Verbindung auf 8 Layer; mehrere Verbindungen werden innerhalb des Service-Limits verwaltet.
+* **Speicher:** Der Pixel-Speicher wird zur Laufzeit anhand der tatsächlich verwendeten Texturen und Assets gezählt und gegen das Service-Limit geprüft.
+* **Keine unbelegten FPS-Versprechen:** Die Shader laufen auf der MGU-GPU; stabile Bildrate und Temperaturverhalten müssen auf dem konkreten Head Unit gemessen werden.
 
 ---
 
@@ -198,18 +198,18 @@ A project of this scale builds upon the foundations laid by open-source car enth
 This cluster is designed from the ground up to achieve maximum visual authenticity while staying strictly within the performance constraints of BMW MGU head units:
 
 #### 1. Mathematical Needle Geometry & Physical Overlay Pass (`z: 10`)
-* **5 Analog Gauges:** Speedometer (300 km/h), Tachometer (8,000 RPM), Oil Temperature (°C), Coolant Temperature, and Fuel Level.
-* **Needles Over Numbers:** Standard 2D renderers often suffer from needle pointers clipping behind text labels. In [`shared/shaders.js`](file:///C:/Users/Lenovo%202024/orca/workspaces/test-bmw-mgu2/test-bmw-mgu-infos-repos/shared/shaders.js), we engineered a dedicated fragment shader overlay pass on layer `z: 10`. This guarantees that needle pointers physically sweep **over** the scale numerals.
+* **5 analog gauges:** speedometer to 240 km/h; tachometer needle travel to 6,000 RPM (visible scale markings to 5,000); oil temperature, coolant temperature, and fuel level.
+* **Needles Over Numbers:** Standard 2D renderers often suffer from needle pointers clipping behind text labels. In [`shared/shaders.js`](shared/shaders.js), we engineered a dedicated fragment shader overlay pass on layer `z: 10`. This guarantees that needle pointers physically sweep **over** the scale numerals.
 
 #### 2. The 4-Stage Startup Sequence (Gauge Sweep & Self-Test)
-Upon switching ignition on, the cluster runs a 7.0-second authentic boot cycle implemented in [`shared/hud.js`](file:///C:/Users/Lenovo%202024/orca/workspaces/test-bmw-mgu2/test-bmw-mgu-infos-repos/shared/hud.js):
+Upon switching ignition on, the cluster runs a 7.0-second authentic boot cycle implemented in [`shared/hud.js`](shared/hud.js):
 * **Phase 1 (0.0s – 2.6s):** All 5 needles synchronously sweep to maximum deflection and return to idle. Simultaneously, rev-limiter LEDs strobe, instrument indicator bulbs test, and the Service-Interval Display illuminates all 5 green bars. The OBC screen performs Check Control self-diagnostics: `CHECK` &rarr; `CONTROL` &rarr; `CHECK CONTROL OK`.
 * **Phase 2 (2.6s – 4.8s):** Needles rest at idle while the OBC animates a pulsing text banner: `>> /// M-POWER <<`.
 * **Phase 3 (4.8s – 7.0s):** The OBC screen proudly displays the centered creator signature: `MARKO DEV` in native 5x7 dot-matrix typography.
 * **Phase 4 (7.0s+):** Seamless handoff into live telemetry cycling (Speed, Range, Engine Temperature, Average Fuel Consumption, Odometer).
 
 #### 3. Dynamic LED Warm-Up Arch (Vorwarnfeld)
-* Reflecting the real S62 engine logic, the yellow/orange and red LED rev limiter arch shifts dynamically based on real-time engine oil temperature, gradually unlocking from 4,000 RPM (cold start) up to the full 7,000 RPM redline as the oil reaches operating temperature.
+* **B47 diesel calibration:** the amber warning band is fixed at 4,000–4,500 RPM and the red band at 4,500–5,000 RPM. Eleven shift LEDs activate from 4,101 through 5,201 RPM. The separate shift prompt uses oil temperature: 3,000 RPM with cold oil, rising to the default 4,500 RPM when warm.
 
 #### 4. 7- & 8-Speed Steptronic / DKG Selector (ZF 8HP)
 * Designed specifically for modern BMW platforms equipped with 7-speed DKG or 8-speed ZF automatic transmissions.
@@ -219,10 +219,10 @@ Upon switching ignition on, the cluster runs a 7.0-second authentic boot cycle i
 * Recreates the authentic BMW service bar: 5 green countdown segments that extinguish sequentially as service intervals diminish.
 * Triggers the yellow clock icon with `OILSERVICE` or `INSPEKTION` alerts when due, or illuminates the red warning block when service is overdue.
 
-#### 6. Resource Limits & 60 FPS Performance
-* **Layer Budget:** Exactly 8 layers (2 effect shaders, 6 dynamic texture sheets) — adhering precisely to MGU compositor hardware limits.
-* **VRAM Allocation:** ~5.2 MiB total texture footprint (far below the 16 MiB MGU ceiling).
-* **Zero-Jank Rendering:** Zero garbage collection in the animation loop guarantees consistent 60 FPS performance.
+#### 6. Resource Limits & Performance
+* **Layer budget:** the renderer limits each connection to 8 layers and accounts for shared service resources.
+* **Memory:** pixel memory is counted from the textures and assets actually used, then checked against the service budget.
+* **No unverified FPS claims:** shaders run on the MGU GPU; sustained frame rate and thermal behaviour still need measurement on the target head unit.
 
 ---
 

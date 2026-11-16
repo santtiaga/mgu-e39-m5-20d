@@ -2,6 +2,10 @@
 
 Newest first. Dates are when the build was pushed.
 
+## Nov 16 2026
+
+- **Apex Dash 1.3.0 — G31 520d MHEV Stage 1:** calibrate the vehicle profile to 530 Nm / 183 kW, add a 3,000 rpm diesel cold-oil guard and a 4,500 rpm warm shift prompt, align all four analog speed needles with the 240 km/h dial, clear invalid/stale vehicle values, remove fabricated live telemetry, and close runtime signal subscriptions/timers cleanly. Add Node 8 syntax/JSON validation and diesel shift-guard regression tests.
+
 ## Nov 7 2026
 
 - **Cluster Themes 0.8.4:** the M theme fills the panel: taller blades and cards that reach from the top of the screen to the bottom, bigger side groups, and black cards with a grey rim so BMW's black gear box no longer shows as a hole. New Map calibration theme for measuring the map cut-out on a photo.
