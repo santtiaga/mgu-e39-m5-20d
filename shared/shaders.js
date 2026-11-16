@@ -1397,20 +1397,19 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                 if (redZone) c = over(vec4(coreCol, 0.29 * coreProfile), c);
             }
         }
-        // Ten equally spaced LEDs span the actual 4000-5000 rpm warning arc.
-        // Each segment lights at its own 100 rpm threshold: 4000, 4100 ... 4900.
+        // Nine equally spaced LEDs span the 4100-5000 rpm warning arc; the 4000-4100 segment is removed.
+        // Each remaining segment lights at its own 100 rpm threshold: 4101 ... 4901.
         // Keep the original arc radius, thickness and 2 px corner treatment unchanged; slightly widen the gaps.
-        const float SHIFT_LEDS = 10.0;
+        const float SHIFT_LEDS = 9.0;
         float ledGap = 3.0;
         float ledR = R * 0.934 + 2.0; // Move shift LEDs 2 px toward the grey bezel ring.
         float ledTh = R * 0.026;
-        // Align the outer LED endpoints with the inner-facing side edges of the 4000/5000 ticks.
+        // Align the outer LED endpoints with the inner-facing side edges of the 4100/5000 range.
         // The tick half-width is measured normal to its radial axis; project that side edge to ledR.
         float tickHalfWidth = R * 0.0155;
         float tickSideAngle = asin(clamp(tickHalfWidth / ledR, 0.0, 0.999)) / D2R;
-        // Use the outward-facing side edges of the endpoint ticks: toward 3000 at 4000,
-        // and the clockwise-facing edge beyond the 5000 tick.
-        float ledArcStart = a4 - tickSideAngle;
+        // Use the outward-facing side edges of the 4100/5000 range.
+        float ledArcStart = rpmAngle(4100.0) - tickSideAngle;
         float ledArcEnd = a5 + tickSideAngle;
         float ledSpan = ledArcEnd - ledArcStart;
         float ledGapAngle = ledGap / (ledR * D2R);
@@ -1424,8 +1423,8 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float ledDR = max(ledR - ledTh - r, r - ledR);
         float ledD = max(ledDA, ledDR);
         float ledRpm = u_rpmActual;
-        // Each LED activates at its 100 rpm threshold: 4001, 4101 ... 4901.
-        float ledThreshold = 4001.0 + ledIdx * 100.0;
+        // Each remaining LED activates at its 100 rpm threshold: 4101 ... 4901.
+        float ledThreshold = 4101.0 + ledIdx * 100.0;
         // Let the endpoint glow breathe by 1 px beyond the 4000/5000 axes;
         // the LED bodies themselves remain aligned exactly to those axes.
         // Extend only the clipping mask beyond the endpoint LEDs so their glow remains visible.
