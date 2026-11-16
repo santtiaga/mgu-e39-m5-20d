@@ -109,13 +109,21 @@ class Car {
         this.live = {}; this.lastCar = 0; this.listeners = [];
         this.sim = new Sim(); this.simData = this.sim.sample();
         this.demoActive = false; this.guess = new GearGuess();
+        this.stopped = false; this.simTimer = null; this.subs = []; this.watchPromises = [];
         const sc = (k, raw) => {
             const c = this.S[k];
             if (!c || raw === undefined || raw === null || raw === c.invalid || (c.invalidFrom !== undefined && raw >= c.invalidFrom)) return null;
             return raw * c.factor + (c.offset || 0);
         };
         const put = (k, v, tick) => {
-            if (v === null || v === undefined || (typeof v === 'number' && !isFinite(v))) return;
+            if (v === undefined) return;
+            if (v === null || (typeof v === 'number' && !isFinite(v))) {
+                if (this.live[k] !== null) {
+                    this.live[k] = null;
+                    if (tick && !this.demoActive) this._emit(this.live, Date.now());
+                }
+                return;
+            }
             this.live[k] = v; this.lastCar = Date.now();
             // learned gear while driving; nothing at a standstill - the guess can't tell P, N or D
             // there, and "N" shown in park or in D was wrong
@@ -155,16 +163,23 @@ class Car {
         Object.keys(extra || {}).forEach((iface) => Object.keys(extra[iface]).forEach((f) => { if (f === '$pollMs') pollMs[iface] = extra[iface][f]; else add(iface, f, extra[iface][f]); }));
         // a parked car sends nothing new for minutes (fields are notified on change), so "no data for
         // a while" doesn't mean "no car": once a signal's provider is there, stay on live data
-        this.subs = [];
         this.t0 = Date.now();
-        Object.keys(watches).forEach((iface) => ctx.signals.watch(iface, '1', watches[iface], this.log, pollMs[iface] ? { pollMs: pollMs[iface] } : undefined)
-            .then((s) => { this.subs.push(s); this.log.info('signal ' + iface.split('.').pop() + (s.error ? ' error: ' + s.error : ' subscribed')); }));
+        Object.keys(watches).forEach((iface) => {
+            const pending = ctx.signals.watch(iface, '1', watches[iface], this.log, pollMs[iface] ? { pollMs: pollMs[iface] } : undefined)
+                .then((s) => {
+                    if (this.stopped) { if (s && s.shutdown) return s.shutdown(); return; }
+                    this.subs.push(s);
+                    this.log.info('signal ' + iface.split('.').pop() + (s.error ? ' error: ' + s.error : ' subscribed'));
+                });
+            this.watchPromises.push(pending);
+        });
 
         // demo feed (20 Hz) - also keeps the sim warm so switching is seamless. On a busy or
         // slow CPU the timer fires late; replay every missed 50 ms step (up to 3 s) with its own
         // timestamp, so timers, dyno and brake maths see the same data on any machine.
         let simT = Date.now();
-        setInterval(() => {
+        this.simTimer = setInterval(() => {
+            if (this.stopped) return;
             const now = Date.now();
             if (now - simT > 3000) simT = now - 3000;
             const d = this._wantDemo();
@@ -190,6 +205,17 @@ class Car {
         const d = Object.assign({}, src, { demo: this.demoActive });
         if (d.gear === undefined && !this.demoActive) { d.gear = this.guessed; d.gearGuessed = true; }
         return d;
+    }
+
+    /** Stop timers and release every SOME/IP subscription owned by this reader. */
+    stop() {
+        if (this.stopped) return;
+        this.stopped = true;
+        if (this.simTimer) clearInterval(this.simTimer);
+        this.simTimer = null;
+        this.subs.forEach((s) => { try { if (s && s.shutdown) s.shutdown(); } catch (e) { this.log.warn('signal shutdown: ' + e); } });
+        this.subs.length = 0;
+        this.listeners.length = 0;
     }
 
     /** fn(data, tMs) per sample; fn.reset() (optional) when the source switches live<->demo. */
