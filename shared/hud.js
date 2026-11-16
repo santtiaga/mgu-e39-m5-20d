@@ -296,7 +296,7 @@ class HudApp {
         this.activeName = null;          // the layout shown now ('off' = nothing)
         this.pixelBytes = 0;             // what the layout's image layers and glyph atlases cost of cluster-render's pixel memory
         this.atlases = new Map();        // "<conn>:<font>" -> { ref, c, ci, cols, rows, cellW, cellH, chars, bytes }: R8 assets, kept across rebuilds
-        this.targetState = null;         // { state, holder, reason } of our target
+        this.targetState = null;         // latest cluster-render target diagnostics
         this.rpmF = null; this.rpmNeedleF = null; this.rpmShown = null; this.lastTickT = 0;
         this.e39DistKm = 0; this.e39Cons = null; this.e39WearKm = 0;
         this.e39PeakG = null; this.e39Vmax = 0;
@@ -458,10 +458,17 @@ class HudApp {
             }
             this._statusSoon();
         });
-        c.on('target', (name, state, holder, reason) => {
+        c.on('target', (name, state, holder, reason, guideDisabled, rendering, retryInMs, disabled) => {
             if (name !== this.target) return;
-            this.targetState = { state, holder, reason };
-            this.log.info('target ' + name + tag + ' ' + state + (holder ? ' (holder ' + holder + ')' : '') + (reason ? ': ' + reason : ''));
+            this.targetState = { state, holder, reason, guideDisabled: !!guideDisabled,
+                rendering: rendering || 'none', retryInMs: retryInMs, disabled: !!disabled, connection: ci + 1 };
+            this.log.info('target ' + name + tag + ' ' + state +
+                (holder ? ' (holder ' + holder + ')' : '') +
+                ' rendering=' + (rendering || 'none') +
+                (guideDisabled ? ' guide_disabled' : '') +
+                (disabled ? ' disabled' : '') +
+                (retryInMs !== null && retryInMs !== undefined ? ' retry_in_ms=' + retryInMs : '') +
+                (reason ? ': ' + reason : ''));
             this._statusSoon();
         });
         c.on('refused', (op, ref, reason) => {
@@ -524,6 +531,9 @@ class HudApp {
         clearInterval(this.statusTimer);
         clearInterval(this.dmeTimer);
         clearTimeout(this.statusAskT);
+        clearTimeout(this.offStatusT1);
+        clearTimeout(this.offStatusT2);
+        this.statusAskT = this.offStatusT1 = this.offStatusT2 = null;
         this.clients.forEach((c) => c.close());
         if (this.car && typeof this.car.stop === 'function') this.car.stop();
         this.atlases.clear();
@@ -1105,12 +1115,33 @@ class HudApp {
         this.layerStates.clear();
         this.refused = null;
         clearTimeout(this.statusAskT); this.statusAskT = null;
+        clearTimeout(this.offStatusT1); this.offStatusT1 = null;
+        clearTimeout(this.offStatusT2); this.offStatusT2 = null;
         this.car.setRedline(this.setting('redline'));
         const name = this._layoutName();
         this.activeName = name;
         if (name === 'off') {
             this.problem = null; this.layoutTheme = null; this.needsBoost = false;
             this.log.info('off: nothing drawn, BMW\'s own ' + (this.target === 'panel' ? 'cluster' : 'HUD') + ' shows');
+            // Query every renderer connection after layer drops, then after the 3 s target linger expires.
+            const askStatus = (phase) => {
+                this.clients.forEach((c, ci) => {
+                    if (!c.ready) {
+                        this.log.info('off status ' + phase + ' [connection ' + (ci + 1) + ']: client not ready');
+                        return;
+                    }
+                    this.log.info('off status request ' + phase + ' [connection ' + (ci + 1) + ']');
+                    c.status();
+                });
+            };
+            this.offStatusT1 = setTimeout(() => {
+                this.offStatusT1 = null;
+                this._guard('off status after drop', () => askStatus('after-drop'));
+            }, 150);
+            this.offStatusT2 = setTimeout(() => {
+                this.offStatusT2 = null;
+                this._guard('off status after linger', () => askStatus('after-linger'));
+            }, 3800);
             return;
         }
         let layout;
