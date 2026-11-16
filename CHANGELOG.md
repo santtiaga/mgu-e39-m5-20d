@@ -4,6 +4,10 @@ Newest first. Dates are when the build was pushed.
 
 ## Nov 16 2026
 
+- **Apex Dash 1.4.2:** update the bundled cluster-render client to the current upstream implementation; retain diagnostic target-state and retry telemetry for the in-app logs.
+
+## Nov 16 2026
+
 - **Apex Dash 1.4.0:** restored the pre-refactor codebase; version metadata and package documentation updated.
 
 ## Nov 7 2026
