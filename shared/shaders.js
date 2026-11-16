@@ -1305,13 +1305,16 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float vApprox = (ang - (-128.0)) * (240.0 / 261.0);
             float idx = clamp(floor(vApprox / 10.0 + 0.5), 0.0, 24.0);
             float aTick = -128.0 + idx * 10.0 * (261.0 / 240.0);
-            float dM = 10.0;
-            if (mod(idx, 2.0) < 0.5) {
-                dM = tickDistInnerRound(q, aTick, R * 0.77, R * 0.875, R * 0.0155);
-            } else {
-                dM = dotDist(q, aTick, R * 0.77, R * 0.0185);
+            // Keep 0 km/h as the logical origin, but do not draw its tick.
+            if (idx > 0.5) {
+                float dM = 10.0;
+                if (mod(idx, 2.0) < 0.5) {
+                    dM = tickDistInnerRound(q, aTick, R * 0.77, R * 0.875, R * 0.0155);
+                } else {
+                    dM = dotDist(q, aTick, R * 0.77, R * 0.0185);
+                }
+                c = addMark(dM, c);
             }
-            c = addMark(dM, c);
         }
         // Stop pin just below 0 km/h
         float aPin = (-128.0 - 6.0) * D2R;
