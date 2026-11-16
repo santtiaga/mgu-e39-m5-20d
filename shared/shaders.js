@@ -1299,12 +1299,12 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
     float ang = cwAngleDeg(q);
 
     if (!isTach) {
-        // ---- SPEEDOMETER (0..260 km/h, -128 deg at 0, +133 deg at 260) ----
-        // 10-km/h minor marks and 20-km/h major ticks across the full sweep.
+        // ---- SPEEDOMETER (0..240 km/h, -128 deg at 0, +133 deg at 240) ----
+        // 10-km/h minor marks and 20-km/h major ticks across the same full sweep.
         if (r > R * 0.74 && r < R * 0.90) {
-            float vApprox = (ang - (-128.0)) * (260.0 / 261.0);
-            float idx = clamp(floor(vApprox / 10.0 + 0.5), 0.0, 26.0);
-            float aTick = -128.0 + idx * 10.0 * (261.0 / 260.0);
+            float vApprox = (ang - (-128.0)) * (240.0 / 261.0);
+            float idx = clamp(floor(vApprox / 10.0 + 0.5), 0.0, 24.0);
+            float aTick = -128.0 + idx * 10.0 * (261.0 / 240.0);
             float dM = 10.0;
             if (mod(idx, 2.0) < 0.5) {
                 dM = tickDistInnerRound(q, aTick, R * 0.77, R * 0.875, R * 0.0155);
@@ -2017,8 +2017,8 @@ void main() {
     vec2 sq = p - sC;
     if (length(sq) <= mR * 0.92) {
         c = drawHub(sq, mR * 0.162, c);
-        float spdKmh = clamp(u_speed, 0.0, 1.0) * 260.0;
-        float sAng = -128.0 + spdKmh * (261.0 / 260.0);
+        float spdKmh = clamp(u_speed, 0.0, 1.0) * 240.0;
+        float sAng = -128.0 + spdKmh * (261.0 / 240.0);
         c = drawE39Needle(sq, sAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, c);
     }
 
