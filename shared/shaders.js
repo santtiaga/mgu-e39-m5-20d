@@ -2022,7 +2022,7 @@ void main() {
         // Raised cylindrical stop pin: soft cast shadow, shaded side wall and offset top face.
         float aPin = -131.0 * D2R;
         vec2 pPin = vec2(sin(aPin), -cos(aPin)) * (mR * 0.62);
-        float pinRadius = mR * 0.022;
+        float pinRadius = mR * 0.060;
         // Cylindrical cast shadow: a straight-sided capsule with constant width, not a tapered cone.
         // The parallel edges preserve the silhouette of a cylinder; only the two ends are rounded.
         vec2 pinShadowA0 = pPin + vec2(1.0, 2.0);
@@ -2039,10 +2039,10 @@ void main() {
         // leaving only the visible lower crescent where the pin meets the dial.
         vec2 pinShadowDir = normalize(pinShadowAxis);
         vec2 pinBaseAcross = vec2(-pinShadowDir.y, pinShadowDir.x);
-        vec2 pinBaseCenter = pPin + pinShadowDir * 1.05;
+        vec2 pinBaseCenter = pPin + pinShadowDir * 1.45;
         vec2 pinBaseLocal = sq - pinBaseCenter;
         vec2 pinBaseCoords = vec2(dot(pinBaseLocal, pinBaseAcross), dot(pinBaseLocal, pinShadowDir));
-        vec2 pinBaseRadii = vec2(pinRadius * 0.96, pinRadius * 0.43);
+        vec2 pinBaseRadii = vec2(pinRadius * 0.98, pinRadius * 0.46);
         float pinBaseD = length(pinBaseCoords / pinBaseRadii) - 1.0;
         float pinBaseOuterD = length(pinBaseCoords / (pinBaseRadii + vec2(0.48, 0.48))) - 1.0;
         c = over(vec4(vec3(0.004, 0.006, 0.009), cov(pinBaseOuterD)), c);
@@ -2056,25 +2056,25 @@ void main() {
         vec2 pinNormal = pinLocal / max(length(pinLocal), 0.001);
         float pinLight = clamp(dot(pinNormal, normalize(vec2(-0.58, -0.82))), 0.0, 1.0);
         // Matte graphite side wall with a restrained metallic reflection, matching the OEM stop pin.
-        vec3 pinSideColor = mix(vec3(0.010, 0.012, 0.016), vec3(0.105, 0.112, 0.122), pow(pinLight, 2.2));
+        vec3 pinSideColor = mix(vec3(0.008, 0.010, 0.014), vec3(0.245, 0.255, 0.270), pow(pinLight, 1.45));
         c = over(vec4(pinSideColor, cov(pinD)), c);
 
         // Top face seen from slightly above: foreshortened into an ellipse, with the raised cap
         // displaced away from the viewer so the lower side wall remains visible.
-        vec2 pinTopCenter = pPin + vec2(-0.45, -1.75);
-        float pinTopRadius = pinRadius * 0.72;
+        vec2 pinTopCenter = pPin + vec2(-0.8, -4.2);
+        float pinTopRadius = pinRadius * 0.82;
         vec2 pinTopLocal = sq - pinTopCenter;
         vec2 pinTopView = vec2(pinTopLocal.x, pinTopLocal.y / 0.72);
         float pinTopD = length(pinTopView) - pinTopRadius;
         vec2 pinTopNormal = normalize(vec2(pinTopView.x, pinTopView.y / 0.72));
         float pinTopLight = clamp(dot(pinTopNormal, normalize(vec2(-0.62, -0.78))), 0.0, 1.0);
         // Dark, flat cap: a soft grey reflection rather than a bright polished-metal spot.
-        vec3 pinTopColor = mix(vec3(0.026, 0.030, 0.036), vec3(0.145, 0.153, 0.164), pow(pinTopLight, 1.6));
+        vec3 pinTopColor = mix(vec3(0.035, 0.040, 0.048), vec3(0. thirty, 0. thirty, 0. thirty), pow(pinTopLight, 1.25));
         c = over(vec4(vec3(0.012, 0.014, 0.019), cov(pinTopD + 0.65)), c);
         c = over(vec4(pinTopColor, cov(pinTopD)), c);
         // Restrained highlight on the far/upper edge of the visible top face.
         float pinGlintD = length(pinTopView - vec2(-0.25, -0.45)) - 0.52;
-        c = over(vec4(vec3(0.29, 0.31, 0.34), 0.16 * cov(pinGlintD)), c);
+        c = over(vec4(vec3(0.48, 0.50, 0.53), 0.32 * cov(pinGlintD)), c);
     }
 
     // 4. Main Tachometer + Oil Temp Sub-Dial Needles (center 1155, 295, R = 214)
