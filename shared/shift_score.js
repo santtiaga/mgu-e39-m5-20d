@@ -2,11 +2,11 @@
 /**
  * Shift scoring and the cold-engine rev guard, for the Redline HUD layout. The rules are ported
  * from cauliflowermossgrape's Redline app (apps/redline/main.js, MIT, Copyright (c) 2026
- * cauliflowermossgrape), with the petrol defaults this car needs:
+ * cauliflowermossgrape), with the engine-specific cold limit supplied by app config:
  *
  *  - shift point = redline - "shiftBefore" (never below 2500 rpm)
  *  - cold guard ("coldGuard" on): until the oil reaches 80 °C the shift point is pulled down to
- *    4500 rpm at 30 °C oil and climbs with the oil temperature, in 50 rpm steps
+ *    the engine profile's coldLimit (3000 rpm for this diesel) and climbs with oil temperature, in 50 rpm steps
  *  - every upshift (gear number +1; or, with no gear signal, rpm falling over 18 % within 0.4 s
  *    while moving) is scored on the highest rpm in the 0.6 s before it:
  *    LIMITER (within 60 rpm of the redline), EARLY (over 250 under the shift point),
@@ -19,7 +19,7 @@
  *   score.last -> { at, from, to, rpm, target, verdict } or null; score.peak, score.limiterHits
  */
 const WARM_OIL = 80;           // °C
-const COLD_LIMIT = 4500;       // rpm at 30 °C oil (Redline's petrol default)
+const COLD_LIMIT = 4500;       // fallback for apps that do not provide an engine-specific cold limit
 const PEAK_HOLD_MS = 15000;
 const isNum = (v) => typeof v === 'number' && isFinite(v);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -45,7 +45,9 @@ class ShiftScore {
     shiftPoint(oil) {
         const n = this._normal();
         if (!this.opts().coldGuard || !isNum(oil) || oil >= WARM_OIL) return { rpm: n, cold: false };
-        const cold = Math.min(COLD_LIMIT, n);
+        const configuredLimit = this.opts().coldLimit;
+        const coldLimit = isNum(configuredLimit) && configuredLimit > 0 ? configuredLimit : COLD_LIMIT;
+        const cold = Math.min(coldLimit, n);
         const f = clamp((oil - 30) / (WARM_OIL - 30), 0, 1);
         return { rpm: Math.round((cold + (n - cold) * f) / 50) * 50, cold: true };
     }
