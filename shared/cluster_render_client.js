@@ -10,7 +10,7 @@
  *   const cr = new ClusterRender('robertn_myapp');
  *   const badge = cr.image({ target: 'panel', klass: 'overlay', x: 1700, y: 40, w: 160, h: 64, iw: 160, ih: 64 });
  *   cr.on('layer', (ref, state, reason) => { ... });   // shown, waiting, suspended, stalled, hidden, error
- *   cr.on('target', (name, state, holder, reason, guideDisabled, rendering, retryInMs, disabled) => { ... });
+ *   cr.on('target', (name, state, holder, reason, guideDisabled, disabled) => { ... });
  *   cr.on('budget', (capKb, maxKb, reason) => { ... });
  *   cr.on('ready', () => cr.pixels(badge, null, rgba));   // after every (re)connect
  *   cr.connect();
@@ -27,12 +27,16 @@
  *   cr.part(car, 1, { vs: LIT_VS, fs: LIT_FS });
  *   cr.geometry(car, 1, { positions, normals, indices });
  *   cr.animate(car, { part: 1, property: 'rotate', keys: '0:0,0,0 4000:0,360,0', loop: true });
+ *   const gauge = cr.scene({ target: 'panel', file: '/var/opt/my-tool/gauge.ramses',
+ *       res: ['/var/opt/my-tool/gauge.ramres'], sha256: [sceneSha, resSha] });
+ *   cr.edit(gauge, '--rotate ^needle$=0,0,-30\n--uniform ^bar$:u_level=0.5');
  *   cr.close();
  *
  * Nothing blocks and nothing queues without bound. The client reconnects
  * whenever the service goes, makes every asset and layer again with its last
  * settings: uniforms, mesh parts with their geometry and transforms, binds
- * and animations, and sends each image layer and asset whole; 'ready' then
+ * and animations, every scene file with its kept edits, and sends each image
+ * layer and asset whole; 'ready' then
  * asks the app for anything else. An image layer or asset is kept here
  * whole: what changed since it last went is sent as one update when the
  * socket takes it. A video frame not yet sent is replaced by the next
@@ -50,7 +54,7 @@ const FRAME_T = 0x46;   /* 'F' */
 const MESH_T = 0x4d;    /* 'M' */
 const MAX_DIRTY = 16;
 const BACKOFF_MS = [250, 500, 1000, 2000];
-const SET_KEYS = ['klass', 'z', 'x', 'y', 'w', 'h', 'visible', 'exclusive', 'prewarm', 'contend', 'guide_hold',
+const SET_KEYS = ['klass', 'z', 'x', 'y', 'w', 'h', 'visible', 'exclusive', 'prewarm', 'contend', 'guide_hold', 'yield',
     'opacity', 'rotate', 'sx', 'sy', 'px', 'py'];
 const MESH_KEYS = ['projection', 'fov', 'ortho_h', 'near', 'far', 'cx', 'cy', 'cz', 'crx', 'cry', 'crz'];
 const UNIFORM_WIDTH = { float: 1, vec2: 2, vec3: 3, vec4: 4, mat4: 16 };
@@ -106,6 +110,20 @@ function meshMessage(ref, part, g) {
 
 function flag(v) { return v ? 1 : 0; }
 
+/* A scene edit line's key (../PROTOCOL.md "edit", cr::edit_key): its kind,
+ * --show as --hide and --pass-on as --pass-off, and the rest, up to the last
+ * '=' for the kinds that take a value. */
+const VALUED = ['--uniform', '--move', '--scale', '--rotate', '--viewport', '--set'];
+function editKey(line) {
+    const sp = line.indexOf(' ');
+    let kind = sp < 0 ? line : line.slice(0, sp);
+    let rest = sp < 0 ? '' : line.slice(sp + 1);
+    if (kind === '--show') kind = '--hide';
+    else if (kind === '--pass-on') kind = '--pass-off';
+    else if (VALUED.indexOf(kind) >= 0 && rest.lastIndexOf('=') >= 0) rest = rest.slice(0, rest.lastIndexOf('='));
+    return kind + ' ' + rest;
+}
+
 class ClusterRender extends EventEmitter {
     constructor(app, socketPath) {
         super();
@@ -155,6 +173,8 @@ class ClusterRender extends EventEmitter {
             [true, false].forEach((assets) => this.layers.forEach((l, ref) => {
                 if ((l.kind === 'asset') !== assets) return;
                 this._send(this._layerMsg(ref, l));
+                if (l.edits.size) this._send({ op: 'edit', ref: ref, lines: Array.from(l.edits.values()).join('\n') });
+                l.hosts.forEach((m) => this._send(m));
                 l.parts.forEach((p) => {
                     this._send(p.msg);
                     if (p.geometry) this._write(p.geometry);
@@ -220,9 +240,14 @@ class ClusterRender extends EventEmitter {
         } else if (ev.ev === 'budget') {
             this.emit('budget', ev.cap_kb_per_s, ev.max_kb_per_s, ev.reason);
         } else if (ev.ev === 'error') {
-            this.emit('refused', ev.op, ev.ref, ev.reason);
+            /* a host refused is not sent again after a reconnect */
+            const l = ev.op === 'host' ? this.layers.get(ev.ref) : null;
+            if (l && l.hosts) l.hosts.delete(ev.target);
+            this.emit('refused', ev.op, ev.ref, ev.reason, ev.line);
         } else if (ev.ev === 'status') {
             this.emit('status', ev.text);
+        } else if (ev.ev === 'host') {
+            this.emit('host', ev.target, ev);   /* ev.into empty: not hosted any more */
         }
     }
 
@@ -268,6 +293,13 @@ class ClusterRender extends EventEmitter {
 
     _layerMsg(ref, l) {
         const o = l.opts;
+        if (l.kind === 'scene') {
+            const m = { op: 'scene', ref: ref, target: o.target, file: o.file, res: (o.res || []).join(' '),
+                sha256: [].concat(o.sha256).join(' '), contend: flag(o.contend) };
+            if (o.layers) m.layers = 1;
+            if (o.layers && o.layers_order !== undefined) m.layers_order = o.layers_order;
+            return m;
+        }
         if (l.kind === 'asset') {
             return { op: 'asset', ref: ref, target: o.target, format: o.format || 'rgba8', w: o.w, h: o.h,
                 sampling: o.sampling || 'nearest', wrap: o.wrap || 'clamp' };
@@ -310,7 +342,8 @@ class ClusterRender extends EventEmitter {
     _add(kind, opts) {
         const o = Object.assign({}, opts);
         const l = { kind: kind, opts: o, uniforms: {}, parts: new Map(), binds: {}, anims: new Map(), nextAnim: 1,
-            dirty: [], dirtyBytes: 0, whole: false, have: false };
+            dirty: [], dirtyBytes: 0, whole: false, have: false, edits: new Map(), hosts: new Map() };
+        if (kind === 'scene' && !(o.file && [].concat(o.sha256 || []).length === (o.res || []).length + 1)) return 0;
         if (kind === 'image') {
             o.iw = o.iw || o.w;
             o.ih = o.ih || o.h;
@@ -319,12 +352,18 @@ class ClusterRender extends EventEmitter {
             l.ih = o.ih;
             l.bpp = 4;
         } else if (kind === 'asset') {
-            l.bpp = o.format === 'r8' ? 1 : 4;
-            if (!(o.w > 0 && o.h > 0 && o.w <= 2048 && o.h <= 2048 && o.w * o.h * l.bpp <= 1920 * 720 * 4)) return 0;
+            /* etc2rgba: 16 bytes a 4x4 block, etc2rgb: 8; sent whole. */
+            const block = o.format === 'etc2rgba' ? 16 : o.format === 'etc2rgb' ? 8 : 0;
+            l.compressed = block > 0;
+            l.bpp = o.format === 'r8' || l.compressed ? 1 : 4;
+            if (!(o.w > 0 && o.h > 0 && o.w <= 2048 && o.h <= 2048)) return 0;
+            if (l.compressed && (o.w % 4 || o.h % 4)) return 0;
+            l.bytes = l.compressed ? (o.w / 4) * (o.h / 4) * block : o.w * o.h * l.bpp;
+            if (l.bytes > 1920 * 720 * 4) return 0;
             l.iw = o.w;
             l.ih = o.h;
         }
-        if (l.bpp) l.image = Buffer.alloc(l.iw * l.ih * l.bpp);
+        if (l.bpp) l.image = Buffer.alloc(l.bytes || l.iw * l.ih * l.bpp);
         const ref = this.nextRef++;
         this.layers.set(ref, l);
         if (this.sock) this._send(this._layerMsg(ref, l));
@@ -332,7 +371,7 @@ class ClusterRender extends EventEmitter {
     }
 
     /* opts: target, klass, z, x, y, w, h, visible, exclusive, prewarm,
-     * contend, guide_hold, opacity, rotate, sx, sy, px, py, then per kind (see
+     * contend, guide_hold, yield, opacity, rotate, sx, sy, px, py, then per kind (see
      * PROTOCOL.md); an image's iw and ih default to its w and h; an
      * effect's time: true takes u_time from the renderer's clock. A mesh's:
      * projection, fov, ortho_h, near, far and its camera cx, cy, cz, crx,
@@ -342,13 +381,74 @@ class ClusterRender extends EventEmitter {
     image(opts) { return this._add('image', opts); }
     effect(opts) { return this._add('effect', opts); }
     mesh(opts) { return this._add('mesh', opts); }
-    /* opts: target, format ('rgba8', 'r8'), w, h (up to 2048), sampling
+    /* opts: target, format ('rgba8', 'r8'; 'etc2rgba', 'etc2rgb', w and h
+     * multiples of 4, its blocks sent whole), w, h (up to 2048), sampling
      * ('nearest', 'bilinear'), wrap ('clamp', 'repeat'). */
     asset(opts) { return this._add('asset', opts); }
+    /* A scene file as the target's scene (PROTOCOL.md "Scene files"): opts
+     * target, file (an absolute path), res (its resource files' paths),
+     * sha256 (an array of hex SHA-256s: the file's, then each resource
+     * file's), contend; layers: true draws the target's layers over the
+     * file, layers_order the render order their passes start at. */
+    scene(opts) { return this._add('scene', opts); }
+
+    /* The scene (made with layers) hosts another target (PROTOCOL.md
+     * "host"): opts target, x, y, w, h (in the scene's target), src_x,
+     * src_y, src_w, src_h (in the hosted target's pixels; sent, all four,
+     * when src_w and src_h are set, else all of it), shown. Kept by target
+     * and sent again after a reconnect, until the service refuses it or the
+     * scene is replaced; false, nothing sent, for a scene without layers or
+     * a host of its own target. */
+    host(ref, opts) {
+        const l = this.layers.get(ref);
+        /* what the service refuses whatever it holds is not sent or kept */
+        if (!l || l.kind !== 'scene' || !l.opts.layers || !opts.target || opts.target === l.opts.target) return false;
+        const m = { op: 'host', ref: ref, target: opts.target, x: opts.x, y: opts.y, w: opts.w, h: opts.h,
+            shown: flag(opts.shown !== false) };
+        /* the part: all four with src_w and src_h, else none (all of it), as the C++ client */
+        if (opts.src_w && opts.src_h) {
+            m.src_x = opts.src_x || 0;
+            m.src_y = opts.src_y || 0;
+            m.src_w = opts.src_w;
+            m.src_h = opts.src_h;
+        }
+        l.hosts.set(opts.target, m);
+        this._send(m);
+        return true;
+    }
+
+    /* Another file for a scene, in place (opts as scene()'s, the target
+     * kept): its kept edits go. */
+    replace(ref, opts) {
+        const l = this.layers.get(ref);
+        if (!l || l.kind !== 'scene' || !opts.file ||
+            [].concat(opts.sha256 || []).length !== (opts.res || []).length + 1) return false;
+        l.opts = Object.assign({}, opts, { target: l.opts.target });
+        l.edits = new Map();
+        l.hosts = new Map();   /* the service ends them with the file it replaces */
+        this._send(this._layerMsg(ref, l));
+        return true;
+    }
+
+    /* Edit lines for a scene (PROTOCOL.md "edit"), separated by newlines:
+     * kept by their key, each replacing the kept line of its key, and sent
+     * again after a reconnect in the order last sent. */
+    edit(ref, lines) {
+        const l = this.layers.get(ref);
+        if (!l || l.kind !== 'scene') return;
+        lines.split('\n').forEach((line) => {
+            line = line.replace(/\r$/, '');
+            if (!line) return;
+            const key = editKey(line);
+            l.edits.delete(key);
+            l.edits.set(key, line);
+        });
+        this._send({ op: 'edit', ref: ref, lines: lines });
+    }
 
     set(ref, opts) {
         const l = this.layers.get(ref);
-        if (!l || l.kind === 'asset') return;
+        if (!l || l.kind === 'asset' || l.kind === 'scene') return;
         const keys = l.kind === 'mesh' ? SET_KEYS.concat(MESH_KEYS) : SET_KEYS;
         keys.forEach((k) => { if (opts[k] !== undefined) l.opts[k] = opts[k]; });
         const m = { op: 'set', ref: ref };
@@ -496,6 +596,7 @@ class ClusterRender extends EventEmitter {
         const l = this.layers.get(ref);
         if (!l || !l.image) return false;
         const iw = l.iw, ih = l.ih, bpp = l.bpp;
+        if (l.compressed && rects && rects.length) return false;
         if (!rects || !rects.length) {
             if (px.length !== l.image.length) return false;
             px.copy(l.image);
