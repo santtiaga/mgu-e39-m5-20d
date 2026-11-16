@@ -2019,9 +2019,13 @@ void main() {
         float spdKmh = clamp(u_speed, 0.0, 1.0) * 240.0;
         float sAng = -128.0 + spdKmh * (261.0 / 240.0);
         c = drawE39Needle(sq, sAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, c);
-        // Stop pin on top of the needle: 1.5 px lighter inner bevel.
+        // Stop-pin shadow: same offset, exponential spread and intensity as the speed-needle shadow.
         float aPin = -131.0 * D2R;
         vec2 pPin = vec2(sin(aPin), -cos(aPin)) * (mR * 0.62);
+        float pinShadowD = length((sq - vec2(2.5, 5.0)) - pPin) - mR * 0.022;
+        float pinShadowA = 0.42 * exp(-max(pinShadowD, 0.0) / 2.5);
+        c = over(vec4(0.0, 0.0, 0.0, pinShadowA), c);
+        // Stop pin on top of its shadow: 1.5 px lighter inner bevel.
         float pinD = length(sq - pPin) - mR * 0.022;
         c = over(vec4(0.027, 0.031, 0.039, cov(pinD)), c);
         float pinInnerShadow = 0.95 * (1.0 - smoothstep(0.0, 1.5, -pinD)) * step(pinD, 0.0) * cov(pinD);
