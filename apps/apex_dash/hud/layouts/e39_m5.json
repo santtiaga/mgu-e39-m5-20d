@@ -461,7 +461,7 @@
       "glow": false,
       "id": "e39_fuel_full_1",
       "x": 301,
-      "y": 363,
+      "y": 370,
       "text": "1"
     },
     {
@@ -475,7 +475,7 @@
       "glow": false,
       "id": "e39_fuel_full_slash",
       "x": 309,
-      "y": 366,
+      "y": 373,
       "text": "/"
     },
     {
@@ -489,7 +489,7 @@
       "glow": false,
       "id": "e39_fuel_full_2",
       "x": 315,
-      "y": 369,
+      "y": 376,
       "text": "1"
     },
     {
