@@ -15,6 +15,7 @@
  * Demo: setting "demo" = auto (until the car answers) / on / off.
  * data().stage = the selector position 'P' / 'R' / 'N' / 'D' (gearbox signal), else undefined.
  * data().condition = BMW's vehicle state number ('condition' group; 10 = drive-ready), else undefined.
+ * data().conditionKnown = false when BMW last sent an unrecognised state (e.g. 15, no value).
  */
 const Sim = require('./sim');
 
@@ -155,7 +156,17 @@ class Car {
                 put('gear', sel.gear);
             });
         }
-        if (groups.includes('condition')) add('de.bmw.infrastructure.VehicleCondition', 'VehicleCondition', (v) => put('condition', conditionOf(v && v.statusConditionVehicle)));
+        const condSeen = [];
+        if (groups.includes('condition')) add('de.bmw.infrastructure.VehicleCondition', 'VehicleCondition', (v) => {
+            const raw = v && v.statusConditionVehicle, n = conditionOf(raw);
+            if (raw === undefined || raw === null) return;
+            if (condSeen.length < 16 && condSeen.indexOf(String(raw)) < 0) {
+                condSeen.push(String(raw));
+                this.log.info('vehicle state: ' + JSON.stringify(raw) + (n === undefined ? ' (not known)' : ''));
+            }
+            this.live.conditionKnown = n !== undefined;
+            if (n !== undefined) put('condition', n);
+        });
         // negative torque (engine braking while the rpm falls) counts as 0
         if (groups.includes('torque')) add('de.bmw.infotainment.drivingexcitement.FES', 'statusActualValueTorque2', (v) => { const tq = sc('torque', v.actualValueTorqueCrankshaft); put('torque', tq === null ? null : Math.max(0, tq)); });
         // extra[iface].$pollMs: re-read that interface's fields that often (signals.js), for fields the car never notifies
