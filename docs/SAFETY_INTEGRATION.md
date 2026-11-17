@@ -36,6 +36,7 @@ Release verification remains limited by the documented protocol: `drop` has no a
 ```sh
 node tests/safety_controller.test.js
 node tests/staged_build.test.js
+node tests/cluster_render_reconnect.test.js
 node --check shared/safety_controller.js
 node --check tests/safety_controller.test.js
 node --check tests/staged_build.test.js
