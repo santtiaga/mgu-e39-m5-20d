@@ -96,6 +96,11 @@
           "button",
           "OPEN_LOGS",
           "View diagnostic logs"
+        ],
+        [
+          "button",
+          "OPEN_TRANSFER",
+          "Transfer log to phone"
         ]
       ]
     },
