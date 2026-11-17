@@ -1612,7 +1612,7 @@ class HudApp {
                 this.log.error('drop layer ' + r.ref + ' [connection ' + (r.ci + 1) + '] failed: ' + (e && e.stack || e));
             }
         });
-        if (refs.length) this.log.info('renderer release requested: ' + refs.length + ' layer(s)' + (failed ? ', ' + failed + ' drop command(s) failed' : '') + '; awaiting renderer status');
+        if (refs.length) this.log.info('renderer release requested: ' + refs.length + ' layer(s)' + (failed ? ', ' + failed + ' drop command(s) failed' : '') + '; renderer acknowledgement is asynchronous');
         this.widgets.clear();
         this.sheets = [];
         this.pixelBytes = 0;
