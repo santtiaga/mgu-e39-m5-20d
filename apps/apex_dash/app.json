@@ -2,7 +2,7 @@
   "id": "apex_dash",
   "title": "E39 M5 Cluster (Marko DEV)",
   "description": "Authentic BMW E39 M5 digital cluster for iDrive 7 and 8 (MGU) by Marko DEV. Features 5-needle startup sweep self-test, Check Control OBC display, dynamic LED warm-up arch, 7/8-speed Steptronic/DKG selector, and Service-Interval indicator.",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "vendor": "custom",
   "loggingId": "OAD1",
   "iconGlyph": "APX",
@@ -192,6 +192,38 @@
         [
           "button",
           "LOG_BACK",
+          "Back"
+        ]
+      ]
+    },
+    {
+      "name": "TRANSFER",
+      "kind": "menu",
+      "title": "Transfer diagnostic log",
+      "items": [
+        [
+          "button",
+          "TRANSFER_REFRESH",
+          "Refresh address"
+        ],
+        [
+          "text",
+          "TRANSFER_HOST",
+          "Starting transfer server..."
+        ],
+        [
+          "text",
+          "TRANSFER_PATH",
+          ""
+        ],
+        [
+          "text",
+          "TRANSFER_STATUS",
+          "Connect a phone to the same network"
+        ],
+        [
+          "button",
+          "TRANSFER_BACK",
           "Back"
         ]
       ]
