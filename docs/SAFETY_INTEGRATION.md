@@ -7,7 +7,7 @@ This branch introduces the first safety-integration slice, based on the failure-
 - `shared/safety_controller.js` provides one rolling error budget for synchronous callbacks and rejected promises.
 - Five errors in a ten-second rolling window latch a safety stop.
 - The stop handler drops all currently tracked Apex Dash layers, clears the active layout state, requests fresh renderer status from ready connections, and exposes a persistent status-line warning.
-- Renderer event handlers are guarded. Renderer layer errors, refused operations, and diagnostic error events count toward the same error budget.
+- Renderer event handlers are guarded. Renderer layer errors and refused operations count toward the same error budget; diagnostic events are logged without double-counting the corresponding renderer event.
 - Layer drops are attempted independently, so one failed drop command does not prevent attempts for the remaining layers.
 - `tests/safety_controller.test.js` covers synchronous errors, rolling-window expiry, one-shot trip behavior, latched suppression, reset, and rejected promises.
 
