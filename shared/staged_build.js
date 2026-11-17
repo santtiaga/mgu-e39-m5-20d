@@ -14,4 +14,22 @@ function transition(build, ci, ref, state, reason) {
     return null;
 }
 
-module.exports = { transition: transition };
+/**
+ * Preserve a stage's remaining confirmation budget across a renderer disconnect.
+ * The caller owns the timer; these helpers only maintain the deadline accounting.
+ */
+function pause(build, now) {
+    if (!build || build.deadlineAt <= 0) return build ? Math.max(1, build.remainingMs || 45000) : 0;
+    build.remainingMs = Math.max(1, build.deadlineAt - now);
+    build.deadlineAt = 0;
+    return build.remainingMs;
+}
+
+function resume(build, now) {
+    if (!build || build.deadlineAt > 0) return null;
+    const ms = Math.max(1, build.remainingMs || 45000);
+    build.deadlineAt = now + ms;
+    return ms;
+}
+
+module.exports = { transition: transition, pause: pause, resume: resume };
