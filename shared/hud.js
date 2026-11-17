@@ -452,6 +452,13 @@ class HudApp {
         const tag = ci ? ' [connection ' + (ci + 1) + ']' : '';
         c.on('ready', () => { this.log.info('cluster-render ready' + tag + ' (backend=' + c.backend + ')'); if (ci === 0) this._rebuild(); else this._status(); });
         c.on('disconnected', () => { this.log.warn('cluster-render disconnected' + tag + ', client will retry'); this._status(); });
+        c.on('diagnostic', (ev) => {
+            if (ev.ev === 'target' || ev.ev === 'error' || (ev.ev === 'layer' && ev.state !== 'shown')) {
+                let raw;
+                try { raw = JSON.stringify(ev); } catch (e) { raw = String(ev); }
+                this.log.warn('cluster-render raw event' + tag + ': ' + raw);
+            }
+        });
         c.on('layer', (ref, state, reason) => {
             const key = ci + ':' + ref;
             const old = this.layerStates.get(key);
