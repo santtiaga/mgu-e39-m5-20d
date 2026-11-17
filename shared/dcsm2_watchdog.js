@@ -9,7 +9,7 @@ const POLL_WAITING_MS = 1500;
 const POLL_AVAILABLE_MS = 5000;
 
 function parseStatus(text) {
-    const match = /(?:^|\\n)\\s*dcsm:\\s*(?:Dcsm2|DCSM provider)\\s+(not available yet|not available|available)\\b/i.exec(String(text || ''));
+    const match = /(?:^|\n)\s*dcsm:\s*(?:Dcsm2|DCSM provider)\s+(not available yet|not available|available)\b/i.exec(String(text || ''));
     if (!match) return null;
     const state = match[1].toLowerCase();
     if (state === 'available') return 'available';
