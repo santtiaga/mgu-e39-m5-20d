@@ -38,6 +38,12 @@ Safe guarantees currently made:
 
 A true atomic cutover requires renderer support for an app-scoped layer group/scene transaction (stage a complete generation, then commit it at a render-frame boundary), or equivalent documented semantics. Until such support exists and is verified against the installed MGU renderer, keep the current conservative per-layer behavior.
 
+## Make-before-break resource gate
+
+`shared/layout_generation.js` adds a tested resource preflight for retaining the active generation while a candidate is staged. It accounts for active and planned layer counts per connection, image memory (8 bytes per image pixel), shared glyph-atlas bytes, the 8-layer per-client ceiling, the 32-layer service ceiling, and the 16 MiB shared pixel-memory ceiling.
+
+The gate intentionally fails closed today: cluster-render does not expose a complete global layer/pixel inventory, and the app cannot prove that other clients leave enough shared compositor capacity. `shared/hud.js` records this decision and continues to use the existing safe rebuild path. The gate is groundwork, not an enabled double-buffer implementation; it does not duplicate live layouts, change renderer ownership, or claim a frame-atomic swap. Enabling make-before-break requires a trustworthy renderer inventory/capacity API and a separate generation-owned widget/update lifecycle. Tests cover resource accounting, unknown-inventory rejection, and each budget ceiling.
+
 ## Deliberate safety behavior
 
 A trip is latched for the lifetime of the app process. Apex Dash does not automatically rebuild the overlay after a safety stop; restart the app after collecting logs and resolving the underlying fault. This avoids an automatic render/restart loop on the instrument cluster.
