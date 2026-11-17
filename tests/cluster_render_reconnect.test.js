@@ -103,8 +103,15 @@ function finish() {
         const frames = replay.filter((m) => m.type === 'frame');
         assert(json.some((m) => m.op === 'asset' && m.ref === asset), 'asset definition replayed');
         assert(json.some((m) => m.op === 'layer' && m.ref === image && m.kind === 'image'), 'image layer replayed');
+        const imageMsg = json.find((m) => m.op === 'layer' && m.ref === image);
         const effectMsg = json.find((m) => m.op === 'layer' && m.ref === effect);
-        assert(effectMsg && effectMsg.visible === 0, 'latest layer settings replayed');
+        assert(imageMsg && imageMsg.visible === 0, 'visible image is created hidden during replay');
+        assert(effectMsg && effectMsg.visible === 0, 'previously hidden effect remains hidden during replay');
+        const framesAt = replay.findIndex((m) => m.type === 'frame');
+        const revealImageAt = json.findIndex((m) => m.op === 'set' && m.ref === image && m.visible === 1);
+        const keepEffectHiddenAt = json.findIndex((m) => m.op === 'set' && m.ref === effect && m.visible === 0);
+        assert(framesAt >= 0 && revealImageAt > framesAt && keepEffectHiddenAt > framesAt,
+            'visibility is restored only after retained pixel uploads');
         assert(json.some((m) => m.op === 'uniform' && m.ref === effect && m.name === 'u_level'), 'uniform replayed');
         assert(json.some((m) => m.op === 'bind' && m.ref === effect && m.asset === asset), 'asset binding replayed');
         assert(json.some((m) => m.op === 'animate' && m.ref === effect), 'animation replayed');
