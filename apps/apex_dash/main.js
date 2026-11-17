@@ -8,6 +8,7 @@ const path = require('path');
 const http = require('http');
 const os = require('os');
 const crypto = require('crypto');
+const util = require('util');
 const mgu = require('./kit/mgu');
 const HudApp = require('./hud');
 
@@ -15,6 +16,13 @@ const LOG_LINES = 16;
 const LOG_REFRESH_MS = 2000;
 const LOG_HTTP_PORT = 18765;
 const LOG_HTTP_MAX_BYTES = 512 * 1024;
+
+function diagnosticText(value) {
+    if (value instanceof Error) return value.stack || (value.name + ': ' + value.message);
+    if (typeof value === 'string') return value;
+    try { return util.inspect(value, { depth: 6, breakLength: 160, maxArrayLength: 100 }); }
+    catch (e) { try { return JSON.stringify(value); } catch (ignored) { return String(value); } }
+}
 
 mgu.run({
     start(ctx) {
@@ -28,6 +36,10 @@ mgu.run({
         }
 
         hud.onStatus((s) => { ctx.ui.text('STATUS', s); });
+        const onUnhandledRejection = (reason) => {
+            ctx.log.error('[process] unhandledRejection: ' + diagnosticText(reason));
+        };
+        process.on('unhandledRejection', onUnhandledRejection);
         hud.start();
 
         const logFile = path.join(ctx.dataDir, 'apex_dash.log');
@@ -137,6 +149,7 @@ mgu.run({
         process.on('exit', () => {
             if (logTimer !== null) clearInterval(logTimer);
             if (logServer) { try { logServer.close(); } catch (e) {} }
+            process.removeListener('unhandledRejection', onUnhandledRejection);
             try { hud.stop(); } catch (e) { /* exiting anyway */ }
         });
     },
