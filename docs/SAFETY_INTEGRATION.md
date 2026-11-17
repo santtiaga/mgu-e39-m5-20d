@@ -40,7 +40,7 @@ A true atomic cutover requires renderer support for an app-scoped layer group/sc
 
 ## Make-before-break resource gate
 
-`shared/layout_generation.js` adds a tested resource preflight for retaining the active generation while a candidate is staged. It accounts for active and planned layer counts per connection, image memory (8 bytes per image pixel), shared glyph-atlas bytes, the 8-layer per-client ceiling, the 32-layer service ceiling, and the 16 MiB shared pixel-memory ceiling.
+`shared/layout_generation.js` adds a tested resource preflight for retaining the active generation while a candidate is staged. It accounts for active and planned layer counts per connection, image memory (8 bytes per image pixel), retained glyph-atlas bytes, the conservative 8-layer-per-connection / 32-layer Apex Dash operating budgets, and the 16 MiB shared pixel-memory ceiling.
 
 The status operation does expose a renderer-wide snapshot: it lists every configured target and enumerates connected clients' layers and assets. `shared/renderer_inventory.js` parses that response, counts global layers/assets, and computes the known asset allocation from format and dimensions. `shared/hud.js` uses a fresh snapshot only as a global layer-count lower bound when evaluating the overlap.
 
