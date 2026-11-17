@@ -4,6 +4,10 @@ Newest first. Dates are when the build was pushed.
 
 ## Nov 17 2026
 
+- **Apex Dash 1.4.7:** preserve raw cluster-render target/layer/error event payloads in diagnostic logs and capture full unhandled-rejection details, including stack traces.
+
+## Nov 17 2026
+
 - **Apex Dash 1.4.5:** reuse text-glow blur scratch buffers instead of allocating intermediate masks on every repaint; replace four needle-layer distance square roots used only for circular bounds checks with equivalent squared-distance tests. Visual geometry and effect parameters are unchanged.
 
 ## Nov 17 2026
