@@ -29,9 +29,6 @@ function assessOverlap(active, candidate, limits) {
     active = active || measureRefs([]);
     candidate = candidate || measurePlan([]);
     limits = limits || {};
-    if (limits.rendererInventoryComplete !== true) {
-        return { allowed: false, reason: 'renderer layer/pixel inventory is unavailable' };
-    }
     const perClient = Math.max(1, limits.perClient || 8);
     const totalLimit = Math.max(1, limits.totalLayers || 32);
     const pixelLimit = Math.max(1, limits.pixelBytes || 16 * 1024 * 1024);
@@ -42,11 +39,30 @@ function assessOverlap(active, candidate, limits) {
             return { allowed: false, reason: 'connection ' + (ci + 1) + ' would need ' + combined + '/' + perClient + ' layers' };
         }
     }
-    const layers = active.layers + candidate.layers + Math.max(0, limits.externalLayers || 0);
-    if (layers > totalLimit) return { allowed: false, reason: 'renderer would need ' + layers + '/' + totalLimit + ' total layers' };
-    const pixels = active.imageBytes + candidate.imageBytes + Math.max(0, limits.sharedAssetBytes || 0) + Math.max(0, limits.externalPixelBytes || 0);
+
+    /* A complete status snapshot includes the active layout already. Add
+     * only candidate layers to its global count (externalLayers excludes
+     * this app's active refs). The 32-layer limit supplied by HUD is its
+     * conservative operating budget, not a protocol-wide renderer limit. */
+    const layerInventoryComplete = limits.layerInventoryComplete === true ||
+        limits.rendererInventoryComplete === true;
+    if (layerInventoryComplete) {
+        const layers = active.layers + candidate.layers + Math.max(0, limits.externalLayers || 0);
+        if (layers > totalLimit) {
+            return { allowed: false, reason: 'renderer would need ' + layers + '/' + totalLimit + ' layers (Apex Dash safety budget)' };
+        }
+    } else if (limits.rendererInventoryComplete !== true) {
+        return { allowed: false, reason: 'renderer layer inventory is unavailable' };
+    }
+
+    if (limits.rendererInventoryComplete !== true) {
+        return { allowed: false, reason: 'renderer pixel-memory inventory is incomplete' };
+    }
+    const pixels = active.imageBytes + candidate.imageBytes + Math.max(0, limits.sharedAssetBytes || 0) +
+        Math.max(0, limits.externalPixelBytes || 0);
     if (pixels > pixelLimit) return { allowed: false, reason: 'renderer would need ' + pixels + '/' + pixelLimit + ' pixel bytes' };
-    return { allowed: true, reason: 'known renderer budgets have sufficient headroom', layers: layers, pixelBytes: pixels };
+    return { allowed: true, reason: 'known renderer budgets have sufficient headroom', layers: active.layers + candidate.layers,
+        pixelBytes: pixels };
 }
 
 module.exports = { measureRefs: measureRefs, measurePlan: measurePlan, assessOverlap: assessOverlap };
