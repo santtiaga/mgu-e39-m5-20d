@@ -42,7 +42,6 @@ function parseStatus(statusText) {
             result.layerKinds[kind] = (result.layerKinds[kind] || 0) + 1;
             if (kind === 'image' || kind === 'video' || kind === 'mesh') result.unmeasuredPixelResources++;
         } else if (/^scene\\s+/.test(line)) {
-            /* Pre-installed scene resources are not enumerated as assets. */
             result.unmeasuredPixelResources++;
         } else if (/^asset\\s+/.test(line)) {
             const match = /^asset\\s+\\d+\\s+([a-z0-9]+)\\s+(\\d+)x(\\d+)\\s+of\\s+.+?\\s+on\\s+[^:]+:/.exec(line);
