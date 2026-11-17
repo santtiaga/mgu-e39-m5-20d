@@ -159,6 +159,7 @@ class ClusterRender extends EventEmitter {
         this.sock = null;
         this.ready = false;
         this.replaying = false;
+        this.helloReceived = false;
     }
 
     _open() {
