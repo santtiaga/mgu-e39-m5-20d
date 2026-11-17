@@ -486,7 +486,6 @@ class HudApp {
                 try { raw = JSON.stringify(ev); } catch (e) { raw = String(ev); }
                 this.log.warn('cluster-render raw event' + tag + ': ' + raw);
             }
-            if (ev.ev === 'error') this.safety.record('renderer diagnostic ' + (ev.op || 'error'), new Error(ev.reason || 'renderer error'));
         }));
         c.on('layer', guard('layer', (ref, state, reason) => {
             const key = ci + ':' + ref;
