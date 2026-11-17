@@ -132,6 +132,7 @@ class ClusterRender extends EventEmitter {
         this.sock = null;
         this.ready = false;
         this.replaying = false;
+        this.replayVisibilitySent = false;
         this.closed = true;
         this.backoff = 0;
         this.timer = null;
@@ -166,6 +167,7 @@ class ClusterRender extends EventEmitter {
         this.blocked = false;
         this.connected = false;
         this.replaying = false;
+        this.replayVisibilitySent = false;
         this.inbuf = Buffer.alloc(0);
         sock.on('connect', () => {
             /* Everything made before now goes in the replay below. */
@@ -234,6 +236,7 @@ class ClusterRender extends EventEmitter {
             this.targets = ev.targets;
             this.ready = false;
             this.replaying = true;
+            this.replayVisibilitySent = false;
             this.backoff = 0;
             this._pump();
         } else if (ev.ev === 'layer') {
@@ -297,6 +300,18 @@ class ClusterRender extends EventEmitter {
                 if ((l.kind === 'image' || l.kind === 'asset') && (l.whole || l.dirty.length)) pixelsPending = true;
             });
             if (this.blocked || pixelsPending) return;
+
+            /* Layer definitions are replayed hidden. Restore their requested
+             * visibility only after every retained image/asset frame has been
+             * written, preserving TCP order so no incomplete layer can flash. */
+            if (!this.replayVisibilitySent) {
+                this.layers.forEach((l, ref) => {
+                    if (l.kind === 'asset' || l.kind === 'scene') return;
+                    this._send({ op: 'set', ref: ref, visible: l.opts.visible === undefined ? 1 : flag(l.opts.visible) });
+                });
+                this.replayVisibilitySent = true;
+            }
+            if (this.blocked) return;
             this.replaying = false;
             this.ready = true;
             this.emit('ready');
@@ -325,6 +340,7 @@ class ClusterRender extends EventEmitter {
         }
         const m = { op: 'layer', ref: ref, target: o.target, kind: l.kind };
         this._setFields(m, o);
+        if (this.replaying) m.visible = 0;
         if (l.kind === 'video') {
             ['vw', 'vh', 'fps', 'level_bits', 'dirty_threshold', 'settle_ms', 'stall_ms'].forEach((k) => {
                 if (o[k] !== undefined) m[k] = o[k];
