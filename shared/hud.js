@@ -485,6 +485,7 @@ class HudApp {
         }));
         c.on('disconnected', guard('disconnected', () => {
             this.log.warn('cluster-render disconnected' + tag + ', client will retry');
+            if (ci === 0) this.rendererInventory = null;
             this._pauseBuildForConnection(ci);
             if (ci === 0) this.dcsm2.disconnected();
             else this._status();
