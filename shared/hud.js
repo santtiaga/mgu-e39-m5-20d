@@ -152,6 +152,7 @@
 const fs = require('fs');
 const { ClusterRender, DEFAULT_PATH } = require('./cluster_render_client.js');
 const DCSM2Watchdog = require('./dcsm2_watchdog');
+const createSafetyController = require('./safety_controller');
 const Layouts = require('./layouts');
 const { THEMES, M_STRIPE, LIGHTS, VERDICT, color } = require('./hud_themes');
 const ShiftScore = require('./shift_score');
@@ -327,6 +328,13 @@ class HudApp {
         this.problem = null;             // why nothing shows (a bad layout), for the status line
         this.statusListeners = [];
         this.lastStatus = null;
+        this.safetyTripped = false;
+        this.safety = createSafetyController({
+            log: this.log,
+            errorLimit: 5,
+            errorWindowMs: 10000,
+            onTrip: (incident) => this._onSafetyTrip(incident),
+        });
 
         this._setupVehicleData();
         this.layouts.onChange(() => this._rebuild());
@@ -639,7 +647,27 @@ class HudApp {
     }
 
     _guard(what, fn) {
-        try { fn(); } catch (e) { this.log.error('hud ' + what + ': ' + (e && e.stack || e)); }
+        if (this.safety && this.safety.tripped()) return;
+        const guarded = this.safety ? this.safety.guard('hud ' + what, fn) : fn;
+        guarded();
+    }
+
+    /** A latched safety stop: remove our overlay and require an app restart to resume. */
+    _onSafetyTrip(incident) {
+        if (this.safetyTripped) return;
+        this.safetyTripped = true;
+        this.deferredRebuild = false;
+        this.problem = 'SAFETY STOP: ' + incident.count + ' errors / ' + (incident.windowMs / 1000) + ' s; restart app to resume';
+        this.log.error('[safety] dropping Apex Dash layers; last error: ' + (incident.lastError && incident.lastError.name || 'unknown'));
+        try { this._dropLayoutLayers(); } catch (e) {
+            this.log.error('[safety] layer drop failed: ' + (e && e.stack || e));
+        }
+        this.activeName = null;
+        this.clients.forEach((c, ci) => {
+            try { if (c.ready) { this.log.info('[safety] requesting renderer status on connection ' + (ci + 1)); c.status(); } }
+            catch (e) { this.log.warn('[safety] renderer status request failed: ' + (e && e.message || e)); }
+        });
+        this._status();
     }
 
     /* ---------------- status line (the center screen's first row) ---------------- */
@@ -727,6 +755,7 @@ class HudApp {
     }
 
     statusText() {
+        if (this.safetyTripped || (this.safety && this.safety.tripped())) return this.label + ': ' + (this.problem || 'SAFETY STOP; restart app to resume');
         if (!this.client.ready) {
             let there = false;
             try { there = fs.existsSync(this.socketPath); } catch (e) { /* treat as missing */ }
@@ -1151,12 +1180,13 @@ class HudApp {
     /* ---------------- layers ---------------- */
 
     _rebuild() {
-        if (this.stopped) return;
+        if (this.stopped || this.safetyTripped || (this.safety && this.safety.tripped())) return;
         this._guard('rebuild', () => this._rebuildInner());
         this._status();
     }
 
     _rebuildInner() {
+        if (this.safetyTripped || (this.safety && this.safety.tripped())) return;
         if (!this.client.ready) return; // the 'ready' handler calls us again
         const name = this._layoutName();
         const vehicle = this._vehicleGate(this.car.data());
@@ -1241,6 +1271,7 @@ class HudApp {
                 this._guard('widget ' + e.w.id, () => this._create(e.w, null));
             }
         });
+        if (this.safetyTripped || (this.safety && this.safety.tripped())) return;
         const atlasBytes = this._atlasBytes();
         px += atlasBytes;
         this.pixelBytes = px;
@@ -1576,7 +1607,7 @@ class HudApp {
     }
 
     _tick() {
-        if (this.stopped) return;
+        if (this.stopped || this.safetyTripped || (this.safety && this.safety.tripped())) return;
         const now = Date.now();
         this._frameData = this.car.data();
         try {
