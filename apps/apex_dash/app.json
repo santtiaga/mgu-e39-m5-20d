@@ -10,6 +10,7 @@
     "hud.js",
     "dcsm2_watchdog.js",
     "safety_controller.js",
+    "staged_build.js",
     "hud_text.js",
     "hud_data.js",
     "hud_themes.js",
