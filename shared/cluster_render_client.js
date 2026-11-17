@@ -170,8 +170,11 @@ class ClusterRender extends EventEmitter {
         this.replayVisibilitySent = false;
         this.inbuf = Buffer.alloc(0);
         sock.on('connect', () => {
-            /* Everything made before now goes in the replay below. */
+            /* Everything made before now goes in the replay below. Keep all
+             * recreated drawable layers hidden until hello and pixel replay. */
             this.connected = true;
+            this.replaying = true;
+            this.replayVisibilitySent = false;
             this._send({ op: 'hello', app: this.app, proto: PROTO });
             /* Assets first, so binds find them; binds and animations once
              * every layer and part is made. */
