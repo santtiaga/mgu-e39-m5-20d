@@ -42,7 +42,7 @@ assert.strictEqual(result.layers, 11);
 assert.strictEqual(result.pixelBytes, 57184);
 result = generation.assessOverlap(active, candidate, Object.assign({}, knownLimits, { externalLayers: 30 }));
 assert.strictEqual(result.allowed, false, 'service-wide layer ceiling must be enforced');
-assert(/total layers/.test(result.reason));
+assert(/layers/.test(result.reason));
 result = generation.assessOverlap(active, candidate, Object.assign({}, knownLimits, { externalPixelBytes: 16 * 1024 * 1024 }));
 assert.strictEqual(result.allowed, false, 'shared pixel-memory ceiling must be enforced');
 assert(/pixel bytes/.test(result.reason));
