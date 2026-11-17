@@ -1383,8 +1383,7 @@ class HudApp {
     /** Arm the current stage timeout only while its renderer connection is ready. */
     _armBuildTimeout(b) {
         if (!b || this.build !== b || !b.current || b.timer || b.waitingConnection !== null) return;
-        const ms = Math.max(1, b.remainingMs || 45000);
-        b.deadlineAt = Date.now() + ms;
+        const ms = StagedBuild.resume(b, Date.now());
         b.timer = setTimeout(() => {
             if (this.build === b && b.current) this._abortBuild('timeout waiting for renderer confirmation at stage ' +
                 (b.index + 1) + ' (' + b.current.phase + ')');
@@ -1396,7 +1395,7 @@ class HudApp {
         const b = this.build;
         if (!b || !b.current || b.current.ci !== ci) return;
         if (b.timer) {
-            b.remainingMs = Math.max(1, b.deadlineAt - Date.now());
+            StagedBuild.pause(b, Date.now());
             clearTimeout(b.timer);
             b.timer = null;
         }
