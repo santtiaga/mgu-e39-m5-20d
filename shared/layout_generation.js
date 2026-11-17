@@ -46,10 +46,11 @@ function assessOverlap(active, candidate, limits) {
      * conservative operating budget, not a protocol-wide renderer limit. */
     const layerInventoryComplete = limits.layerInventoryComplete === true ||
         limits.rendererInventoryComplete === true;
+    let projectedLayers = active.layers + candidate.layers;
     if (layerInventoryComplete) {
-        const layers = active.layers + candidate.layers + Math.max(0, limits.externalLayers || 0);
-        if (layers > totalLimit) {
-            return { allowed: false, reason: 'renderer would need ' + layers + '/' + totalLimit + ' layers (Apex Dash safety budget)' };
+        projectedLayers += Math.max(0, limits.externalLayers || 0);
+        if (projectedLayers > totalLimit) {
+            return { allowed: false, reason: 'renderer would need ' + projectedLayers + '/' + totalLimit + ' layers (Apex Dash safety budget)' };
         }
     } else if (limits.rendererInventoryComplete !== true) {
         return { allowed: false, reason: 'renderer layer inventory is unavailable' };
@@ -61,7 +62,7 @@ function assessOverlap(active, candidate, limits) {
     const pixels = active.imageBytes + candidate.imageBytes + Math.max(0, limits.sharedAssetBytes || 0) +
         Math.max(0, limits.externalPixelBytes || 0);
     if (pixels > pixelLimit) return { allowed: false, reason: 'renderer would need ' + pixels + '/' + pixelLimit + ' pixel bytes' };
-    return { allowed: true, reason: 'known renderer budgets have sufficient headroom', layers: active.layers + candidate.layers,
+    return { allowed: true, reason: 'known renderer budgets have sufficient headroom', layers: projectedLayers,
         pixelBytes: pixels };
 }
 
