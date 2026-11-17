@@ -20,9 +20,11 @@
  * Effect shaders: cluster-render's v_uv has (0,0) at the TOP-left (PROTOCOL.md; confirmed on the car,
  * Nov 4 2026, when a box's header strip drew at the bottom). The bench draws the same way.
  *
- * Layer packing (Nov 5 2026): cluster-render draws at most 8 layers per client connection (its
- * CompositorLimits.per_client; 32 across all clients; a 9th is refused with "too many layers"), which the car
- * photos showed as a theme's shaders plus the first few text widgets. So the image widgets (text, scale, stripe, badge, gridlabels, icon, swatchimg) are
+ * Layer packing (Nov 5 2026): the car observations showed that Apex Dash should stay within 8 layers per
+ * connection and 32 across its planned connections; these are conservative app operating budgets. The
+ * currently inspected upstream cluster-render protocol documents higher hard ceilings (64 per client,
+ * 96 total), but the exact renderer build installed on the car has not been identified. So the image widgets
+ * (text, scale, stripe, badge, gridlabels, icon, swatchimg) are
  * packed into SHEETS, one image layer per sheet, instead of one layer each. Widgets are grouped by
  * (class, z) and placed in file order: a widget goes into the first sheet of its group opened after every
  * earlier layer or widget its rect intersects (so an image widget never clobbers one it overlaps, and
@@ -170,7 +172,7 @@ const BOOST_SCALE = { factor: 0.01, offset: 0, invalid: 255 }; // see header com
 // the widget types drawn as pixels (image layers, packed into sheets unless "own": true); the rest are shaders
 const IMAGE_TYPES = { text: true, scale: true, stripe: true, badge: true, gridlabels: true, icon: true, swatchimg: true };
 const STATUS_ASK_MS = 2000;      // after a rebuild: ask cluster-render for its own status text
-const LAYER_BUDGET = 8;          // cluster-render's limit per client connection (CompositorLimits.per_client; confirmed on the car Nov 5 2026)
+const LAYER_BUDGET = 8;          // conservative Apex Dash per-connection budget from on-car observations
 const MAX_CONN = 4;              // connections a layout may ask for ("conn"): 32 layers service-wide / 8 per connection
 const PIXEL_BYTES = 16 * 1024 * 1024;   // cluster-render's pixel memory for every app's images together (CompositorLimits.pixel_bytes)
 const SHEET_AREA_FRAC = 4;       // the first sheet size limit: 1/4 of the target area (see the header)
@@ -317,7 +319,7 @@ class HudApp {
         this.pixelBytes = 0;             // what the layout's image layers and glyph atlases cost of cluster-render's pixel memory
         this.atlases = new Map();        // "<conn>:<font>" -> { ref, c, ci, cols, rows, cellW, cellH, chars, bytes }: R8 assets, kept across rebuilds
         this.targetState = null;         // latest cluster-render target diagnostics
-        this.rendererInventory = null;   // latest complete status snapshot; pixel allocation may still be unknown
+        this.rendererInventory = null;   // latest parsed status snapshot; pixel allocation may still be unknown
         this.rpmF = null; this.rpmNeedleF = null; this.rpmShown = null; this.lastTickT = 0;
         this.e39DistKm = 0; this.e39Cons = null; this.e39WearKm = 0;
         this.e39PeakG = null; this.e39Vmax = 0;
