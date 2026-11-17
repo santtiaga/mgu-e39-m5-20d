@@ -46,7 +46,7 @@ mgu.run({
         const readFullLog = () => {
             let content = '';
             [previousLogFile, logFile].forEach((file) => {
-                try { if (fs.existsSync(file)) content += fs.readFileSync(file, 'utf8') + '\\n'; }
+                try { if (fs.existsSync(file)) content += fs.readFileSync(file, 'utf8') + '\n'; }
                 catch (e) { ctx.log.warn('Could not read ' + file + ': ' + (e && e.message || e)); }
             });
             return content.slice(-LOG_HTTP_MAX_BYTES);
