@@ -1603,12 +1603,22 @@ class HudApp {
     /** Drop only layout layers; keep the shared renderer connection and cached font assets alive. */
     _dropLayoutLayers() {
         this.needsBoost = false;
-        this._layerRefs().forEach((r) => r.c.drop(r.ref));
+        const refs = this._layerRefs();
+        let failed = 0;
+        refs.forEach((r) => {
+            try { r.c.drop(r.ref); }
+            catch (e) {
+                failed++;
+                this.log.error('drop layer ' + r.ref + ' [connection ' + (r.ci + 1) + '] failed: ' + (e && e.stack || e));
+            }
+        });
+        if (refs.length) this.log.info('renderer release requested: ' + refs.length + ' layer(s)' + (failed ? ', ' + failed + ' drop command(s) failed' : '') + '; awaiting renderer status');
         this.widgets.clear();
         this.sheets = [];
         this.pixelBytes = 0;
         this.layerStates.clear();
         this.refused = null;
+        return { requested: refs.length, failed: failed };
     }
 
     _tick() {
