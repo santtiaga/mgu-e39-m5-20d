@@ -19,6 +19,25 @@ The existing `ClusterRender` client already owns the runtime replay contract; Ap
 
 A reconnect regression test uses a local fake renderer, forces the first socket closed, then checks the second connection for replayed definitions/state and byte-identical full image/asset uploads: `tests/cluster_render_reconnect.test.js`. This test exercises the client protocol replay, not the BMW renderer or the instrument cluster itself. Video frames are transient and are not replayed from a retained frame buffer; Apex Dash's current E39 layout is based on image/effect layers and live HUD ticks rather than a persistent video frame.
 
+## Atomic HUD cutover assessment
+
+The renderer protocol has no group transaction, frame-boundary commit, or atomic layer-set visibility operation. `set` and `drop` address one ref at a time; sending several messages on one TCP stream preserves their order, but does not promise that the renderer presents them as one indivisible frame. Reconnect replay therefore restores each layer's original visibility only after retained image/asset uploads, but the final per-layer visibility changes are still sequential. This avoids drawing incomplete retained pixels; it is not a guaranteed atomic visual swap.
+
+Two protocol features were assessed and deliberately not used as a general-purpose transaction:
+
+- `exclusive` hides every lower layer while that layer is drawn, but it is a layer-stack occlusion feature, not an app-scoped transaction or a commit primitive. A global curtain could suppress other clients' content, and correct stack placement relative to every old and new layer is not guaranteed by Apex Dash's current layout definitions. Do not use it as a reconnect barrier without renderer-level evidence that its scope and ordering are safe.
+- A `scene` file can replace a target's scene, but the renderer accepts only trusted root-owned files installed under `/var/opt/`, and a target has at most one scene file. This is a pre-installed RAMSES scene mechanism, not a dynamic transaction for the current JS-generated E39 image/effect layout.
+
+The current `_rebuildInner()` also requests drops for the previous layout before starting a new staged build. Since `drop` has no acknowledgement, a layout/settings change can have a blank or partial interval while the replacement is built. Changing that to keep-old-until-new-ready would require a separate double-buffered layout lifecycle, temporary duplicate layer/memory budget, explicit ownership of old and new refs, and a defined cutover policy. It still would not be frame-atomic with the present protocol. This refactor is intentionally not attempted as part of the reconnect safety work.
+
+Safe guarantees currently made:
+- on reconnect, all drawable layers are recreated hidden;
+- retained image/asset pixels and socket backpressure complete before original visibility is restored;
+- the client waits for renderer `hello` before completing the replay handshake;
+- no claim is made that the final visibility restore, a layout rebuild, or a set of drops is atomic at the display-frame level.
+
+A true atomic cutover requires renderer support for an app-scoped layer group/scene transaction (stage a complete generation, then commit it at a render-frame boundary), or equivalent documented semantics. Until such support exists and is verified against the installed MGU renderer, keep the current conservative per-layer behavior.
+
 ## Deliberate safety behavior
 
 A trip is latched for the lifetime of the app process. Apex Dash does not automatically rebuild the overlay after a safety stop; restart the app after collecting logs and resolving the underlying fault. This avoids an automatic render/restart loop on the instrument cluster.
