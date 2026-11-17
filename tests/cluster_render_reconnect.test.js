@@ -108,8 +108,8 @@ function finish() {
         assert(imageMsg && imageMsg.visible === 0, 'visible image is created hidden during replay');
         assert(effectMsg && effectMsg.visible === 0, 'previously hidden effect remains hidden during replay');
         const framesAt = replay.findIndex((m) => m.type === 'frame');
-        const revealImageAt = json.findIndex((m) => m.op === 'set' && m.ref === image && m.visible === 1);
-        const keepEffectHiddenAt = json.findIndex((m) => m.op === 'set' && m.ref === effect && m.visible === 0);
+        const revealImageAt = replay.findIndex((m) => m.type === 'json' && m.value.op === 'set' && m.value.ref === image && m.value.visible === 1);
+        const keepEffectHiddenAt = replay.findIndex((m) => m.type === 'json' && m.value.op === 'set' && m.value.ref === effect && m.value.visible === 0);
         assert(framesAt >= 0 && revealImageAt > framesAt && keepEffectHiddenAt > framesAt,
             'visibility is restored only after retained pixel uploads');
         assert(json.some((m) => m.op === 'uniform' && m.ref === effect && m.name === 'u_level'), 'uniform replayed');
