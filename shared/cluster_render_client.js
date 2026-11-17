@@ -225,6 +225,7 @@ class ClusterRender extends EventEmitter {
     }
 
     _event(ev) {
+        if (ev.ev === 'target' || ev.ev === 'layer' || ev.ev === 'error') this.emit('diagnostic', ev);
         if (ev.ev === 'hello') {
             this.backend = ev.backend;
             this.targets = ev.targets;
