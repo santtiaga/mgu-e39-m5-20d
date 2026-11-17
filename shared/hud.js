@@ -153,6 +153,7 @@ const fs = require('fs');
 const { ClusterRender, DEFAULT_PATH } = require('./cluster_render_client.js');
 const DCSM2Watchdog = require('./dcsm2_watchdog');
 const createSafetyController = require('./safety_controller');
+const StagedBuild = require('./staged_build');
 const Layouts = require('./layouts');
 const { THEMES, M_STRIPE, LIGHTS, VERDICT, color } = require('./hud_themes');
 const ShiftScore = require('./shift_score');
@@ -1373,27 +1374,23 @@ class HudApp {
 
     /** Advance only on renderer layer events; client calls and status text are not treated as acknowledgements. */
     _buildLayerEvent(ci, ref, state, reason) {
-        const b = this.build, cur = b && b.current;
-        if (!cur || cur.ci !== ci || cur.ref !== ref) return;
-        if (state === 'error') {
-            this._abortBuild('renderer rejected stage ' + (b.index + 1) + ': ' + (reason || 'layer error'));
-            return;
-        }
-        if (cur.phase === 'hidden' && state === 'hidden') {
-            cur.phase = 'revealing';
+        const b = this.build;
+        const action = StagedBuild.transition(b, ci, ref, state, reason);
+        if (!action) return;
+        if (action.type === 'abort') {
+            this._abortBuild('renderer rejected stage ' + (b.index + 1) + ': ' + action.reason);
+        } else if (action.type === 'reveal') {
             this.log.info('layout build: stage ' + (b.index + 1) + ' renderer-confirmed hidden; revealing');
-            try { cur.c.set(ref, { visible: true }); }
+            try { b.current.c.set(ref, { visible: true }); }
             catch (e) { this._abortBuild('could not reveal stage ' + (b.index + 1) + ': ' + (e && e.message || e)); }
-            return;
-        }
-        if (cur.phase === 'revealing' && state === 'shown') {
+        } else if (action.type === 'shown') {
             clearTimeout(b.timer);
             b.timer = null;
             this.log.info('layout build: stage ' + (b.index + 1) + ' confirmed shown');
             b.current = null;
             b.index++;
             this._buildNext();
-        } else if (state === 'waiting' || state === 'stalled') {
+        } else if (action.type === 'wait') {
             this.log.info('layout build: stage ' + (b.index + 1) + ' waiting (' + state + (reason ? ': ' + reason : '') + ')');
         }
     }
