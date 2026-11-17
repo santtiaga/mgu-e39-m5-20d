@@ -131,6 +131,7 @@ class ClusterRender extends EventEmitter {
         this.path = socketPath || DEFAULT_PATH;
         this.sock = null;
         this.ready = false;
+        this.replaying = false;
         this.closed = true;
         this.backoff = 0;
         this.timer = null;
@@ -155,6 +156,7 @@ class ClusterRender extends EventEmitter {
         if (this.sock) this.sock.destroy();
         this.sock = null;
         this.ready = false;
+        this.replaying = false;
     }
 
     _open() {
@@ -163,6 +165,7 @@ class ClusterRender extends EventEmitter {
         this.sock = sock;
         this.blocked = false;
         this.connected = false;
+        this.replaying = false;
         this.inbuf = Buffer.alloc(0);
         sock.on('connect', () => {
             /* Everything made before now goes in the replay below. */
@@ -229,10 +232,10 @@ class ClusterRender extends EventEmitter {
         if (ev.ev === 'hello') {
             this.backend = ev.backend;
             this.targets = ev.targets;
-            this.ready = true;
+            this.ready = false;
+            this.replaying = true;
             this.backoff = 0;
             this._pump();
-            this.emit('ready');
         } else if (ev.ev === 'layer') {
             this.emit('layer', ev.ref, ev.state, ev.reason);
         } else if (ev.ev === 'target') {
@@ -262,7 +265,7 @@ class ClusterRender extends EventEmitter {
     /* Writes frames while the socket takes them: image changes first, then
      * the newest video frame of each layer. */
     _pump() {
-        if (!this.sock || !this.ready) return;
+        if (!this.sock || (!this.ready && !this.replaying)) return;
         this.layers.forEach((l, ref) => {
             if (this.blocked || (l.kind !== 'image' && l.kind !== 'asset') || !(l.whole || l.dirty.length)) return;
             const rects = l.whole ? [] : l.dirty;
@@ -284,6 +287,21 @@ class ClusterRender extends EventEmitter {
             l.dirtyBytes = 0;
             if (!this.sock.write(frameMessage(ref, 0, rects, px))) this.blocked = true;
         });
+
+        /* Do not wake the app on hello alone. A large image/atlas can fill the
+         * socket's writable buffer; wait for drain and every retained pixel
+         * upload before declaring the renderer ready to the HUD. */
+        if (this.replaying) {
+            let pixelsPending = false;
+            this.layers.forEach((l) => {
+                if ((l.kind === 'image' || l.kind === 'asset') && (l.whole || l.dirty.length)) pixelsPending = true;
+            });
+            if (this.blocked || pixelsPending) return;
+            this.replaying = false;
+            this.ready = true;
+            this.emit('ready');
+        }
+
         for (const ref of Array.from(this.pendingFrames.keys())) {
             if (this.blocked) break;
             const m = this.pendingFrames.get(ref);
