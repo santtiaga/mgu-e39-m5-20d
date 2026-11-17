@@ -1,0 +1,140 @@
+{
+  "id": "driver_profiles_probe",
+  "title": "Driver Profiles Probe",
+  "description": "Diagnostic probe for MGU personalization native module and active driver profile SOME/IP interface. Does not create, rename or switch profiles.",
+  "version": "0.1.0",
+  "vendor": "custom",
+  "loggingId": "DPR1",
+  "iconGlyph": "DP",
+  "signals": {
+    "de.bmw.infotainment.personalization.SessionManager": {
+      "currentUserAccountReference": "rs"
+    }
+  },
+  "screens": [
+    {
+      "name": "MAIN",
+      "kind": "menu",
+      "title": "Driver Profiles Probe",
+      "items": [
+        [
+          "text",
+          "STATUS",
+          "Starting diagnostics"
+        ],
+        [
+          "text",
+          "ACTIVE_PROFILE",
+          "Active profile: unknown"
+        ],
+        [
+          "button",
+          "REFRESH",
+          "Refresh diagnostics"
+        ],
+        [
+          "button",
+          "OPEN_LOGS",
+          "View diagnostic log"
+        ]
+      ]
+    },
+    {
+      "name": "LOGS",
+      "kind": "menu",
+      "title": "Driver Profiles Probe — Log",
+      "items": [
+        [
+          "button",
+          "LOG_REFRESH",
+          "Refresh log"
+        ],
+        [
+          "text",
+          "LOG_LINE_01",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_02",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_03",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_04",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_05",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_06",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_07",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_08",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_09",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_10",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_11",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_12",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_13",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_14",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_15",
+          ""
+        ],
+        [
+          "text",
+          "LOG_LINE_16",
+          ""
+        ],
+        [
+          "button",
+          "LOG_BACK",
+          "Back"
+        ]
+      ]
+    }
+  ]
+}
