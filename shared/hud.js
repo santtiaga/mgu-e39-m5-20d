@@ -155,6 +155,7 @@ const DCSM2Watchdog = require('./dcsm2_watchdog');
 const createSafetyController = require('./safety_controller');
 const StagedBuild = require('./staged_build');
 const LayoutGeneration = require('./layout_generation');
+const RendererInventory = require('./renderer_inventory');
 const Layouts = require('./layouts');
 const { THEMES, M_STRIPE, LIGHTS, VERDICT, color } = require('./hud_themes');
 const ShiftScore = require('./shift_score');
@@ -316,6 +317,7 @@ class HudApp {
         this.pixelBytes = 0;             // what the layout's image layers and glyph atlases cost of cluster-render's pixel memory
         this.atlases = new Map();        // "<conn>:<font>" -> { ref, c, ci, cols, rows, cellW, cellH, chars, bytes }: R8 assets, kept across rebuilds
         this.targetState = null;         // latest cluster-render target diagnostics
+        this.rendererInventory = null;   // latest complete status snapshot; pixel allocation may still be unknown
         this.rpmF = null; this.rpmNeedleF = null; this.rpmShown = null; this.lastTickT = 0;
         this.e39DistKm = 0; this.e39Cons = null; this.e39WearKm = 0;
         this.e39PeakG = null; this.e39Vmax = 0;
@@ -528,7 +530,11 @@ class HudApp {
         c.on('budget', guard('budget', (capKb, maxKb, reason) =>
             this.log.info('budget' + tag + ' ' + capKb + '/' + maxKb + ' kb/s (' + reason + ')')));
         c.on('status', guard('status', (text) => {
-            if (ci === 0) this.dcsm2.status(text);
+            if (ci === 0) {
+                this.dcsm2.status(text);
+                const parsed = RendererInventory.parseStatus(text);
+                this.rendererInventory = parsed.complete ? { at: Date.now(), data: parsed } : null;
+            }
             this.log.info('cluster-render status: ' + text);
         }));
     }
@@ -1284,25 +1290,30 @@ class HudApp {
         if (this.safetyTripped || (this.safety && this.safety.tripped())) return;
         const atlasBytes = this._atlasBytes();
         px += atlasBytes;
-        // Assess make-before-break without assuming the renderer has spare global resources.
-        // The current protocol exposes neither a per-app layer inventory nor global pixel usage,
-        // so this gate deliberately selects the existing safe rebuild path until that evidence exists.
+        // The renderer's status snapshot enumerates global layer/asset counts, but
+        // omits image-layer dimensions and current mesh geometry bytes. Use it only
+        // as a lower-bound layer inventory; unknown pixel memory still fails closed.
         const activeImageBytes = {};
         this.widgets.forEach((x) => {
             if (!x.sheet && IMAGE_TYPES[x.w.type]) activeImageBytes[x.ci + ':' + x.ref] = x.w.w * x.w.h * 8;
         });
         this.sheets.forEach((s) => { activeImageBytes[s.ci + ':' + s.ref] = s.w * s.h * 8; });
         const activeRefs = this._layerRefs().map((r) => ({ ci: r.ci, imageBytes: activeImageBytes[r.key] || 0 }));
+        const activeMeasure = LayoutGeneration.measureRefs(activeRefs);
+        const candidateMeasure = LayoutGeneration.measurePlan(plan, IMAGE_TYPES);
+        const inventory = this.rendererInventory && Date.now() - this.rendererInventory.at <= 10000
+            ? this.rendererInventory.data : null;
+        const externalLayers = inventory ? Math.max(0, inventory.layerCount - activeMeasure.layers) : 0;
         const overlap = LayoutGeneration.assessOverlap(
-            LayoutGeneration.measureRefs(activeRefs),
-            LayoutGeneration.measurePlan(plan, IMAGE_TYPES),
-            { perClient: LAYER_BUDGET, totalLayers: 32, pixelBytes: PIXEL_BYTES,
-                sharedAssetBytes: atlasBytes, rendererInventoryComplete: false }
+            activeMeasure,
+            candidateMeasure,
+            { perClient: LAYER_BUDGET, totalLayers: MAX_CONN * LAYER_BUDGET, pixelBytes: PIXEL_BYTES,
+                layerInventoryComplete: !!inventory, externalLayers: externalLayers, rendererInventoryComplete: false }
         );
         this.log.info('layout transition: ' + (overlap.allowed ? 'make-before-break resource gate passed' :
             'safe rebuild required (' + overlap.reason + ')'));
         // Resource measurement must happen before releasing the active generation.
-        // Until a renderer inventory exists, release it here and use the established safe rebuild.
+        // The layer inventory is now visible, but pixel allocation remains incomplete; keep the established safe rebuild.
         this._dropLayoutLayers();
         this.pixelBytes = px;
         const n = this._layerRefs().length, counts = this._connCounts(plan);
