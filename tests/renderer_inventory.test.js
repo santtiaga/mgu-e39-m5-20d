@@ -10,7 +10,7 @@ const status = [
     'layer 10 effect of apex_dash on panel, overlay z 10: shown',
     'layer 11 image of other_app on panel, content z 0: shown',
     'asset 20 r8 256x128 of apex_dash on panel: 1 writes',
-    'asset 21 etc2rgba 64x64 of other_app on panel: 1 writes',
+    'asset 21 etc2rgba 64x64 of other_app on panel: 1 writes',\n    'scene 31 of scene_app sample: shown',
     ''
 ].join('\n');
 
@@ -20,7 +20,7 @@ assert.strictEqual(parsed.layerCount, 2);
 assert.deepStrictEqual(parsed.layerKinds, { effect: 1, image: 1 });
 assert.strictEqual(parsed.assetCount, 2);
 assert.strictEqual(parsed.assetBytes, (256 * 128 * 2) + (64 * 64));
-assert.strictEqual(parsed.unmeasuredPixelLayers, 1);
+assert.strictEqual(parsed.unmeasuredPixelResources, 2);
 assert.strictEqual(parsed.pixelMemoryComplete, false);
 
 assert.strictEqual(inventory.assetBytes('rgba8', 10, 5), 400);
