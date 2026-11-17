@@ -1220,13 +1220,13 @@ class HudApp {
         this.vehicleOff = false;
         this.vehicleOffLogged = false;
         this.e39BootAt = Date.now();
-        this._dropLayoutLayers();
         clearTimeout(this.statusAskT); this.statusAskT = null;
         clearTimeout(this.offStatusT1); this.offStatusT1 = null;
         clearTimeout(this.offStatusT2); this.offStatusT2 = null;
         this.car.setRedline(this.setting('redline'));
         this.activeName = name;
         if (name === 'off') {
+            this._dropLayoutLayers();
             this.problem = null; this.layoutTheme = null; this.needsBoost = false;
             this.log.info('off: nothing drawn, BMW\'s own ' + (this.target === 'panel' ? 'cluster' : 'HUD') + ' shows');
             // Query every renderer connection after layer drops, then after the 3 s target linger expires.
@@ -1252,6 +1252,7 @@ class HudApp {
         }
         let layout;
         try { layout = this.layouts.load(name); } catch (e) {
+            this._dropLayoutLayers();
             this.problem = e.message;
             this.log.warn('layout "' + name + '" unusable (' + e.message + '); showing nothing');
             return;
@@ -1300,6 +1301,9 @@ class HudApp {
         );
         this.log.info('layout transition: ' + (overlap.allowed ? 'make-before-break resource gate passed' :
             'safe rebuild required (' + overlap.reason + ')'));
+        // Resource measurement must happen before releasing the active generation.
+        // Until a renderer inventory exists, release it here and use the established safe rebuild.
+        this._dropLayoutLayers();
         this.pixelBytes = px;
         const n = this._layerRefs().length, counts = this._connCounts(plan);
         this.log.info('layout "' + layout.name + '": ' + shown.length + ' widgets, ' + this._layerCount(n) + ' (' + effects + ' effects, ' +
