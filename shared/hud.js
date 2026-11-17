@@ -1367,7 +1367,7 @@ class HudApp {
         b.current = { ref: ref, c: c, ci: ci, phase: 'hidden', index: b.index };
         b.timer = setTimeout(() => {
             if (this.build === b && b.current) this._abortBuild('timeout waiting for renderer confirmation at stage ' + (b.index + 1) + ' (' + b.current.phase + ')');
-        }, 15000);
+        }, 45000);
         this.log.info('layout build: stage ' + (b.index + 1) + '/' + b.plan.length + ' created hidden, waiting for renderer [connection ' + (ci + 1) + ', ref ' + ref + ']');
     }
 
