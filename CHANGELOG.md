@@ -4,6 +4,10 @@ Newest first. Dates are when the build was pushed.
 
 ## Nov 17 2026
 
+- **Apex Dash 1.4.8:** include best-effort cluster-render system logs in the phone log export, recording explicit read errors (such as EACCES/ENOENT) when the MGU app cannot access them.
+
+## Nov 17 2026
+
 - **Apex Dash 1.4.7:** preserve raw cluster-render target/layer/error event payloads in diagnostic logs and capture full unhandled-rejection details, including stack traces.
 
 ## Nov 17 2026
