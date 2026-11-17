@@ -5,6 +5,7 @@ This branch introduces the first safety-integration slice, based on the failure-
 ## Implemented
 
 - `shared/safety_controller.js` provides one rolling error budget for synchronous callbacks and rejected promises.
+- `shared/staged_build.js` isolates the renderer-confirmed stage transition rules and is covered by a standalone Node 8 unit test.
 - Five errors in a ten-second rolling window latch a safety stop.
 - The stop handler drops all currently tracked Apex Dash layers, clears the active layout state, requests fresh renderer status from ready connections, and exposes a persistent status-line warning.
 - Renderer event handlers are guarded. Renderer layer errors and refused operations count toward the same error budget; diagnostic events are logged without double-counting the corresponding renderer event.
