@@ -150,4 +150,18 @@ client.on('ready', () => {
 });
 
 watchdog = setTimeout(() => fail(new Error('timed out waiting for renderer reconnect')), 5000);
-server.listen(path, () => client.connect());
+server.listen(path, () => {
+    client.connect();
+    /* A pixel update can arrive after TCP connect but before the renderer's
+     * hello. It must not complete the replay or reveal any layer yet. */
+    client.sock.once('connect', () => {
+        assert.strictEqual(client.pixels(image, null, imagePixels), true);
+        setTimeout(() => {
+            if (readyCount !== 0) return fail(new Error('ready fired before renderer hello'));
+            const first = received[0] || [];
+            if (first.some((m) => m.type === 'json' && m.value.op === 'set' && m.value.visible !== undefined)) {
+                return fail(new Error('layer visibility restored before renderer hello'));
+            }
+        }, 5);
+    });
+});
