@@ -19,9 +19,9 @@ The safety controller does not alter the E39 graphics, shaders, diesel warm-up t
 
 ## Not yet claimed as implemented
 
-The current HUD builder still creates its planned layers synchronously. It does not yet use M Track's full hidden -> renderer-confirmed -> pixels-written -> bound -> shown staged transaction. Likewise, the release path sends independent drop commands and requests renderer status on a safety trip, but it does not yet parse a renderer-owned layer inventory to prove that every layer has been removed.
+The HUD builder now creates one planned layer at a time with `visible: false`. It advances only after a renderer `layer` event confirms `hidden`, then reveals that layer and waits for `shown` before creating the next stage. Image sheets are populated before reveal; layers sampling glyph assets remain stalled until the renderer can draw them. A 15-second per-stage timeout aborts the build, drops the partial layout, and does not automatically retry. This is a conservative staged transaction, not a full atomic swap: already confirmed stages can be visible while later stages are being built.
 
-Those two changes require a protocol-grounded renderer state machine and separate integration tests. They are intentionally not approximated by treating a successful client call or a `hidden` event as proof of removal.
+Release verification remains limited by the documented protocol: `drop` has no acknowledgement event, and `status` reports target slot state rather than a per-app layer inventory. The code therefore sends independent drops, records local release requests, and can request status after the target linger, but it does not claim renderer-confirmed removal. A closed renderer connection is the protocol's definitive cleanup boundary; the shared HUD connection is deliberately kept open.
 
 ## Local checks
 
