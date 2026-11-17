@@ -20,7 +20,21 @@ assert.deepStrictEqual(active.counts, [2, 1]);
 assert.strictEqual(active.imageBytes, 12000);
 let result = generation.assessOverlap(active, candidate, { rendererInventoryComplete: false, perClient: 8, totalLayers: 32, pixelBytes: 16 * 1024 * 1024 });
 assert.strictEqual(result.allowed, false, 'unknown global renderer inventory must fail closed');
-assert(/inventory is unavailable/.test(result.reason));
+assert(/layer inventory is unavailable/.test(result.reason));
+
+result = generation.assessOverlap(active, candidate, {
+    layerInventoryComplete: true, rendererInventoryComplete: false,
+    externalLayers: 27, perClient: 8, totalLayers: 32, pixelBytes: 16 * 1024 * 1024
+});
+assert.strictEqual(result.allowed, false, 'known global layer count must reject an over-budget overlap');
+assert(/33\/32/.test(result.reason));
+
+result = generation.assessOverlap(active, candidate, {
+    layerInventoryComplete: true, rendererInventoryComplete: false,
+    externalLayers: 2, perClient: 8, totalLayers: 32, pixelBytes: 16 * 1024 * 1024
+});
+assert.strictEqual(result.allowed, false, 'known layer count alone must not imply known pixel memory');
+assert(/pixel-memory inventory is incomplete/.test(result.reason));
 const knownLimits = { rendererInventoryComplete: true, perClient: 8, totalLayers: 32, pixelBytes: 16 * 1024 * 1024, sharedAssetBytes: 1024, externalLayers: 4, externalPixelBytes: 2048 };
 result = generation.assessOverlap(active, candidate, knownLimits);
 assert.strictEqual(result.allowed, true, 'known headroom permits overlap');
