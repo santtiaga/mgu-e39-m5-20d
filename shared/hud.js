@@ -154,6 +154,7 @@ const { ClusterRender, DEFAULT_PATH } = require('./cluster_render_client.js');
 const DCSM2Watchdog = require('./dcsm2_watchdog');
 const createSafetyController = require('./safety_controller');
 const StagedBuild = require('./staged_build');
+const LayoutGeneration = require('./layout_generation');
 const Layouts = require('./layouts');
 const { THEMES, M_STRIPE, LIGHTS, VERDICT, color } = require('./hud_themes');
 const ShiftScore = require('./shift_score');
@@ -1282,6 +1283,23 @@ class HudApp {
         if (this.safetyTripped || (this.safety && this.safety.tripped())) return;
         const atlasBytes = this._atlasBytes();
         px += atlasBytes;
+        // Assess make-before-break without assuming the renderer has spare global resources.
+        // The current protocol exposes neither a per-app layer inventory nor global pixel usage,
+        // so this gate deliberately selects the existing safe rebuild path until that evidence exists.
+        const activeImageBytes = {};
+        this.widgets.forEach((x) => {
+            if (!x.sheet && IMAGE_TYPES[x.w.type]) activeImageBytes[x.ci + ':' + x.ref] = x.w.w * x.w.h * 8;
+        });
+        this.sheets.forEach((s) => { activeImageBytes[s.ci + ':' + s.ref] = s.w * s.h * 8; });
+        const activeRefs = this._layerRefs().map((r) => ({ ci: r.ci, imageBytes: activeImageBytes[r.key] || 0 }));
+        const overlap = LayoutGeneration.assessOverlap(
+            LayoutGeneration.measureRefs(activeRefs),
+            LayoutGeneration.measurePlan(plan, IMAGE_TYPES),
+            { perClient: LAYER_BUDGET, totalLayers: 32, pixelBytes: PIXEL_BYTES,
+                sharedAssetBytes: atlasBytes, rendererInventoryComplete: false }
+        );
+        this.log.info('layout transition: ' + (overlap.allowed ? 'make-before-break resource gate passed' :
+            'safe rebuild required (' + overlap.reason + ')'));
         this.pixelBytes = px;
         const n = this._layerRefs().length, counts = this._connCounts(plan);
         this.log.info('layout "' + layout.name + '": ' + shown.length + ' widgets, ' + this._layerCount(n) + ' (' + effects + ' effects, ' +
