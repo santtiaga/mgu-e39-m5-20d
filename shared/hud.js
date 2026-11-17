@@ -469,34 +469,37 @@ class HudApp {
 
     _wireClientEvents(c, ci) {
         const tag = ci ? ' [connection ' + (ci + 1) + ']' : '';
-        c.on('ready', () => {
+        const guard = (event, fn) => this.safety.guard('cluster-render ' + event + tag, fn);
+        c.on('ready', guard('ready', () => {
             this.log.info('cluster-render ready' + tag + ' (backend=' + c.backend + ')');
             if (ci === 0) this.dcsm2.connected();
             else this._status();
-        });
-        c.on('disconnected', () => {
+        }));
+        c.on('disconnected', guard('disconnected', () => {
             this.log.warn('cluster-render disconnected' + tag + ', client will retry');
             if (ci === 0) this.dcsm2.disconnected();
             else this._status();
-        });
-        c.on('diagnostic', (ev) => {
+        }));
+        c.on('diagnostic', guard('diagnostic', (ev) => {
             if (ev.ev === 'target' || ev.ev === 'error' || (ev.ev === 'layer' && ev.state !== 'shown')) {
                 let raw;
                 try { raw = JSON.stringify(ev); } catch (e) { raw = String(ev); }
                 this.log.warn('cluster-render raw event' + tag + ': ' + raw);
             }
-        });
-        c.on('layer', (ref, state, reason) => {
+            if (ev.ev === 'error') this.safety.record('renderer diagnostic ' + (ev.op || 'error'), new Error(ev.reason || 'renderer error'));
+        }));
+        c.on('layer', guard('layer', (ref, state, reason) => {
             const key = ci + ':' + ref;
             const old = this.layerStates.get(key);
             this.layerStates.set(key, { state, reason });
+            if (state === 'error') this.safety.record('renderer layer ' + ref, new Error(reason || 'layer error'));
             if (state === 'error' || ((state === 'waiting' || state === 'stalled') && (!old || old.state !== state))) {
                 const w = this._widgetOf(ci, ref);
                 this.log.warn('layer ' + ref + tag + (w ? ' (' + w + ')' : '') + ' ' + state + (reason ? ': ' + reason : ''));
             }
             this._statusSoon();
-        });
-        c.on('target', (name, state, holder, reason, guideDisabled, rendering, retryInMs, disabled) => {
+        }));
+        c.on('target', guard('target', (name, state, holder, reason, guideDisabled, rendering, retryInMs, disabled) => {
             if (ci === 0) this.dcsm2.target(state, reason);
             if (name !== this.target) return;
             this.targetState = { state, holder, reason, guideDisabled: !!guideDisabled,
@@ -509,18 +512,20 @@ class HudApp {
                 (retryInMs !== null && retryInMs !== undefined ? ' retry_in_ms=' + retryInMs : '') +
                 (reason ? ': ' + reason : ''));
             this._statusSoon();
-        });
-        c.on('refused', (op, ref, reason) => {
+        }));
+        c.on('refused', guard('refused', (op, ref, reason) => {
             const w = this._widgetOf(ci, ref);
             this.log.warn('refused ' + op + ' on ' + ref + tag + (w ? ' (' + w + ')' : '') + ': ' + reason);
-            if (!this.refused) this.refused = (w || op) + ': ' + reason;   // the first one, until the next rebuild
+            this.safety.record('renderer refused ' + op, new Error(reason || 'operation refused'));
+            if (!this.refused) this.refused = (w || op) + ': ' + reason;
             this._statusSoon();
-        });
-        c.on('budget', (capKb, maxKb, reason) => this.log.info('budget' + tag + ' ' + capKb + '/' + maxKb + ' kb/s (' + reason + ')'));
-        c.on('status', (text) => {
+        }));
+        c.on('budget', guard('budget', (capKb, maxKb, reason) =>
+            this.log.info('budget' + tag + ' ' + capKb + '/' + maxKb + ' kb/s (' + reason + ')')));
+        c.on('status', guard('status', (text) => {
             if (ci === 0) this.dcsm2.status(text);
             this.log.info('cluster-render status: ' + text);
-        });
+        }));
     }
 
     start() {
