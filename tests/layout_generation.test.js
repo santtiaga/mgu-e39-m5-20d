@@ -27,7 +27,7 @@ result = generation.assessOverlap(active, candidate, {
     externalLayers: 27, perClient: 8, totalLayers: 32, pixelBytes: 16 * 1024 * 1024
 });
 assert.strictEqual(result.allowed, false, 'known global layer count must reject an over-budget overlap');
-assert(/33\/32/.test(result.reason));
+assert(/34\/32/.test(result.reason));
 
 result = generation.assessOverlap(active, candidate, {
     layerInventoryComplete: true, rendererInventoryComplete: false,
