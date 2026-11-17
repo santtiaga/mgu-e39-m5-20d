@@ -49,20 +49,25 @@ const server = net.createServer((socket) => {
     const messages = [];
     received.push(messages);
     collect(socket, messages);
-    /* The fake renderer completes hello after the client's replay writes. */
+    if (connections.length === 2) {
+        /* Hold the receive side closed to force client-side socket backpressure. */
+        socket.pause();
+        setTimeout(() => {
+            if (readyCount !== 1) fail(new Error('ready fired before retained pixel replay drained'));
+        }, 140);
+        setTimeout(() => { if (!socket.destroyed) socket.resume(); }, 350);
+    }
+    /* The fake renderer completes hello independently of its receive side. */
     setTimeout(() => {
         if (!socket.destroyed) socket.write(jsonPacket({ ev: 'hello', backend: 'test', targets: 'panel' }));
     }, 20);
 });
 
 const client = new ClusterRender('apex_dash_test', path);
-const assetPixels = Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]);
-const imagePixels = Buffer.from([
-    255, 0, 0, 255, 0, 255, 0, 255,
-    0, 0, 255, 255, 255, 255, 255, 255
-]);
-const asset = client.asset({ target: 'panel', format: 'r8', w: 4, h: 2 });
-const image = client.image({ target: 'panel', klass: 'overlay', z: 2, x: 0, y: 0, w: 2, h: 2, iw: 2, ih: 2 });
+const assetPixels = Buffer.alloc(512 * 512, 0x5a);
+const imagePixels = Buffer.alloc(128 * 128 * 4, 0xa5);
+const asset = client.asset({ target: 'panel', format: 'r8', w: 512, h: 512 });
+const image = client.image({ target: 'panel', klass: 'overlay', z: 2, x: 0, y: 0, w: 128, h: 128, iw: 128, ih: 128 });
 const effect = client.effect({ target: 'panel', x: 10, y: 10, w: 20, h: 20, fs: 'void main(){}' });
 assert(asset && image && effect, 'test layers should be accepted locally');
 assert.strictEqual(client.pixels(asset, null, assetPixels), true);
@@ -124,7 +129,16 @@ client.on('ready', () => {
         /* Simulate a renderer restart after the first successful handshake. */
         setTimeout(() => { if (connections[0] && !connections[0].destroyed) connections[0].destroy(); }, 30);
     } else if (readyCount === 2) {
-        setTimeout(finish, 100);
+        try {
+            assert.strictEqual(client.blocked, false, 'ready must wait until socket backpressure clears');
+            client.layers.forEach((l) => {
+                if (l.kind === 'image' || l.kind === 'asset') {
+                    assert.strictEqual(l.whole, false, 'all full pixel buffers must be queued before ready');
+                    assert.strictEqual(l.dirty.length, 0, 'no retained dirty pixel data may remain before ready');
+                }
+            });
+            setTimeout(finish, 100);
+        } catch (e) { fail(e); }
     }
 });
 
