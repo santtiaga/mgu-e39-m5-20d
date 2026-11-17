@@ -474,11 +474,13 @@ class HudApp {
         const guard = (event, fn) => this.safety.guard('cluster-render ' + event + tag, fn);
         c.on('ready', guard('ready', () => {
             this.log.info('cluster-render ready' + tag + ' (backend=' + c.backend + ')');
+            this._resumeBuildForConnection(ci);
             if (ci === 0) this.dcsm2.connected();
             else this._status();
         }));
         c.on('disconnected', guard('disconnected', () => {
             this.log.warn('cluster-render disconnected' + tag + ', client will retry');
+            this._pauseBuildForConnection(ci);
             if (ci === 0) this.dcsm2.disconnected();
             else this._status();
         }));
@@ -1291,7 +1293,8 @@ class HudApp {
             if (k > LAYER_BUDGET) this.log.warn('layout "' + layout.name + '" needs ' + k + ' layers on connection ' + (ci + 1) + ', cluster-render draws at most ' + LAYER_BUDGET + ' per connection');
         });
         if (px > PIXEL_BYTES) this.log.warn('layout "' + layout.name + '" needs ' + mib(px) + ' of pixel memory; cluster-render has 16 MiB for every app together (each image counts twice)');
-        this.build = { plan: plan, index: 0, current: null, timer: null, layout: layout.name, started: Date.now() };
+        this.build = { plan: plan, index: 0, current: null, timer: null, deadlineAt: 0, remainingMs: 45000,
+            waitingConnection: null, layout: layout.name, started: Date.now() };
         this.log.info('layout build: staged transaction started (' + plan.length + ' renderer stages)');
         this._buildNext();
     }
@@ -1366,10 +1369,48 @@ class HudApp {
             return;
         }
         b.current = { ref: ref, c: c, ci: ci, phase: 'hidden', index: b.index };
-        b.timer = setTimeout(() => {
-            if (this.build === b && b.current) this._abortBuild('timeout waiting for renderer confirmation at stage ' + (b.index + 1) + ' (' + b.current.phase + ')');
-        }, 45000);
+        // A stage's confirmation timeout counts only while its renderer connection is ready.
+        // Initial connection setup and service restarts must not consume the 45 s stage budget.
+        b.remainingMs = 45000;
+        if (c.ready) this._armBuildTimeout(b);
+        else {
+            b.waitingConnection = ci;
+            this.log.info('layout build: stage ' + (b.index + 1) + ' waiting for connection ' + (ci + 1) + ' to become ready');
+        }
         this.log.info('layout build: stage ' + (b.index + 1) + '/' + b.plan.length + ' created hidden, waiting for renderer [connection ' + (ci + 1) + ', ref ' + ref + ']');
+    }
+
+    /** Arm the current stage timeout only while its renderer connection is ready. */
+    _armBuildTimeout(b) {
+        if (!b || this.build !== b || !b.current || b.timer || b.waitingConnection !== null) return;
+        const ms = Math.max(1, b.remainingMs || 45000);
+        b.deadlineAt = Date.now() + ms;
+        b.timer = setTimeout(() => {
+            if (this.build === b && b.current) this._abortBuild('timeout waiting for renderer confirmation at stage ' +
+                (b.index + 1) + ' (' + b.current.phase + ')');
+        }, ms);
+    }
+
+    /** Pause the deadline while the active stage's renderer connection is offline. */
+    _pauseBuildForConnection(ci) {
+        const b = this.build;
+        if (!b || !b.current || b.current.ci !== ci) return;
+        if (b.timer) {
+            b.remainingMs = Math.max(1, b.deadlineAt - Date.now());
+            clearTimeout(b.timer);
+            b.timer = null;
+        }
+        b.waitingConnection = ci;
+        this.log.warn('layout build: paused stage ' + (b.index + 1) + ' while connection ' + (ci + 1) + ' reconnects');
+    }
+
+    /** Resume the remaining stage budget after hello/replay on the same connection. */
+    _resumeBuildForConnection(ci) {
+        const b = this.build;
+        if (!b || !b.current || b.waitingConnection !== ci) return;
+        b.waitingConnection = null;
+        this.log.info('layout build: resumed stage ' + (b.index + 1) + ' after connection ' + (ci + 1) + ' recovery');
+        this._armBuildTimeout(b);
     }
 
     /** Advance only on renderer layer events; client calls and status text are not treated as acknowledgements. */
@@ -1386,6 +1427,9 @@ class HudApp {
         } else if (action.type === 'shown') {
             clearTimeout(b.timer);
             b.timer = null;
+            b.deadlineAt = 0;
+            b.remainingMs = 45000;
+            b.waitingConnection = null;
             this.log.info('layout build: stage ' + (b.index + 1) + ' confirmed shown');
             b.current = null;
             b.index++;
