@@ -13,6 +13,12 @@ This branch introduces the first safety-integration slice, based on the failure-
 - Layer drops are attempted independently, so one failed drop command does not prevent attempts for the remaining layers.
 - `tests/safety_controller.test.js` covers synchronous errors, rolling-window expiry, one-shot trip behavior, latched suppression, reset, and rejected promises.
 
+## Runtime renderer reconnect
+
+The existing `ClusterRender` client already owns the runtime replay contract; Apex Dash does not rebuild the active layout on every reconnect. The client retains image and asset pixel buffers independently of the HUD's temporary sheet buffers. After a socket reconnect it replays asset definitions first, then layer definitions and retained layer state (settings, uniforms, mesh parts/geometry/transforms, scene edits, binds and animations). Image and asset layers with pixel data are marked for a full upload again; the next renderer `hello` pumps those full buffers before emitting the app's `ready` event. This preserves packed E39 image sheets and R8 glyph atlases without creating duplicate layers.
+
+A reconnect regression test uses a local fake renderer, forces the first socket closed, then checks the second connection for replayed definitions/state and byte-identical full image/asset uploads: `tests/cluster_render_reconnect.test.js`. This test exercises the client protocol replay, not the BMW renderer or the instrument cluster itself. Video frames are transient and are not replayed from a retained frame buffer; Apex Dash's current E39 layout is based on image/effect layers and live HUD ticks rather than a persistent video frame.
+
 ## Deliberate safety behavior
 
 A trip is latched for the lifetime of the app process. Apex Dash does not automatically rebuild the overlay after a safety stop; restart the app after collecting logs and resolving the underlying fault. This avoids an automatic render/restart loop on the instrument cluster.
