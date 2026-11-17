@@ -17,9 +17,9 @@ A trip is latched for the lifetime of the app process. Apex Dash does not automa
 
 The safety controller does not alter the E39 graphics, shaders, diesel warm-up thresholds, shift logic, or vehicle telemetry.
 
-## Not yet claimed as implemented
+## Staged build and remaining limits
 
-The HUD builder now creates one planned layer at a time with `visible: false`. It advances only after a renderer `layer` event confirms `hidden`, then reveals that layer and waits for `shown` before creating the next stage. Image sheets are populated before reveal; layers sampling glyph assets remain stalled until the renderer can draw them. A 15-second per-stage timeout aborts the build, drops the partial layout, and does not automatically retry. This is a conservative staged transaction, not a full atomic swap: already confirmed stages can be visible while later stages are being built.
+The HUD builder now creates one planned layer at a time with `visible: false`. It advances only after a renderer `layer` event confirms `hidden`, then reveals that layer and waits for `shown` before creating the next stage. Image sheets are populated before reveal; layers sampling glyph assets remain stalled until the renderer can draw them. A 45-second per-stage timeout aborts the build, drops the partial layout, and does not automatically retry. This is a conservative staged transaction, not a full atomic swap: already confirmed stages can be visible while later stages are being built.
 
 Release verification remains limited by the documented protocol: `drop` has no acknowledgement event, and `status` reports target slot state rather than a per-app layer inventory. The code therefore sends independent drops, records local release requests, and can request status after the target linger, but it does not claim renderer-confirmed removal. A closed renderer connection is the protocol's definitive cleanup boundary; the shared HUD connection is deliberately kept open.
 
@@ -27,8 +27,10 @@ Release verification remains limited by the documented protocol: `drop` has no a
 
 ```sh
 node tests/safety_controller.test.js
+node tests/staged_build.test.js
 node --check shared/safety_controller.js
 node --check tests/safety_controller.test.js
+node --check tests/staged_build.test.js
 python kit/tools/build.py apex_dash
 ```
 
