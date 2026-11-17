@@ -21,7 +21,7 @@ function parseStatus(statusText) {
         layerKinds: {},
         assetBytes: 0,
         unknownAssetFormats: 0,
-        unmeasuredPixelLayers: 0,
+        unmeasuredPixelResources: 0,
         pixelMemoryComplete: false
     };
     if (typeof statusText !== 'string' || !/^upload:\s/m.test(statusText)) return result;
@@ -40,7 +40,7 @@ function parseStatus(statusText) {
             const kind = match[1];
             result.layerCount++;
             result.layerKinds[kind] = (result.layerKinds[kind] || 0) + 1;
-            if (kind === 'image' || kind === 'video' || kind === 'mesh') result.unmeasuredPixelLayers++;
+            if (kind === 'image' || kind === 'video' || kind === 'mesh') result.unmeasuredPixelResources++;
         } else if (/^asset\s+/.test(line)) {
             const match = /^asset\s+\d+\s+([a-z0-9]+)\s+(\d+)x(\d+)\s+of\s+.+?\s+on\s+[^:]+:/.exec(line);
             if (!match) {
@@ -59,7 +59,7 @@ function parseStatus(statusText) {
      * inventory rows are treated as an incomplete snapshot. */
     result.complete = targets > 0 && !malformedInventoryLine;
     result.pixelMemoryComplete = result.complete &&
-        result.unmeasuredPixelLayers === 0 && result.unknownAssetFormats === 0;
+        result.unmeasuredPixelResources === 0 && result.unknownAssetFormats === 0;
     return result;
 }
 
