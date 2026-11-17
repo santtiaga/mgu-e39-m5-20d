@@ -57,10 +57,27 @@ mgu.run({
         };
         const readFullLog = () => {
             let content = '';
-            [previousLogFile, logFile].forEach((file) => {
-                try { if (fs.existsSync(file)) content += fs.readFileSync(file, 'utf8') + '\n'; }
-                catch (e) { ctx.log.warn('Could not read ' + file + ': ' + (e && e.message || e)); }
-            });
+            const appendFiles = (heading, files) => {
+                content += '\n===== ' + heading + ' =====\n';
+                files.forEach((file) => {
+                    try {
+                        const data = fs.readFileSync(file, 'utf8');
+                        content += '\n--- ' + file + ' ---\n' + data + '\n';
+                    } catch (e) {
+                        const code = e && e.code || 'UNKNOWN';
+                        const message = e && e.message || String(e);
+                        content += '\n--- ' + file + ' ---\n[READ FAILED: ' + code + '] ' + message + '\n';
+                        ctx.log.warn('Could not read ' + file + ': ' + message);
+                    }
+                });
+            };
+            appendFiles('APEX DASH APPLICATION LOG', [previousLogFile, logFile]);
+            // cluster-render 0.6.8 documents these system log paths. Reading is
+            // best-effort: the app may not have permission to access /var/opt.
+            appendFiles('CLUSTER-RENDER SYSTEM LOG', [
+                '/var/opt/cluster-render/log/cluster-render.log.1',
+                '/var/opt/cluster-render/log/cluster-render.log',
+            ]);
             return content.slice(-LOG_HTTP_MAX_BYTES);
         };
         const startLogServer = () => {
