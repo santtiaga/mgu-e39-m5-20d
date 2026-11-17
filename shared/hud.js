@@ -296,6 +296,7 @@ class HudApp {
         this.layoutTheme = null;         // the active layout's own theme, if it has one
         this.layouts = new Layouts(ctx.dataDir, this.log, this.size);
         this.widgets = new Map();        // widget.id -> { w, ref, sheet | null, last, lastPaint }
+        this.build = null;              // serial renderer-confirmed layout build transaction
         this.sheets = [];                // the packed image layers: { ref, klass, z, x, y, w, h, members, buf }
         this.boostFes = null; this.boostFesAt = 0;    // bar, from the sport display signal
         this.boostDme = null; this.boostDmeAt = 0;    // bar, from the engine unit (fallback)
@@ -491,6 +492,7 @@ class HudApp {
             const key = ci + ':' + ref;
             const old = this.layerStates.get(key);
             this.layerStates.set(key, { state, reason });
+            this._buildLayerEvent(ci, ref, state, reason);
             if (state === 'error') this.safety.record('renderer layer ' + ref, new Error(reason || 'layer error'));
             if (state === 'error' || ((state === 'waiting' || state === 'stalled') && (!old || old.state !== state))) {
                 const w = this._widgetOf(ci, ref);
@@ -1269,10 +1271,9 @@ class HudApp {
         }
         let effects = 0, own = 0, sheets = 0, bytes = 0, px = 0;
         plan.forEach((e) => {
-            if (e.kind === 'sheet') { sheets++; bytes += e.w * e.h * 4; px += e.w * e.h * 8; this._guard('sheet ' + e.members[0].id, () => this._createSheet(e)); }
+            if (e.kind === 'sheet') { sheets++; bytes += e.w * e.h * 4; px += e.w * e.h * 8; }
             else {
                 if (IMAGE_TYPES[e.w.type]) { own++; px += e.w.w * e.w.h * 8; } else effects++;
-                this._guard('widget ' + e.w.id, () => this._create(e.w, null));
             }
         });
         if (this.safetyTripped || (this.safety && this.safety.tripped())) return;
@@ -1289,7 +1290,9 @@ class HudApp {
             if (k > LAYER_BUDGET) this.log.warn('layout "' + layout.name + '" needs ' + k + ' layers on connection ' + (ci + 1) + ', cluster-render draws at most ' + LAYER_BUDGET + ' per connection');
         });
         if (px > PIXEL_BYTES) this.log.warn('layout "' + layout.name + '" needs ' + mib(px) + ' of pixel memory; cluster-render has 16 MiB for every app together (each image counts twice)');
-        this.statusAskT = setTimeout(() => { this.statusAskT = null; this._guard('status request', () => this.client.status()); }, STATUS_ASK_MS);
+        this.build = { plan: plan, index: 0, current: null, timer: null, layout: layout.name, started: Date.now() };
+        this.log.info('layout build: staged transaction started (' + plan.length + ' renderer stages)');
+        this._buildNext();
     }
 
     /**
@@ -1329,10 +1332,89 @@ class HudApp {
         return plan;
     }
 
+    /** Create exactly one planned layer, keep it hidden, then wait for renderer confirmation. */
+    _buildNext() {
+        const b = this.build;
+        if (!b || this.stopped || this.safetyTripped) return;
+        if (b.index >= b.plan.length) {
+            this.build = null;
+            clearTimeout(this.statusAskT);
+            this.statusAskT = setTimeout(() => {
+                this.statusAskT = null;
+                this._guard('status request', () => this.client.status());
+            }, STATUS_ASK_MS);
+            this.log.info('layout build: all ' + b.plan.length + ' stages shown in ' + (Date.now() - b.started) + ' ms');
+            this._status();
+            return;
+        }
+        const e = b.plan[b.index];
+        try {
+            if (e.kind === 'sheet') this._createSheet(e);
+            else this._create(e.w, null);
+        } catch (err) {
+            this._abortBuild('stage ' + (b.index + 1) + ' creation failed: ' + (err && err.message || err));
+            this.safety.record('staged layout build', err);
+            return;
+        }
+        const x = e.kind === 'sheet' ? null : this.widgets.get(e.w.id);
+        const ref = e.kind === 'sheet' ? e.ref : (x && x.ref);
+        const c = e.kind === 'sheet' ? e.c : (x && x.c);
+        const ci = e.kind === 'sheet' ? e.ci : (x && x.ci);
+        if (!ref || !c) {
+            this._abortBuild('stage ' + (b.index + 1) + ' did not create a renderer layer');
+            return;
+        }
+        b.current = { ref: ref, c: c, ci: ci, phase: 'hidden', index: b.index };
+        b.timer = setTimeout(() => {
+            if (this.build === b && b.current) this._abortBuild('timeout waiting for renderer confirmation at stage ' + (b.index + 1) + ' (' + b.current.phase + ')');
+        }, 15000);
+        this.log.info('layout build: stage ' + (b.index + 1) + '/' + b.plan.length + ' created hidden, waiting for renderer [connection ' + (ci + 1) + ', ref ' + ref + ']');
+    }
+
+    /** Advance only on renderer layer events; client calls and status text are not treated as acknowledgements. */
+    _buildLayerEvent(ci, ref, state, reason) {
+        const b = this.build, cur = b && b.current;
+        if (!cur || cur.ci !== ci || cur.ref !== ref) return;
+        if (state === 'error') {
+            this._abortBuild('renderer rejected stage ' + (b.index + 1) + ': ' + (reason || 'layer error'));
+            return;
+        }
+        if (cur.phase === 'hidden' && state === 'hidden') {
+            cur.phase = 'revealing';
+            this.log.info('layout build: stage ' + (b.index + 1) + ' renderer-confirmed hidden; revealing');
+            try { cur.c.set(ref, { visible: true }); }
+            catch (e) { this._abortBuild('could not reveal stage ' + (b.index + 1) + ': ' + (e && e.message || e)); }
+            return;
+        }
+        if (cur.phase === 'revealing' && state === 'shown') {
+            clearTimeout(b.timer);
+            b.timer = null;
+            this.log.info('layout build: stage ' + (b.index + 1) + ' confirmed shown');
+            b.current = null;
+            b.index++;
+            this._buildNext();
+        } else if (state === 'waiting' || state === 'stalled') {
+            this.log.info('layout build: stage ' + (b.index + 1) + ' waiting (' + state + (reason ? ': ' + reason : '') + ')');
+        }
+    }
+
+    /** A failed staged build is fail-closed: release every layer already created and do not auto-retry. */
+    _abortBuild(why) {
+        const b = this.build;
+        if (!b) return;
+        if (b.timer) clearTimeout(b.timer);
+        this.build = null;
+        this.problem = 'layout build stopped: ' + why;
+        this.log.error(this.problem + '; releasing partial layout');
+        this._dropLayoutLayers();
+        this.activeName = null;
+        this._status();
+    }
+
     /** One image layer for a sheet: every member painted into a local buffer, then sent whole once. */
     _createSheet(s) {
         const c = this._clientAt(s.conn);
-        const ref = c.image({ target: this.target, klass: s.klass, z: s.z, x: s.x, y: s.y, w: s.w, h: s.h, iw: s.w, ih: s.h });
+        const ref = c.image({ target: this.target, klass: s.klass, z: s.z, x: s.x, y: s.y, w: s.w, h: s.h, iw: s.w, ih: s.h, visible: false });
         if (!ref) { this.log.warn('sheet ' + s.klass + '/' + s.z + ' at ' + s.x + ',' + s.y + ' ' + s.w + 'x' + s.h + ': layer refused'); return; }
         s.ref = ref; s.c = c; s.ci = s.conn;
         s.buf = Buffer.alloc(s.w * s.h * 4, 0);
@@ -1390,7 +1472,7 @@ class HudApp {
         if (sheet) { ref = sheet.ref; c = sheet.c; }
         else {
             c = this._clientAt(this._connOf(w));
-            const base = { target: this.target, klass: w.class || 'content', z: w.z || 0, x: w.x, y: w.y, w: w.w, h: w.h };
+            const base = { target: this.target, klass: w.class || 'content', z: w.z || 0, x: w.x, y: w.y, w: w.w, h: w.h, visible: false };
             if (IMAGE_TYPES[w.type]) ref = c.image(Object.assign({ iw: w.w, ih: w.h }, base));
             else ref = c.effect(Object.assign({ fs: w.type === 'swatch' ? calibration.SWATCH : shaders[w.type] }, base));
             if (!ref) { this.log.warn('widget "' + w.id + '": layer refused'); return; }
@@ -1601,6 +1683,8 @@ class HudApp {
 
     /** Drop only layout layers; keep the shared renderer connection and cached font assets alive. */
     _dropLayoutLayers() {
+        if (this.build && this.build.timer) clearTimeout(this.build.timer);
+        this.build = null;
         this.needsBoost = false;
         const refs = this._layerRefs();
         let failed = 0;
