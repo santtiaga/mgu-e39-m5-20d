@@ -1310,7 +1310,7 @@ class HudApp {
             activeMeasure,
             candidateMeasure,
             { perClient: LAYER_BUDGET, totalLayers: MAX_CONN * LAYER_BUDGET, pixelBytes: PIXEL_BYTES,
-                layerInventoryComplete: !!inventory, externalLayers: externalLayers, rendererInventoryComplete: false }
+                layerInventoryComplete: !!inventory, externalLayers: externalLayers, sharedAssetBytes: atlasBytes, rendererInventoryComplete: false }
         );
         this.log.info('layout transition: ' + (overlap.allowed ? 'make-before-break resource gate passed' :
             'safe rebuild required (' + overlap.reason + ')'));
