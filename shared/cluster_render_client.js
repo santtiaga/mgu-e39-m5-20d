@@ -133,6 +133,7 @@ class ClusterRender extends EventEmitter {
         this.ready = false;
         this.replaying = false;
         this.replayVisibilitySent = false;
+        this.helloReceived = false;
         this.closed = true;
         this.backoff = 0;
         this.timer = null;
@@ -168,6 +169,7 @@ class ClusterRender extends EventEmitter {
         this.connected = false;
         this.replaying = false;
         this.replayVisibilitySent = false;
+        this.helloReceived = false;
         this.inbuf = Buffer.alloc(0);
         sock.on('connect', () => {
             /* Everything made before now goes in the replay below. Keep all
@@ -175,6 +177,7 @@ class ClusterRender extends EventEmitter {
             this.connected = true;
             this.replaying = true;
             this.replayVisibilitySent = false;
+            this.helloReceived = false;
             this._send({ op: 'hello', app: this.app, proto: PROTO });
             /* Assets first, so binds find them; binds and animations once
              * every layer and part is made. */
@@ -240,6 +243,7 @@ class ClusterRender extends EventEmitter {
             this.ready = false;
             this.replaying = true;
             this.replayVisibilitySent = false;
+            this.helloReceived = true;
             this.backoff = 0;
             this._pump();
         } else if (ev.ev === 'layer') {
@@ -297,7 +301,7 @@ class ClusterRender extends EventEmitter {
         /* Do not wake the app on hello alone. A large image/atlas can fill the
          * socket's writable buffer; wait for drain and every retained pixel
          * upload before declaring the renderer ready to the HUD. */
-        if (this.replaying) {
+        if (this.replaying && this.helloReceived) {
             let pixelsPending = false;
             this.layers.forEach((l) => {
                 if ((l.kind === 'image' || l.kind === 'asset') && (l.whole || l.dirty.length)) pixelsPending = true;
