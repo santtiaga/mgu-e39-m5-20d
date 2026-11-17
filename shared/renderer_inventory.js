@@ -6,10 +6,10 @@
 
 function assetBytes(format, width, height) {
     const pixels = width * height;
-    if (format === 'rgba8') return pixels * 8;       // uncompressed asset: 4 B/pixel, charged twice
-    if (format === 'r8') return pixels * 2;           // uncompressed asset: 1 B/pixel, charged twice
-    if (format === 'etc2rgba') return pixels;         // compressed asset: 1 B/pixel, charged once
-    if (format === 'etc2rgb') return pixels / 2;      // compressed asset: 0.5 B/pixel, charged once
+    if (format === 'rgba8') return pixels * 8;
+    if (format === 'r8') return pixels * 2;
+    if (format === 'etc2rgba') return pixels;
+    if (format === 'etc2rgb') return pixels / 2;
     return null;
 }
 
@@ -24,15 +24,15 @@ function parseStatus(statusText) {
         unmeasuredPixelResources: 0,
         pixelMemoryComplete: false
     };
-    if (typeof statusText !== 'string' || !/^upload:\s/m.test(statusText)) return result;
+    if (typeof statusText !== 'string' || !/^upload:\\s/m.test(statusText)) return result;
 
-    const lines = statusText.split(/\r?\n/);
+    const lines = statusText.split(/\\r?\\n/);
     let targets = 0;
     let malformedInventoryLine = false;
     lines.forEach((line) => {
-        if (/^target\s+/.test(line)) targets++;
-        if (/^layer\s+/.test(line)) {
-            const match = /^layer\s+\d+\s+([a-z]+)\s+of\s+.+?\s+on\s+[^,]+,/.exec(line);
+        if (/^target\\s+/.test(line)) targets++;
+        if (/^layer\\s+/.test(line)) {
+            const match = /^layer\\s+\\d+\\s+([a-z]+)\\s+of\\s+.+?\\s+on\\s+[^,]+,/.exec(line);
             if (!match) {
                 malformedInventoryLine = true;
                 return;
@@ -41,8 +41,11 @@ function parseStatus(statusText) {
             result.layerCount++;
             result.layerKinds[kind] = (result.layerKinds[kind] || 0) + 1;
             if (kind === 'image' || kind === 'video' || kind === 'mesh') result.unmeasuredPixelResources++;
-        } else if (/^asset\s+/.test(line)) {
-            const match = /^asset\s+\d+\s+([a-z0-9]+)\s+(\d+)x(\d+)\s+of\s+.+?\s+on\s+[^:]+:/.exec(line);
+        } else if (/^scene\\s+/.test(line)) {
+            /* Pre-installed scene resources are not enumerated as assets. */
+            result.unmeasuredPixelResources++;
+        } else if (/^asset\\s+/.test(line)) {
+            const match = /^asset\\s+\\d+\\s+([a-z0-9]+)\\s+(\\d+)x(\\d+)\\s+of\\s+.+?\\s+on\\s+[^:]+:/.exec(line);
             if (!match) {
                 malformedInventoryLine = true;
                 return;
@@ -54,9 +57,6 @@ function parseStatus(statusText) {
         }
     });
 
-    /* A real status response always starts with upload state and lists the
-     * renderer's configured targets. Missing target rows or malformed
-     * inventory rows are treated as an incomplete snapshot. */
     result.complete = targets > 0 && !malformedInventoryLine;
     result.pixelMemoryComplete = result.complete &&
         result.unmeasuredPixelResources === 0 && result.unknownAssetFormats === 0;
