@@ -151,6 +151,7 @@
  */
 const fs = require('fs');
 const { ClusterRender, DEFAULT_PATH } = require('./cluster_render_client.js');
+const DCSM2Watchdog = require('./dcsm2_watchdog');
 const Layouts = require('./layouts');
 const { THEMES, M_STRIPE, LIGHTS, VERDICT, color } = require('./hud_themes');
 const ShiftScore = require('./shift_score');
@@ -279,6 +280,16 @@ class HudApp {
         this.layerStates = new Map();    // "<conn>:<ref>" -> { state, reason } from cluster-render
         this.client = this._clientAt(0);
         this.target = TARGET_SIZES[this.config.target] ? this.config.target : 'hud';
+        this.dcsm2 = new DCSM2Watchdog(this.client, (state, reason, previous) => {
+            if (state === 'available') {
+                this.log.info('DCSM2 available; display rendering may proceed');
+                if (this.deferredRebuild || this.activeName === null || this.widgets.size === 0) this._rebuild();
+                else this._status();
+            } else {
+                this.log.warn('DCSM2 ' + state + (reason ? ': ' + reason : '') + (previous ? ' (was ' + previous + ')' : ''));
+                this._status();
+            }
+        }, this.log);
         this.size = TARGET_SIZES[this.target];
         this.label = this.config.statusName || 'HUD';
         this.layoutTheme = null;         // the active layout's own theme, if it has one
@@ -450,8 +461,16 @@ class HudApp {
 
     _wireClientEvents(c, ci) {
         const tag = ci ? ' [connection ' + (ci + 1) + ']' : '';
-        c.on('ready', () => { this.log.info('cluster-render ready' + tag + ' (backend=' + c.backend + ')'); if (ci === 0) this._rebuild(); else this._status(); });
-        c.on('disconnected', () => { this.log.warn('cluster-render disconnected' + tag + ', client will retry'); this._status(); });
+        c.on('ready', () => {
+            this.log.info('cluster-render ready' + tag + ' (backend=' + c.backend + ')');
+            if (ci === 0) this.dcsm2.connected();
+            else this._status();
+        });
+        c.on('disconnected', () => {
+            this.log.warn('cluster-render disconnected' + tag + ', client will retry');
+            if (ci === 0) this.dcsm2.disconnected();
+            else this._status();
+        });
         c.on('diagnostic', (ev) => {
             if (ev.ev === 'target' || ev.ev === 'error' || (ev.ev === 'layer' && ev.state !== 'shown')) {
                 let raw;
@@ -470,6 +489,7 @@ class HudApp {
             this._statusSoon();
         });
         c.on('target', (name, state, holder, reason, guideDisabled, rendering, retryInMs, disabled) => {
+            if (ci === 0) this.dcsm2.target(state, reason);
             if (name !== this.target) return;
             this.targetState = { state, holder, reason, guideDisabled: !!guideDisabled,
                 rendering: rendering || 'none', retryInMs: retryInMs, disabled: !!disabled, connection: ci + 1 };
@@ -489,7 +509,10 @@ class HudApp {
             this._statusSoon();
         });
         c.on('budget', (capKb, maxKb, reason) => this.log.info('budget' + tag + ' ' + capKb + '/' + maxKb + ' kb/s (' + reason + ')'));
-        c.on('status', (text) => this.log.info('cluster-render status: ' + text));
+        c.on('status', (text) => {
+            if (ci === 0) this.dcsm2.status(text);
+            this.log.info('cluster-render status: ' + text);
+        });
     }
 
     start() {
@@ -545,6 +568,7 @@ class HudApp {
         if (this.stopped) return;
         this.stopped = true;
         this.started = false;
+        this.dcsm2.stop();
         clearInterval(this.tickTimer);
         clearInterval(this.themeTimer);
         clearInterval(this.statusTimer);
@@ -707,6 +731,10 @@ class HudApp {
             let there = false;
             try { there = fs.existsSync(this.socketPath); } catch (e) { /* treat as missing */ }
             return there ? this.label + ': connecting to cluster-render' : this.label + ' off: cluster-render is not installed or not running';
+        }
+        if (this._layoutName() !== 'off' && this.dcsm2.state !== 'available') {
+            return this.label + ': ' + (this.dcsm2.state === 'unavailable'
+                ? 'waiting for DCSM2 recovery' : 'checking DCSM2 availability');
         }
         if (this.problem) return this.label + ': ' + this.problem;
         const byMode = this.setting('byMode') === true;
@@ -1144,6 +1172,10 @@ class HudApp {
             }
             return;
         }
+        if (name !== 'off' && this.dcsm2.state !== 'available') {
+            this.deferredRebuild = true;
+            return;
+        }
         this.deferredRebuild = false;
         this.vehicleOff = false;
         this.vehicleOffLogged = false;
@@ -1574,7 +1606,7 @@ class HudApp {
                 return;
             }
             this._smoothRpm(now);
-            if (!this.client.ready) return;
+            if (!this.client.ready || this.dcsm2.state !== 'available') return;
             // shift light: blink the whole bar at 8 Hz once the rpm reaches the redline
             const rpm = this._raw('rpm');
             const flashing = isNum(rpm) && rpm >= this.setting('redline') - 150;

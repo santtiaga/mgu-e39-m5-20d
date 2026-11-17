@@ -4,6 +4,10 @@ Newest first. Dates are when the build was pushed.
 
 ## Nov 17 2026
 
+- **Apex Dash 1.4.9:** add a DCSM2 availability watchdog using cluster-render's status protocol. Defer initial panel layers until DCSM2 is confirmed available, pause live widget updates while unavailable, and automatically resume after recovery; expose the wait state in the app status line.
+
+## Nov 17 2026
+
 - **Apex Dash 1.4.8:** include best-effort cluster-render system logs in the phone log export, recording explicit read errors (such as EACCES/ENOENT) when the MGU app cannot access them.
 
 ## Nov 17 2026
