@@ -10,9 +10,10 @@ const status = [
     'layer 10 effect of apex_dash on panel, overlay z 10: shown',
     'layer 11 image of other_app on panel, content z 0: shown',
     'asset 20 r8 256x128 of apex_dash on panel: 1 writes',
-    'asset 21 etc2rgba 64x64 of other_app on panel: 1 writes',\n    'scene 31 of scene_app sample: shown',
+    'asset 21 etc2rgba 64x64 of other_app on panel: 1 writes',
+    'scene 31 of scene_app sample: shown',
     ''
-].join('\n');
+].join('\\n');
 
 const parsed = inventory.parseStatus(status);
 assert.strictEqual(parsed.complete, true);
@@ -32,7 +33,7 @@ const malformed = inventory.parseStatus([
     'upload: cap 5500 KB/s: normal',
     'target panel: shown',
     'layer record is truncated'
-].join('\n'));
+].join('\\n'));
 assert.strictEqual(malformed.complete, false);
 assert.strictEqual(malformed.pixelMemoryComplete, false);
 
@@ -40,7 +41,7 @@ const unknownFormat = inventory.parseStatus([
     'upload: cap 5500 KB/s: normal',
     'target panel: shown',
     'asset 30 futurefmt 10x10 of app on panel: 0 writes'
-].join('\n'));
+].join('\\n'));
 assert.strictEqual(unknownFormat.complete, true);
 assert.strictEqual(unknownFormat.unknownAssetFormats, 1);
 assert.strictEqual(unknownFormat.pixelMemoryComplete, false);
