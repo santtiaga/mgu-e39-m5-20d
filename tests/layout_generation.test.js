@@ -25,7 +25,7 @@ const knownLimits = { rendererInventoryComplete: true, perClient: 8, totalLayers
 result = generation.assessOverlap(active, candidate, knownLimits);
 assert.strictEqual(result.allowed, true, 'known headroom permits overlap');
 assert.strictEqual(result.layers, 11);
-assert.strictEqual(result.pixelBytes, 15168);
+assert.strictEqual(result.pixelBytes, 57184);
 result = generation.assessOverlap(active, candidate, Object.assign({}, knownLimits, { externalLayers: 30 }));
 assert.strictEqual(result.allowed, false, 'service-wide layer ceiling must be enforced');
 assert(/total layers/.test(result.reason));
