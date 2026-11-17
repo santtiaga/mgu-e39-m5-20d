@@ -24,15 +24,15 @@ function parseStatus(statusText) {
         unmeasuredPixelResources: 0,
         pixelMemoryComplete: false
     };
-    if (typeof statusText !== 'string' || !/^upload:\\s/m.test(statusText)) return result;
+    if (typeof statusText !== 'string' || !/^upload:\s/m.test(statusText)) return result;
 
-    const lines = statusText.split(/\\r?\\n/);
+    const lines = statusText.split(/\r?\n/);
     let targets = 0;
     let malformedInventoryLine = false;
     lines.forEach((line) => {
-        if (/^target\\s+/.test(line)) targets++;
-        if (/^layer\\s+/.test(line)) {
-            const match = /^layer\\s+\\d+\\s+([a-z]+)\\s+of\\s+.+?\\s+on\\s+[^,]+,/.exec(line);
+        if (/^target\s+/.test(line)) targets++;
+        if (/^layer\s+/.test(line)) {
+            const match = /^layer\s+\d+\s+([a-z]+)\s+of\s+.+?\s+on\s+[^,]+,/.exec(line);
             if (!match) {
                 malformedInventoryLine = true;
                 return;
@@ -41,10 +41,10 @@ function parseStatus(statusText) {
             result.layerCount++;
             result.layerKinds[kind] = (result.layerKinds[kind] || 0) + 1;
             if (kind === 'image' || kind === 'video' || kind === 'mesh') result.unmeasuredPixelResources++;
-        } else if (/^scene\\s+/.test(line)) {
+        } else if (/^scene\s+/.test(line)) {
             result.unmeasuredPixelResources++;
-        } else if (/^asset\\s+/.test(line)) {
-            const match = /^asset\\s+\\d+\\s+([a-z0-9]+)\\s+(\\d+)x(\\d+)\\s+of\\s+.+?\\s+on\\s+[^:]+:/.exec(line);
+        } else if (/^asset\s+/.test(line)) {
+            const match = /^asset\s+\d+\s+([a-z0-9]+)\s+(\d+)x(\d+)\s+of\s+.+?\s+on\s+[^:]+:/.exec(line);
             if (!match) {
                 malformedInventoryLine = true;
                 return;
