@@ -1,8 +1,8 @@
 'use strict';
 
 /* Parse the renderer's human-readable status snapshot. It is useful for
- * global layer/asset counts, but deliberately does not infer image or mesh
- * allocation sizes that the protocol does not report. */
+ * global layer/asset counts, but deliberately does not infer image, video,
+ * mesh or pre-installed scene allocation sizes that the protocol omits. */
 
 function assetBytes(format, width, height) {
     const pixels = width * height;
