@@ -1416,10 +1416,12 @@ class HudApp {
         s.ref = ref; s.c = c; s.ci = s.conn;
         s.buf = Buffer.alloc(s.w * s.h * 4, 0);
         this.sheets.push(s);
-        s.members.forEach((w) => this._guard('widget ' + w.id, () => this._create(w, s)));
+        // Do not swallow member-construction errors here: a partially painted sheet must never be
+        // marked ready and revealed. _buildNext catches the error, aborts the transaction and drops it.
+        s.members.forEach((w) => this._create(w, s));
         const buf = s.buf;
         s.buf = null;                    // from here on _blit sends dirty rects
-        c.pixels(ref, null, buf);
+        if (!c.pixels(ref, null, buf)) throw new Error('initial sheet pixel upload rejected (ref ' + ref + ')');
     }
 
     /**
