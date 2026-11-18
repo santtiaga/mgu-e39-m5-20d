@@ -229,7 +229,10 @@ class Car {
 
     _wantDemo() {
         const m = this.ctx.settings.get('demo');
-        return m === 'on' || (m !== 'off' && !this.carPresent() && Date.now() - this.t0 > 5000);
+        const panelTarget = this.ctx.spec && this.ctx.spec.config && this.ctx.spec.config.target === 'panel';
+        // Never replace an instrument panel with a simulated drive just because
+        // its live providers are absent. Manual demo=on remains available.
+        return m === 'on' || (m !== 'off' && !panelTarget && !this.carPresent() && Date.now() - this.t0 > 5000);
     }
 
     data() {
