@@ -349,9 +349,19 @@ class HudApp {
             onTrip: (incident) => this._onSafetyTrip(incident),
         });
 
-        this._setupVehicleData();
-        this.layouts.onChange(() => this._rebuild());
-        ctx.settings.onChange((key) => { if (key !== 'demo') this._rebuild(); else this._status(); });
+        try {
+            this._setupVehicleData();
+            this.layouts.onChange(() => this._rebuild());
+            ctx.settings.onChange((key) => { if (key !== 'demo') this._rebuild(); else this._status(); });
+        } catch (error) {
+            // A constructor failure still owns resources created earlier in the
+            // constructor (notably the layout watcher and vehicle subscriptions).
+            try { this.stop(); }
+            catch (cleanupError) {
+                this.log.warn('partial HUD constructor cleanup: ' + (cleanupError && cleanupError.message || cleanupError));
+            }
+            throw error;
+        }
     }
 
     /** A setting's value, or its default when the saved value isn't one the schema allows. */
