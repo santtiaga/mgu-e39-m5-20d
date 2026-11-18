@@ -296,7 +296,24 @@ class ClusterRender extends EventEmitter {
             l.whole = false;
             l.dirty = [];
             l.dirtyBytes = 0;
-            if (!this.sock.write(frameMessage(ref, 0, rects, px))) this.blocked = true;
+            const frame = frameMessage(ref, 0, rects, px);
+            const accepted = this.sock.write(frame);
+            if (l.kind === 'image') {
+                let pixels = 0;
+                if (rects.length) rects.forEach((r) => { pixels += r.w * r.h; });
+                else pixels = l.iw * l.ih;
+                this.emit('pixels-written', {
+                    ref: ref,
+                    kind: l.kind,
+                    full: rects.length === 0,
+                    rectCount: rects.length,
+                    pixels: pixels,
+                    pixelBytes: px.length,
+                    wireBytes: frame.length,
+                    replay: this.replaying,
+                });
+            }
+            if (!accepted) this.blocked = true;
         });
 
         /* Do not wake the app on hello alone. A large image/atlas can fill the
