@@ -47,6 +47,7 @@ mgu.run({
 
         hud.onStatus((s) => { ctx.ui.text('STATUS', s); });
         const onUnhandledRejection = (reason) => {
+            if (hud.stopped) return;
             const detail = diagnosticText(reason);
             ctx.log.error('[process] unhandledRejection: ' + detail);
             // The process-level listener keeps Node 8 alive; also count the fault
@@ -58,6 +59,7 @@ mgu.run({
         // startup failure must not leave partially-created timers or sockets.
         const stopHudOnExit = () => {
             try { hud.stop(); } catch (e) { /* process is exiting */ }
+            process.removeListener('unhandledRejection', onUnhandledRejection);
         };
         // MainApp's shutdown event precedes the runtime's 200 ms exit delay;
         // start async TASU/native cleanup while that grace period is available.
