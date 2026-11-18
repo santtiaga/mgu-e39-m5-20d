@@ -54,7 +54,7 @@ async function watch(iface, instance, handlers, log, opts) {
     let pollTimer = null;
     let active = true;
     const fetching = Object.create(null);
-    const res = { iface, available: false, proxy: null, error: null, shutdown: () => Promise.resolve() };
+    const res = { iface, available: false, availabilityMonitored: false, proxy: null, error: null, shutdown: () => Promise.resolve() };
     if (!someip) { res.error = 'someip native module not available'; return res; }
     try {
         const cfg = loadConfig(iface);
@@ -77,9 +77,24 @@ async function watch(iface, instance, handlers, log, opts) {
                 p.getValue(f, 3000).then((v) => { if (active) handlers[f](v); }).catch(() => {}).then(() => { fetching[f] = false; });
             });
         };
+        let availabilitySupported = true;
         await nativeTick(() => {
-            try { return p.subscribeToAvailability((a) => { if (!active) return; res.available = !!a; if (a) setImmediate(() => { if (active) fetchAll(); }); }); } catch (e) { return null; /* older binding */ }
+            try {
+                return p.subscribeToAvailability((a) => {
+                    if (!active) return;
+                    res.available = !!a;
+                    if (opts && typeof opts.onAvailability === 'function') {
+                        try { opts.onAvailability(res.available); }
+                        catch (e) { if (log) log.warn(iface + ' availability: ' + e); }
+                    }
+                    if (a) setImmediate(() => { if (active) fetchAll(); });
+                });
+            } catch (e) {
+                availabilitySupported = false;
+                return null; /* older binding */
+            }
         });
+        res.availabilityMonitored = availabilitySupported;
         for (const f of fields) {
             try {
                 await nativeTick(() => p.subscribe({ name: f, onReceive: (v) => { if (!active) return; try { handlers[f](v); } catch (e) { if (log) log.warn(iface + '.' + f + ': ' + e); } } }));
