@@ -6,6 +6,7 @@
  * null means identical. The renderer client retains the complete image and applies these patches.
  */
 function changes(was, now, w, h) {
+    if (now.compare(was) === 0) return null;
     const rowBytes = w * 4;
     const rects = [];
     let active = new Map();
@@ -13,6 +14,11 @@ function changes(was, now, w, h) {
 
     for (let y = 0; y < h; y++) {
         const row = y * rowBytes;
+        if (now.compare(was, row, row + rowBytes, row, row + rowBytes) === 0) {
+            active.forEach((r) => rects.push(r));
+            active = new Map();
+            continue;
+        }
         const next = new Map();
         let x = 0;
         while (x < w) {
