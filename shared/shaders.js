@@ -1775,24 +1775,12 @@ void main() {
         }
     }
 
-    // Circular reset pads: flat face, fuel-lamp style directional inner shadow,
-    // and the same fine matte grain as the needle hub. No cast shadow underneath.
+    // Reset controls use the same flat, recessed panel finish as the DSC stability bay.
     for (int bi = 0; bi < 2; bi++) {
         vec2 bc = vec2(bi == 0 ? 392.0 : 1388.0, 486.0);
-        vec2 resetQ = p - bc;
-        float dReset = length(resetQ) - 21.0;
+        float dReset = sdRoundBox(p, vec4(bc.x, bc.y, 22.0, 22.0), 8.0);
         vec3 resetCol = mix(vec3(0.055, 0.059, 0.071), vec3(0.020, 0.016, 0.016), u_night);
-        float resetGrain = (hubHash12(floor(resetQ * 0.72)) - 0.5) * mix(0.038, 0.018, u_night);
-        resetCol = clamp(resetCol + vec3(resetGrain), 0.0, 1.0);
         c = over(vec4(resetCol, cov(dReset)), c);
-
-        // Match the fuel reserve lamp's soft lower-right inner-rim shading.
-        float rimFade = exp(-max(-dReset, 0.0) / 3.2)
-                      * (1.0 - smoothstep(0.0, 1.0, dReset));
-        float shadowSide = smoothstep(-0.35, 0.65,
-                                      dot(normalize(resetQ), normalize(vec2(0.45, 0.65))));
-        float innerShadow = rimFade * shadowSide * mix(0.34, 0.42, u_night);
-        c = over(vec4(vec3(0.0), innerShadow), c);
     }
     // 2. Display Strip Windows (y: 548..634, well above BELT y=663)
     vec4 wSvc  = vec4(338.0, 548.0, 226.0, 86.0);
