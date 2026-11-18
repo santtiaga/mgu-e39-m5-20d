@@ -45,7 +45,10 @@ const { linkQueue, URGENT_RUN } = require(path.join(__dirname, '..', 'kit', 'run
     assert.deepStrictEqual(order2, ['urgent-1', 'urgent-2', 'normal-1', 'normal-2']);
 
     // A rejected native operation must not poison the lane.
-    await assert.rejects(q2(() => Promise.reject(new Error('expected')), true, 'reject'), /expected/);
+    let rejected = false;
+    try { await q2(() => Promise.reject(new Error('expected')), true, 'reject'); }
+    catch (error) { rejected = /expected/.test(error.message); }
+    assert(rejected, 'rejected native operation must reject its caller');
     assert.strictEqual(await q2(() => Promise.resolve('after-error'), false), 'after-error');
 
     // Closing rejects queued work but lets an in-flight native operation settle.
@@ -54,7 +57,9 @@ const { linkQueue, URGENT_RUN } = require(path.join(__dirname, '..', 'kit', 'run
     const inFlight = q3(() => new Promise((resolve) => { finish = resolve; }), true, 'in-flight');
     const queued = q3(() => Promise.resolve('must-not-run'), false, 'queued');
     q3.close('test close');
-    await assert.rejects(queued, /test close/);
+    let queuedRejected = false;
+    try { await queued; } catch (error) { queuedRejected = /test close/.test(error.message); }
+    assert(queuedRejected, 'closing must reject queued native operations');
     finish('settled');
     assert.strictEqual(await inFlight, 'settled');
     console.log('link_queue: fairness, FIFO, error recovery and shutdown checks pass');
