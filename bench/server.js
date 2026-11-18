@@ -318,11 +318,22 @@ const renderServer = net.createServer((sock) => {
                 sceneChanged();
                 return;
             }
-            case 'status':
+            case 'status': {
                 const conns = new Set(Array.from(layers.values()).map((l) => l.conn)).size;
-                const assets = layers.size - layerCount();
-                writeEv(sock, { ev: 'status', text: 'bench: ' + layerCount() + ' layers' + (assets ? ' and ' + assets + ' asset' + (assets > 1 ? 's' : '') : '') + ' on ' + conns + ' connection(s), layer cap ' + (layerCap || 'off') + ', ' + overCap() + ' over it, pixel memory ' + mib(pixelBytes()) + ' of ' + (PIXEL_BYTES ? mib(PIXEL_BYTES) : 'unlimited') + '\n' + DCSM2Mock.statusLine(dcsm2State) });
+                const assets = Array.from(layers.values()).filter((l) => l.kind === 'asset').length;
+                const inventory = ['upload: bench renderer inventory', 'target panel 1920x720', 'target hud 800x480', 'target map 1088x480'];
+                let index = 1;
+                Array.from(layers.values()).forEach((item) => {
+                    if (item.kind === 'asset') {
+                        inventory.push('asset ' + index++ + ' ' + (item.format || 'rgba8') + ' ' + item.iw + 'x' + item.ih + ' of ' + mib(item.iw * item.ih * item.bpp * 2) + ' on connection ' + item.conn + ': ref ' + item.ref);
+                    } else {
+                        inventory.push('layer ' + index++ + ' ' + item.kind + ' of ' + (item.w || 0) + 'x' + (item.h || 0) + ' on ' + item.target + ', connection ' + item.conn + ' ref ' + item.ref);
+                    }
+                });
+                const summary = 'bench: ' + layerCount() + ' layers' + (assets ? ' and ' + assets + ' asset' + (assets > 1 ? 's' : '') : '') + ' on ' + conns + ' connection(s), layer cap ' + (layerCap || 'off') + ', ' + overCap() + ' over it, pixel memory ' + mib(pixelBytes()) + ' of ' + (PIXEL_BYTES ? mib(PIXEL_BYTES) : 'unlimited') + '\\n' + DCSM2Mock.statusLine(dcsm2State);
+                writeEv(sock, { ev: 'status', text: inventory.join('\\n') + '\\n' + summary });
                 return;
+            }
             default:
                 bad('op "' + m.op + '" not handled by the bench');
         }
