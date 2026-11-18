@@ -197,6 +197,8 @@ class Diag extends EventEmitter {
                 clearTimeout(t); clearTimeout(hardTimer);
                 this.removeListener('frame', onFrame); resolve(v);
             };
+            const cancel = () => finish(null);
+            this.pending.add(cancel);
             onFrame = (f) => {
                 if (f.ecu !== target) return;
                 if (f.uds[0] === 0x7F && f.uds[2] === 0x78) {      // response pending: never the reply itself
