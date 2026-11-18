@@ -66,4 +66,77 @@ function assessOverlap(active, candidate, limits) {
         pixelBytes: pixels };
 }
 
-module.exports = { measureRefs: measureRefs, measurePlan: measurePlan, assessOverlap: assessOverlap };
+module.exports = { measureRefs: measureRefs, measurePlan: measurePlan, assessOverlap: assessOverlap, createRegistry: createRegistry };
+
+/* Generation ownership model. This is intentionally not wired to HUD yet:
+ * the current renderer has no atomic commit or acknowledged drop operation. */
+function createRegistry() {
+    let nextId = 1;
+    const generations = new Map();
+    let activeId = null;
+
+    function get(generation) {
+        const id = typeof generation === 'object' && generation ? generation.id : generation;
+        return generations.get(id) || null;
+    }
+
+    function begin(meta) {
+        const generation = {
+            id: nextId++,
+            state: 'building',
+            meta: meta || {},
+            refs: new Map(),
+            createdAt: Date.now()
+        };
+        generations.set(generation.id, generation);
+        return generation;
+    }
+
+    function track(generation, ci, ref) {
+        const g = get(generation);
+        if (!g || g.state !== 'building' || !ref) return false;
+        const key = String(Math.max(0, Math.floor(ci || 0))) + ':' + String(ref);
+        g.refs.set(key, { ci: Math.max(0, Math.floor(ci || 0)), ref: ref });
+        return true;
+    }
+
+    function ready(generation) {
+        const g = get(generation);
+        if (!g || g.state !== 'building') return false;
+        g.state = 'ready';
+        return true;
+    }
+
+    function activate(generation) {
+        const g = get(generation);
+        if (!g || g.state !== 'ready') return { activated: false, previous: null };
+        const previous = activeId === null ? null : get(activeId);
+        if (previous && previous.state === 'active') previous.state = 'retiring';
+        g.state = 'active';
+        activeId = g.id;
+        return { activated: true, previous: previous };
+    }
+
+    function release(generation) {
+        const g = get(generation);
+        if (!g || g.state === 'released') return [];
+        if (g.state === 'active') activeId = null;
+        g.state = 'released';
+        const refs = Array.from(g.refs.values());
+        g.refs.clear();
+        return refs;
+    }
+
+    function current() { return activeId === null ? null : get(activeId); }
+
+    return {
+        begin: begin,
+        track: track,
+        ready: ready,
+        activate: activate,
+        release: release,
+        current: current,
+        get: get
+    };
+}
+
