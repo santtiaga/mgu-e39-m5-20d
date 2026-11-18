@@ -64,6 +64,8 @@ const server = net.createServer((socket) => {
 });
 
 const client = new ClusterRender('apex_dash_test', path);
+const pixelWrites = [];
+client.on('pixels-written', (event) => pixelWrites.push(event));
 const assetPixels = Buffer.alloc(512 * 512, 0x5a);
 const imagePixels = Buffer.alloc(128 * 128 * 4, 0xa5);
 const asset = client.asset({ target: 'panel', format: 'r8', w: 512, h: 512 });
@@ -116,6 +118,13 @@ function finish() {
         assert(json.some((m) => m.op === 'bind' && m.ref === effect && m.asset === asset), 'asset binding replayed');
         assert(json.some((m) => m.op === 'animate' && m.ref === effect), 'animation replayed');
         assert.strictEqual(frames.length, 2, 'both image and asset must be sent again');
+        assert.strictEqual(pixelWrites.length, 2, 'image socket writes should be observable on startup and replay');
+        assert(pixelWrites.every((event) => event.kind === 'image' && event.full && event.replay),
+            'image write events must identify full replay frames');
+        assert(pixelWrites.every((event) => event.rectCount === 0), 'full image writes have no dirty rectangles');
+        assert(pixelWrites.some((event) => event.pixelBytes === imagePixels.length &&
+            event.pixels === 128 * 128 && event.wireBytes === imagePixels.length + 19),
+            'image write event reports pixel and protocol bytes accurately');
         assert(frames.every((m) => m.rectCount === 0), 'reconnect must use full-frame pixel uploads');
         const payloads = frames.map((m) => m.pixels);
         assert(payloads.some((p) => p.equals(assetPixels)), 'full glyph/asset pixels restored byte-for-byte');
