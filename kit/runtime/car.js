@@ -197,10 +197,24 @@ class Car {
         // a while" doesn't mean "no car": once a signal's provider is there, stay on live data
         this.t0 = Date.now();
         Object.keys(watches).forEach((iface) => {
-            const pending = ctx.signals.watch(iface, '1', watches[iface], this.log, pollMs[iface] ? { pollMs: pollMs[iface] } : undefined)
+            const watchOptions = {};
+            if (pollMs[iface]) watchOptions.pollMs = pollMs[iface];
+            if (iface === 'de.bmw.infrastructure.VehicleCondition') {
+                watchOptions.onAvailability = (available) => {
+                    if (this.stopped || available || !this.live.conditionKnown) return;
+                    this.live.conditionKnown = false;
+                    this.log.warn('VehicleCondition provider unavailable; live vehicle state is unknown');
+                    if (!this.demoActive) this._emit(this.live, Date.now());
+                };
+            }
+            const pending = ctx.signals.watch(iface, '1', watches[iface], this.log,
+                Object.keys(watchOptions).length ? watchOptions : undefined)
                 .then((s) => {
                     if (this.stopped) { if (s && s.shutdown) return s.shutdown(); return; }
                     this.subs.push(s);
+                    if (iface === 'de.bmw.infrastructure.VehicleCondition' && s && s.availabilityMonitored === false) {
+                        this.log.warn('VehicleCondition provider availability cannot be monitored by this SOME/IP binding');
+                    }
                     this.log.info('signal ' + iface.split('.').pop() + (s.error ? ' error: ' + s.error : ' subscribed'));
                 });
             this.watchPromises.push(pending);
