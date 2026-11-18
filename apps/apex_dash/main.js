@@ -11,7 +11,7 @@ const HudApp = require('./hud');
 const isPanelTarget = require('../../shared/panel_target_guard');
 
 const LOG_LINES = 16;
-const LOG_SCROLL_MS = 750;
+const LOG_SCROLL_MS = 1000;
 const LOG_BUFFER_LINES = 80;
 const LOG_TAIL_BYTES = 96 * 1024;
 
@@ -124,7 +124,7 @@ mgu.run({
             });
             return records.slice(-LOG_BUFFER_LINES).map((r) => {
                 const clean = r.line.replace(/[\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
-                return '[' + r.source + '] ' + clean;
+                return ('[' + r.source + '] ' + clean).slice(0, 180);
             });
         };
 
