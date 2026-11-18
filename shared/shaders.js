@@ -1114,7 +1114,8 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
 
             // Satin aluminium: material definition comes from directional reflection, not noise.
             float textureMask = smoothstep(0.018, 0.095, u) * (1.0 - smoothstep(0.91, 0.985, u));
-            float crownMask = smoothstep(0.16, 0.31, u) * (1.0 - smoothstep(0.70, 0.84, u));
+            // Use almost the full visible bevel width: the rendered ring is only ~10 px thick.
+            float crownMask = smoothstep(0.025, 0.12, u) * (1.0 - smoothstep(0.88, 0.975, u));
 
             // Fine surface grain, subtle anodising variation and dense concentric machining.
             float fineGrain = hash12(floor(p * 3.1)) - 0.5;
@@ -1127,13 +1128,14 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
             rCol += vec3(surfaceTexture) * textureMask;
 
             // Directional metallic environment: narrow bright source, softer fill and dark reflection.
-            float keyReflection = pow(max(cos(ang - 0.48), 0.0), 34.0);
-            float fillReflection = pow(max(cos(ang - 2.62), 0.0), 13.0);
-            float darkReflection = pow(max(cos(ang - 1.72), 0.0), 18.0);
-            float reflection = (0.34 * keyReflection + 0.105 * fillReflection) * crownMask;
-            float reflectedDark = 0.24 * darkReflection * crownMask;
-            rCol += vec3(reflection * 0.96, reflection * 0.98, reflection);
-            rCol = mix(rCol, vec3(0.075, 0.086, 0.105), clamp(reflectedDark, 0.0, 0.42));
+            // Stronger studio-strip reflections, broad enough to survive the cluster's pixel scale.
+            float keyReflection = pow(max(cos(ang - 0.48), 0.0), 10.0);
+            float fillReflection = pow(max(cos(ang - 2.62), 0.0), 5.0);
+            float darkReflection = pow(max(cos(ang - 1.72), 0.0), 7.0);
+            float reflection = (0.62 * keyReflection + 0.20 * fillReflection) * crownMask;
+            float reflectedDark = 0.48 * darkReflection * crownMask;
+            rCol += vec3(reflection * 1.02, reflection * 1.03, reflection * 1.05);
+            rCol = mix(rCol, vec3(0.035, 0.043, 0.057), clamp(reflectedDark, 0.0, 0.68));
 
             // Machined inner and outer arrises; crisp, without white outlines.
             float innerLip = 1.0 - smoothstep(0.025, 0.075, u);
