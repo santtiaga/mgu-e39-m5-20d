@@ -7,7 +7,7 @@ assert.strictEqual(EngineSignals.boostBar(100, 'BAR'), 1);
 assert(Math.abs(EngineSignals.boostBar(145, 'PSI') - 1) < 0.001,
     '0.1 psi per step is converted to bar');
 assert.strictEqual(EngineSignals.boostBar(100, 'KPA'), 1,
-    'the sport display's metric raw step is 1 kPa');
+    'the sport-display metric raw step is 1 kPa');
 assert.strictEqual(EngineSignals.boostBar(255, 'BAR'), null, 'BMW no-value sentinel is rejected');
 assert.strictEqual(EngineSignals.boostBar(65535, 'BAR'), null, 'out-of-range signal is rejected');
 assert.strictEqual(EngineSignals.boostBar(-1, 'BAR'), null, 'negative raw values are rejected');
