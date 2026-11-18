@@ -16,6 +16,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { linkQueue } = require('./link_queue');
 
 let someip = null;
 try { someip = require('someip'); } catch (e) { /* host preview / not installed */ }
@@ -27,12 +28,14 @@ const DIRS = [path.join(APP_ROOT, 'someipInterfaces'), path.join(__dirname, '..'
 // init run inline inside the app's promise chains next to the SDK's own SOME/IP
 // traffic. The SDK always calls them from a fresh setImmediate tick, one at a
 // time - do the same.
-let chain = Promise.resolve();
-function nativeTick(fn) {
-    const run = () => new Promise((resolve, reject) => setImmediate(() => { try { Promise.resolve(fn()).then(resolve, reject); } catch (e) { reject(e); } }));
-    const p = chain.then(run, run);
-    chain = p.catch(() => {});
-    return p;
+const nativeQueue = linkQueue({ warn: (message) => { if (typeof console !== 'undefined' && console.warn) console.warn(message); } });
+function nativeTick(fn, urgent, label) {
+    return nativeQueue(() => new Promise((resolve, reject) => {
+        setImmediate(() => {
+            try { Promise.resolve(fn()).then(resolve, reject); }
+            catch (error) { reject(error); }
+        });
+    }), urgent !== false, label || 'native operation');
 }
 
 function loadConfig(iface) {
@@ -55,19 +58,27 @@ async function watch(iface, instance, handlers, log, opts) {
     let pollTimer = null;
     let active = true;
     const fetching = Object.create(null);
+    let shutdownPromise = null;
     const res = { iface, available: false, availabilityMonitored: false, proxy: null, error: null, shutdown: () => Promise.resolve() };
     if (!someip) { res.error = 'someip native module not available'; return res; }
     try {
         const cfg = loadConfig(iface);
-        const p = await nativeTick(() => someip.buildProxy(cfg, String(instance)).then((px) => px.init().then(() => px)));
+        const p = await nativeTick(() => someip.buildProxy(cfg, String(instance)).then((px) => px.init().then(() => px)), true, 'build/init ' + iface);
         res.proxy = p;
         res.shutdown = () => {
-            if (!active) return Promise.resolve();
+            if (shutdownPromise) return shutdownPromise;
             active = false;
             res.available = false;
             if (pollTimer) clearInterval(pollTimer);
             pollTimer = null;
-            return Promise.resolve().then(() => p.shutdown && p.shutdown()).catch(() => {});
+            // Proxy shutdown is the native binding's subscription teardown:
+            // it releases field and availability subscriptions together.
+            shutdownPromise = nativeTick(() => p.shutdown && p.shutdown(), true, 'shutdown ' + iface)
+                .catch((error) => {
+                    if (log) log.warn('signals shutdown ' + iface + ': ' + (error && error.message || error));
+                })
+                .then(() => { if (res.proxy === p) res.proxy = null; });
+            return shutdownPromise;
         };
         const fields = Object.keys(handlers || {});
         const fetchAll = () => {
@@ -75,7 +86,7 @@ async function watch(iface, instance, handlers, log, opts) {
             fields.forEach((f) => {
                 if (!active || !(cfg.fields && cfg.fields[f] && cfg.fields[f].getter) || fetching[f]) return;
                 fetching[f] = true;
-                p.getValue(f, 3000).then((v) => { if (active) handlers[f](v); }).catch(() => {}).then(() => { fetching[f] = false; });
+                nativeTick(() => p.getValue(f, 3000), false, 'get ' + iface + '.' + f).then((v) => { if (active) handlers[f](v); }).catch(() => {}).then(() => { fetching[f] = false; });
             });
         };
         let availabilitySupported = true;
@@ -94,11 +105,11 @@ async function watch(iface, instance, handlers, log, opts) {
                 availabilitySupported = false;
                 return null; /* older binding */
             }
-        });
+        }, true, 'availability ' + iface);
         res.availabilityMonitored = availabilitySupported;
         for (const f of fields) {
             try {
-                await nativeTick(() => p.subscribe({ name: f, onReceive: (v) => { if (!active) return; try { handlers[f](v); } catch (e) { if (log) log.warn(iface + '.' + f + ': ' + e); } } }));
+                await nativeTick(() => p.subscribe({ name: f, onReceive: (v) => { if (!active) return; try { handlers[f](v); } catch (e) { if (log) log.warn(iface + '.' + f + ': ' + e); } } }), true, 'subscribe ' + iface + '.' + f);
             } catch (e) {
                 if (log) log.warn('subscribe ' + iface + '.' + f + ': ' + e);
             }
@@ -126,12 +137,12 @@ async function watch(iface, instance, handlers, log, opts) {
 async function proxy(iface, instance) {
     if (!someip) throw new Error('someip native module not available');
     const cfg = loadConfig(iface);
-    return nativeTick(() => someip.buildProxy(cfg, String(instance)).then((p) => p.init().then(() => p)));
+    return nativeTick(() => someip.buildProxy(cfg, String(instance)).then((p) => p.init().then(() => p)), true, 'proxy/init ' + iface);
 }
 
 /** Call a method on a proxy from proxy(); params = the method's argument struct. */
 function call(p, method, params, timeoutMs) {
-    return nativeTick(() => p.callMethod(method, params || {}, timeoutMs || 5000));
+    return nativeTick(() => p.callMethod(method, params || {}, timeoutMs || 5000), true, 'call ' + method);
 }
 
 /**
@@ -141,17 +152,17 @@ function call(p, method, params, timeoutMs) {
  * leaves the setter out of the app's interface config.
  */
 function set(p, field, value, timeoutMs) {
-    return nativeTick(() => p.setValue(field, value, timeoutMs || 5000));
+    return nativeTick(() => p.setValue(field, value, timeoutMs || 5000), true, 'set ' + field);
 }
 
 /** Subscribe to a broadcast/event or field on a proxy from proxy(). */
 function on(p, name, fn, log) {
-    return nativeTick(() => p.subscribe({ name, onReceive: (v) => { try { fn(v); } catch (e) { if (log) log.warn(name + ': ' + e); } } }));
+    return nativeTick(() => p.subscribe({ name, onReceive: (v) => { try { fn(v); } catch (e) { if (log) log.warn(name + ': ' + e); } } }), true, 'subscribe ' + name);
 }
 
 /** Availability of a proxy's provider; fn(bool) on every change. */
 function onAvailable(p, fn) {
-    return nativeTick(() => { try { return p.subscribeToAvailability((a) => fn(!!a)); } catch (e) { return null; } })
+    return nativeTick(() => { try { return p.subscribeToAvailability((a) => fn(!!a)); } catch (e) { return null; } }, true, 'availability subscribe')
         .then(() => { if (p.isAvailable && p.isAvailable()) fn(true); });
 }
 
