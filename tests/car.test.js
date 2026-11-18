@@ -25,15 +25,16 @@ assert.strictEqual(Car.engineRpm(undefined, 400), undefined);
 
 /* A live vehicle state is unknown until BMW sends a recognised value. */
 {
-    let vehicleStateHandler;
+    let vehicleStateHandler, vehicleStateAvailability;
     const ctx = {
         spec: { config: {} },
         log: { info: function () {}, warn: function () {} },
         settings: { get: function () { return 'off'; } },
         signals: {
-            watch: function (iface, instance, handlers) {
+            watch: function (iface, instance, handlers, log, options) {
                 vehicleStateHandler = handlers.VehicleCondition;
-                return Promise.resolve({ available: false, shutdown: function () {} });
+                vehicleStateAvailability = options && options.onAvailability;
+                return Promise.resolve({ available: true, availabilityMonitored: true, shutdown: function () {} });
             }
         }
     };
@@ -52,13 +53,26 @@ assert.strictEqual(Car.engineRpm(undefined, 400), undefined);
         'a recognised drive-ready state unlocks the vehicle gate');
     assert.deepStrictEqual(transitions, [{ condition: 10, known: true }],
         'a recognised vehicle state is emitted immediately without waiting for RPM/speed');
+    vehicleStateAvailability(false);
+    assert.strictEqual(car.data().conditionKnown, false,
+        'provider loss closes the live vehicle-state gate immediately');
+    assert.deepStrictEqual(transitions[1], { condition: 10, known: false },
+        'provider loss is emitted without waiting for another vehicle signal');
+    vehicleStateAvailability(true);
+    assert.strictEqual(car.data().conditionKnown, false,
+        'provider recovery alone does not reuse a stale vehicle state');
+    vehicleStateHandler({ statusConditionVehicle: 'FAHREN' });
+    assert.strictEqual(car.data().conditionKnown, true,
+        'a fresh vehicle-state event is required to reopen the gate');
     vehicleStateHandler({ statusConditionVehicle: 15 });
     assert.strictEqual(car.data().conditionKnown, false,
         'an explicit no-value state closes the vehicle gate again');
     assert.deepStrictEqual(transitions, [
         { condition: 10, known: true },
         { condition: 10, known: false },
-    ], 'an explicit no-value state is emitted immediately to close the gate');
+        { condition: 10, known: true },
+        { condition: 10, known: false },
+    ], 'provider loss and no-value state both emit immediate gate closures');
     car.stop();
 }
 
