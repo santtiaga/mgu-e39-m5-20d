@@ -1775,20 +1775,12 @@ void main() {
         }
     }
 
-    // Physical reset domes: the left dome between the fuel and speed dials shares
-    // the center hub's matte graphite finish and the stop-pin's finer, harder grain.
+    // Reset controls use the same flat, recessed panel finish as the DSC stability bay.
     for (int bi = 0; bi < 2; bi++) {
         vec2 bc = vec2(bi == 0 ? 392.0 : 1388.0, 486.0);
-        float br = length(p - bc);
-        if (br < 30.0) {
-            c = over(vec4(0.0, 0.0, 0.0, cov(length(p - (bc + vec2(0.0, 2.5))) - 24.0)), c);
-            float bt = clamp(length(p - (bc - vec2(6.5, 7.0))) / 23.0, 0.0, 1.0);
-            vec3 b0 = mix(vec3(0.290, 0.302, 0.333), vec3(0.165, 0.102, 0.063), u_night);
-            vec3 b1 = mix(vec3(0.110, 0.114, 0.129), vec3(0.047, 0.031, 0.027), u_night);
-            vec3 b2 = mix(vec3(0.024, 0.024, 0.027), vec3(0.008, 0.008, 0.008), u_night);
-            vec3 bCol = bt < 0.5 ? mix(b0, b1, bt * 2.0) : mix(b1, b2, (bt - 0.5) * 2.0);
-            c = over(vec4(bCol, cov(br - 21.0)), c);
-        }
+        float dReset = sdRoundBox(p, vec4(bc.x, bc.y, 22.0, 22.0), 8.0);
+        vec3 resetCol = mix(vec3(0.055, 0.059, 0.071), vec3(0.020, 0.016, 0.016), u_night);
+        c = over(vec4(resetCol, cov(dReset)), c);
     }
     // 2. Display Strip Windows (y: 548..634, well above BELT y=663)
     vec4 wSvc  = vec4(338.0, 548.0, 226.0, 86.0);
