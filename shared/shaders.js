@@ -1111,24 +1111,27 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
             outSh = clamp((u - 0.88) / 0.12, 0.0, 1.0) * 0.30;
             ridge = max(0.0, 1.0 - abs(u - 0.50) / 0.36) * 0.045;
 
-            float textureMask = smoothstep(0.04, 0.16, u) * (1.0 - smoothstep(0.86, 0.98, u));
-            // Fine, even bead-blast grain with a faint circular machining trace.
-            float fineGrain = hash12(floor(p * 5.5)) - 0.5;
-            float coatingNoise = hash12(floor(vec2(ang * 31.0, u * 43.0))) - 0.5;
-            float lineWarp = (hash12(floor(vec2(ang * 47.0, u * 31.0))) - 0.5) * 0.16;
-            float circularGrain = sin(u * 470.0 + lineWarp + 0.08 * sin(ang * 7.0));
-            float surfaceTexture = fineGrain * 0.014 + coatingNoise * 0.008 + circularGrain * 0.012;
+            float textureMask = smoothstep(0.025, 0.12, u) * (1.0 - smoothstep(0.88, 0.99, u));
+            // Pixel-scale bead-blast grain; the previous sub-pixel noise vanished after rasterisation.
+            float fineGrain = hash12(floor(p * 1.05)) - 0.5;
+            float coatingNoise = hash12(floor(vec2(ang * 8.0, u * 13.0))) - 0.5;
+            float lineWarp = (hash12(floor(vec2(ang * 17.0, u * 11.0))) - 0.5) * 0.12;
+            // Concentric satin brushing: a handful of fine grooves across the narrow bezel.
+            float circularGrain = sin(u * 42.0 + lineWarp + 0.06 * sin(ang * 9.0));
+            float surfaceTexture = fineGrain * 0.012 + coatingNoise * 0.010 + circularGrain * 0.018;
             rCol += vec3(surfaceTexture) * textureMask;
 
-            // Soft tonal variation only; deliberately no specular highlight or dark mirror band.
-            float broadLight = 0.035 * cos(ang - 0.55);
+            // Broad rough-metal reflection: visible tonal roll-off, with no sharp chrome streak.
+            float softKey = pow(max(cos(ang - 0.55), 0.0), 1.7);
+            float softFill = pow(max(cos(ang - 2.45), 0.0), 2.2);
+            float broadLight = 0.075 * softKey + 0.022 * softFill - 0.018;
             rCol += vec3(broadLight * 0.96, broadLight * 0.98, broadLight);
 
-            // Softly rolled edges, without bright metallic pinstripes.
-            float innerLip = 1.0 - smoothstep(0.04, 0.14, u);
-            float outerLip = smoothstep(0.90, 0.98, u);
-            rCol -= vec3(0.018, 0.019, 0.021) * innerLip;
-            rCol -= vec3(0.022, 0.023, 0.025) * outerLip;
+            // Soft rolled edges; preserve a wide, textured central metal surface.
+            float innerLip = 1.0 - smoothstep(0.025, 0.12, u);
+            float outerLip = smoothstep(0.91, 0.99, u);
+            rCol -= vec3(0.014, 0.015, 0.017) * innerLip;
+            rCol -= vec3(0.018, 0.019, 0.021) * outerLip;
         }
         rCol = mix(rCol + vec3(ridge), vec3(0.0), max(inSh, outSh));
 
