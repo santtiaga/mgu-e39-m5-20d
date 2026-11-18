@@ -112,7 +112,7 @@ class Settings {
     get(key) { return this.values[key]; }
     set(key, value) {
         this.values[key] = value;
-        writeAtomicFile(this.file, JSON.stringify(this.values, null, 1), true);
+        writeAtomicFile(this.file, JSON.stringify(this.values, null, 1), true, log);
         this.listeners.forEach((fn) => { try { fn(key, value); } catch (e) { log.error(e); } });
     }
     onChange(fn) { this.listeners.push(fn); }
