@@ -1,5 +1,10 @@
 # Changes
 
+## 1.5.5
+
+- Fix packaged startup imports and make diagnostic logger initialization lazy so a Canvas failure cannot block the cluster GUI.
+
+
 Newest first. Dates are when the build was pushed.
 
 ## Nov 18 2026
