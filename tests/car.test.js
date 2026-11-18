@@ -3,6 +3,12 @@
 const assert = require('assert');
 const Car = require('../kit/runtime/car');
 
+assert.strictEqual(Car.conditionOf('FAHREN'), 10);
+assert.strictEqual(Car.conditionOf(7), 7);
+assert.strictEqual(Car.conditionOf(6), undefined, 'undocumented enum values fail closed');
+assert.strictEqual(Car.conditionOf(9), undefined, 'undocumented enum values fail closed');
+assert.strictEqual(Car.conditionOf(15), undefined, 'BMW no-value enum fails closed');
+
 // The B47 MHEV can keep reporting a low residual crank speed after the ICE stops.
 assert.strictEqual(Car.engineRpm(0, 400), 0);
 assert.strictEqual(Car.engineRpm(160, 400), 0);
