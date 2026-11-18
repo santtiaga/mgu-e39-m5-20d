@@ -2,7 +2,7 @@
   "id": "apex_dash",
   "title": "E39 M5 Cluster (Marko DEV)",
   "description": "Authentic BMW E39 M5 digital cluster for iDrive 7 and 8 (MGU) by Marko DEV. Features 5-needle startup sweep self-test, Check Control OBC display, dynamic LED warm-up arch, 7/8-speed Steptronic/DKG selector, and Service-Interval indicator, with a latched renderer safety stop.",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "vendor": "custom",
   "loggingId": "OAD1",
   "iconGlyph": "APX",
@@ -109,96 +109,15 @@
     },
     {
       "name": "LOGS",
-      "kind": "menu",
-      "title": "Apex Dash — Live Logs",
-      "items": [
+      "kind": "canvas",
+      "title": "Apex Dash Logs",
+      "graphic": "LOG_GFX",
+      "buttons": [
         [
-          "button",
           "LOG_REFRESH",
-          "Restart log view"
+          "Refresh"
         ],
         [
-          "text",
-          "LOG_LINE_01",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_02",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_03",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_04",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_05",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_06",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_07",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_08",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_09",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_10",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_11",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_12",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_13",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_14",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_15",
-          ""
-        ],
-        [
-          "text",
-          "LOG_LINE_16",
-          ""
-        ],
-        [
-          "button",
           "LOG_BACK",
           "Back"
         ]
