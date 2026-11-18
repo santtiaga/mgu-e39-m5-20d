@@ -257,7 +257,8 @@ class HudApp {
         this.socketPath = process.env.HUD_CLUSTER_SOCKET || this.config.socketPath || DEFAULT_PATH;
         this.clients = [];               // the connections to cluster-render: [0] the app's own, more for "conn" widgets
         this.renderStats = { frames: 0, diffChecks: 0, unchangedWidgets: 0, imageFrames: 0,
-            fullFrames: 0, dirtyFrames: 0, dirtyRects: 0, pixels: 0, pixelBytes: 0, fullPixelBytes: 0, wireBytes: 0, backpressureWrites: 0, replayFrames: 0 };
+            fullFrames: 0, dirtyFrames: 0, dirtyRects: 0, pixels: 0, pixelBytes: 0, fullPixelBytes: 0, wireBytes: 0, backpressureWrites: 0, replayFrames: 0,
+            rasterCalls: 0, rasterMs: 0, rasterMaxUs: 0, textRasterCalls: 0, badgeRasterCalls: 0 };
         this.started = false;
         this.stopped = false;
         this.layerStates = new Map();    // "<conn>:<ref>" -> { state, reason } from cluster-render
@@ -549,6 +550,17 @@ class HudApp {
         this._startDme();
     }
 
+    _recordRasterTime(kind, started) {
+        const elapsed = process.hrtime(started);
+        const us = elapsed[0] * 1000000 + elapsed[1] / 1000;
+        const s = this.renderStats;
+        s.rasterCalls++;
+        s.rasterMs += us / 1000;
+        if (us > s.rasterMaxUs) s.rasterMaxUs = us;
+        if (kind === 'text') s.textRasterCalls++;
+        else if (kind === 'badge') s.badgeRasterCalls++;
+    }
+
     /** Log bounded 30-second rendering counters; byte totals are frames accepted by socket.write. */
     _logRenderStats() {
         const s = this.renderStats;
@@ -562,7 +574,9 @@ class HudApp {
             ', changed pixels=' + s.pixels + ', pixel bytes=' + s.pixelBytes +
             ', full-frame baseline=' + s.fullPixelBytes + ', pixel savings=' + savedPct + '%' +
             ', socket.write bytes=' + s.wireBytes + ', backpressure writes=' + s.backpressureWrites +
-            ', renderer replay frames=' + s.replayFrames);
+            ', renderer replay frames=' + s.replayFrames +
+            ', CPU raster=' + s.rasterMs.toFixed(2) + ' ms (' + s.rasterCalls + ' calls, max=' + s.rasterMaxUs.toFixed(0) + ' us)' +
+            ', text=' + s.textRasterCalls + ', badge=' + s.badgeRasterCalls);
         Object.keys(s).forEach((key) => { s[key] = 0; });
     }
 
@@ -1972,11 +1986,13 @@ class HudApp {
             const key = s + '|' + role + (svcActive ? '|1' : '');
             if (!force && key === x.last) return;
             x.last = key; x.lastPaint = now;
+            const rasterStarted = process.hrtime();
             const buf = textRaster.drawText(w.w, w.h, s, {
                 font: w.font, color: svcActive ? [255, 214, 150, 255] : color(this.theme, role), align: w.align, spacing: w.spacing,
                 color2: svcActive ? color(this.theme, 'accent') : (w.color2 && role !== 'hot' ? color(this.theme, w.color2) : null),
                 glow: svcActive ? (this.theme.glow || 0.65) : (w.glow ? this.theme.glow : 0),
             });
+            this._recordRasterTime('text', rasterStarted);
             this._blitDiff(x, buf);
         } else if (w.type === 'badge') {
             if (!force && now - x.lastPaint < TEXT_MS) return;
@@ -1989,7 +2005,10 @@ class HudApp {
             const key = s + '|' + tone + '|' + fresh;
             if (!force && key === x.last) return;
             x.last = key; x.lastPaint = now;
-            this._blitDiff(x, this._paintBadge(w, s, tone, fresh));
+            const rasterStarted = process.hrtime();
+            const badge = this._paintBadge(w, s, tone, fresh);
+            this._recordRasterTime('badge', rasterStarted);
+            this._blitDiff(x, badge);
         } else if (w.type === 'shiftbar') {
             const rpm = this._raw('rpm');
             const segs = w.segments || 40;

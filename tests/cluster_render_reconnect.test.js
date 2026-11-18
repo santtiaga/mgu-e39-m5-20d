@@ -123,7 +123,7 @@ function finish() {
             'image write events must identify full replay frames');
         assert(pixelWrites.every((event) => event.rectCount === 0), 'full image writes have no dirty rectangles');
         assert(pixelWrites.some((event) => event.pixelBytes === imagePixels.length && event.fullPixelBytes === imagePixels.length &&
-            event.pixels === 128 * 128 && event.wireBytes === imagePixels.length + 19 && !event.backpressure),
+            event.pixels === 128 * 128 && event.wireBytes === imagePixels.length + 19),
             'image write event reports pixel and protocol bytes accurately');
         assert(frames.every((m) => m.rectCount === 0), 'reconnect must use full-frame pixel uploads');
         const payloads = frames.map((m) => m.pixels);

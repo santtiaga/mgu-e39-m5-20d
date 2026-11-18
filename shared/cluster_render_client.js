@@ -309,7 +309,7 @@ class ClusterRender extends EventEmitter {
                     rectCount: rects.length,
                     pixels: pixels,
                     pixelBytes: px.length,
-                    fullPixelBytes: l.iw * l.ih * l.bpp,
+                    fullPixelBytes: l.iw * l.ih * 4,
                     wireBytes: frame.length,
                     backpressure: !accepted,
                     replay: this.replaying,
