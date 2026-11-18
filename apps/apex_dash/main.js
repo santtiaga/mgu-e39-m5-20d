@@ -9,10 +9,9 @@ const util = require('util');
 const mgu = require('./kit/mgu');
 const HudApp = require('./hud');
 const isPanelTarget = require('../../shared/panel_target_guard');
+const { Canvas } = require('../../kit/runtime/canvas');
 
 const LOG_LINES = 16;
-const LOG_SCROLL_MS = 1000;
-const LOG_BUFFER_LINES = 80;
 const LOG_TAIL_BYTES = 96 * 1024;
 
 function diagnosticText(value) {
@@ -79,10 +78,9 @@ mgu.run({
             { source: 'CR', file: '/var/opt/cluster-render/log/cluster-render.log.1' },
             { source: 'CR', file: '/var/opt/cluster-render/log/cluster-render.log' },
         ];
-        let logBuffer = [];
-        let logCursor = 0;
-        let lastDisplayed = [];
-        let logTimer = null;
+        const LOG_W = 1920, LOG_H = 720;
+        const LOG_FONT = 15;
+        const LOG_LINE_HEIGHT = 34;
 
         const readTailLines = (file) => {
             let fd = null;
@@ -97,7 +95,7 @@ mgu.run({
                 if (size > length) {
                     while (offset < bytesRead && (data[offset] & 0xC0) === 0x80) offset++;
                 }
-                return data.slice(offset, bytesRead).toString('utf8').split(/\r?\n/).filter(Boolean);
+                return data.slice(offset, bytesRead).toString('utf8').split(/\\r?\\n/).filter(Boolean);
             } catch (e) {
                 return [];
             } finally {
@@ -107,12 +105,12 @@ mgu.run({
             }
         };
 
-        const readLogBuffer = () => {
+        const readLogLines = () => {
             const records = [];
             let order = 0;
             logFiles.forEach(({ source, file }) => {
                 readTailLines(file).forEach((line) => {
-                    const stamp = (line.match(/^(\d{4}-\d{2}-\d{2}[T ][^ ]+)/) || [])[1] || '';
+                    const stamp = (line.match(/^(\\d{4}-\\d{2}-\\d{2}[T ][^ ]+)/) || [])[1] || '';
                     records.push({ source, line, stamp, order: order++ });
                 });
             });
@@ -122,59 +120,37 @@ mgu.run({
                 if (b.stamp) return 1;
                 return a.order - b.order;
             });
-            return records.slice(-LOG_BUFFER_LINES).map((r) => {
-                const clean = r.line.replace(/[\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
-                return ('[' + r.source + '] ' + clean).slice(0, 180);
+            return records.slice(-LOG_LINES).map((r) => {
+                const clean = r.line.replace(/[\\r\\t]/g, ' ').replace(/\\s+/g, ' ').trim();
+                return ('[' + r.source + '] ' + clean).slice(0, 220);
             });
         };
 
-        const refreshLogs = () => {
-            logBuffer = readLogBuffer();
-            if (!logBuffer.length) logBuffer = ['Waiting for Apex Dash / cluster-render log entries...'];
-            const maxStart = Math.max(0, logBuffer.length - LOG_LINES);
-            logCursor = Math.min(logCursor, maxStart);
-            const visible = logBuffer.slice(logCursor, logCursor + LOG_LINES);
-            while (visible.length < LOG_LINES) visible.push('');
-            const updates = [];
-            visible.forEach((line, i) => {
-                if (lastDisplayed[i] !== line) {
-                    lastDisplayed[i] = line;
-                    updates.push(ctx.ui.text('LOG_LINE_' + String(i + 1).padStart(2, '0'), line));
-                }
+        const drawLogs = () => {
+            const lines = readLogLines();
+            const canvas = new Canvas(LOG_W, LOG_H);
+            canvas.clear('#101318');
+            canvas.text('APEX DASH  /  DIAGNOSTIC LOG', 48, 48, 25, '#f2f4f7', { literal: true });
+            canvas.text('Latest 16 lines  |  Font 15 px', 48, 78, 15, '#8d98a8', { literal: true });
+            canvas.fillRect(48, 96, LOG_W - 96, 1, '#3b4654');
+            const shown = lines.length ? lines : ['Waiting for Apex Dash / cluster-render log entries...'];
+            shown.forEach((line, i) => {
+                const y = 126 + i * LOG_LINE_HEIGHT;
+                const color = /\\b(FATAL|ERROR)\\b/i.test(line) ? '#ff7777' :
+                    /\\b(WARN|WARNING)\\b/i.test(line) ? '#f0c36a' : '#d8dee8';
+                canvas.text(line, 48, y, LOG_FONT, color, { literal: true });
             });
-            logCursor = Math.min(maxStart, logCursor + 1);
-            return Promise.all(updates);
+            ctx.ui.image('LOG_GFX', canvas);
         };
 
         ctx.ui.onClick('OPEN_LOGS', () => {
-            logCursor = 0;
-            lastDisplayed = [];
-            refreshLogs();
+            drawLogs();
             return ctx.ui.open('LOGS');
         });
-        ctx.ui.onClick('LOG_REFRESH', () => {
-            logCursor = 0;
-            lastDisplayed = [];
-            return refreshLogs();
-        });
+        ctx.ui.onClick('LOG_REFRESH', () => drawLogs());
         ctx.ui.onClick('LOG_BACK', () => ctx.ui.open('MAIN'));
 
-        const setLogRefresh = (visible) => {
-            if (visible && logTimer === null) {
-                logCursor = 0;
-                lastDisplayed = [];
-                refreshLogs();
-                logTimer = setInterval(refreshLogs, LOG_SCROLL_MS);
-            } else if (!visible && logTimer !== null) {
-                clearInterval(logTimer);
-                logTimer = null;
-            }
-        };
-        ctx.ui.onVisible((name, visible) => {
-            if (name === 'LOGS') setLogRefresh(visible);
-        });
         process.on('exit', () => {
-            if (logTimer !== null) clearInterval(logTimer);
             process.removeListener('unhandledRejection', onUnhandledRejection);
             process.removeListener('exit', stopHudOnExit);
         });
