@@ -278,7 +278,12 @@ class HudApp {
                 if (this.deferredRebuild || this.activeName === null || this.widgets.size === 0) this._rebuild();
                 else this._status();
             } else {
-                if (state === 'unknown' && previous === 'available') this._pauseBuildForDCSM2();
+                // Unknown health is not proof of provider loss, but an overlay
+                // must not remain visible while its display provider is unverified.
+                if (previous === 'available') {
+                    this.clients.forEach((client) => client.suspendVisibility());
+                    if (state === 'unknown') this._pauseBuildForDCSM2();
+                }
                 this.log.warn('DCSM2 ' + state + (reason ? ': ' + reason : '') + (previous ? ' (was ' + previous + ')' : ''));
                 // A confirmed provider loss is different from a socket disconnect:
                 // stop publishing and release the last panel scene so stale gauges
