@@ -46,7 +46,7 @@ The status operation does expose a renderer-wide snapshot: it lists every config
 
 The snapshot is not a complete pixel-memory inventory. Layer rows do not report image dimensions, current mesh geometry bytes, or video buffer allocation; pre-installed scene resources are not enumerated as ordinary assets. The preflight therefore still fails closed after the layer-count check, and runtime continues with the existing safe rebuild path. The status parser must not be mistaken for proof that double buffering is safe.
 
-While any renderer socket reports writable backpressure, Apex Dash pauses widget updates across all connections instead of continuing to queue uniforms and commands. The next socket `drain` event allows the 20 Hz update loop to resume; 30-second render statistics include the number of ticks skipped for backpressure.
+While any renderer socket reports writable backpressure, Apex Dash pauses widget updates across all connections instead of continuing to queue uniforms and commands; the DCSM2 watchdog also skips status writes until the socket is writable again. The next socket `drain` event allows the 20 Hz update loop to resume; 30-second render statistics include the number of ticks skipped for backpressure.
 
 The app's 8-layer-per-connection and 32-layer aggregate limits are conservative Apex Dash operating budgets based on observed car behaviour, not the limits stated by the currently inspected upstream protocol. That protocol revision documents 64 layers per client and 96 across clients, with 16 MiB shared pixel memory and 32 assets across clients. The exact cluster-render build installed on the MGU has not been identified or verified against that upstream revision.
 
