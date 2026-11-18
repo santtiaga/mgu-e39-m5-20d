@@ -262,11 +262,14 @@ class HudApp {
             diffMs: 0, diffMaxUs: 0, diffCalls: 0 };
         this.started = false;
         this.stopped = false;
+        // Remember confirmed provider availability across temporary socket outages.
+        this.dcsm2WasAvailable = false;
         this.layerStates = new Map();    // "<conn>:<ref>" -> { state, reason } from cluster-render
         this.client = this._clientAt(0);
         this.target = TARGET_SIZES[this.config.target] ? this.config.target : 'hud';
         this.dcsm2 = new DCSM2Watchdog(this.client, (state, reason, previous) => {
             if (state === 'available') {
+                this.dcsm2WasAvailable = true;
                 this.log.info('DCSM2 available; display rendering may proceed');
                 if (this.deferredRebuild || this.activeName === null || this.widgets.size === 0) this._rebuild();
                 else this._status();
@@ -275,7 +278,8 @@ class HudApp {
                 // A confirmed provider loss is different from a socket disconnect:
                 // stop publishing and release the last panel scene so stale gauges
                 // are not intentionally left as Apex Dash's active display.
-                if (state === 'unavailable' && previous === 'available') {
+                if (state === 'unavailable' && this.dcsm2WasAvailable) {
+                    this.dcsm2WasAvailable = false;
                     const hadLayout = !!(this.build || this.widgets.size || this.sheets.length);
                     if (hadLayout) {
                         this.log.error('DCSM2 became unavailable; releasing the active panel layout until the provider recovers');
