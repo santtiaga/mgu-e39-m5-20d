@@ -43,12 +43,18 @@ try {
     client.connect();
     assert.strictEqual(client.sock, newSocket, 'second connection is attached');
     client.blocked = true;
+    let socketErrors = 0;
+    client.on('socket-error', function () { socketErrors++; });
+    oldSocket.emit('error', new Error('stale socket error'));
     oldSocket.emit('drain');
     oldSocket.emit('close');
     oldSocket.emit('connect');
     assert.strictEqual(client.sock, newSocket, 'stale close cannot detach the replacement socket');
     assert.strictEqual(client.blocked, true, 'stale drain cannot clear replacement backpressure');
     assert.strictEqual(client.timer, null, 'stale close cannot schedule a reconnect timer');
+    assert.strictEqual(socketErrors, 0, 'stale socket errors are ignored');
+    newSocket.emit('error', new Error('active socket error'));
+    assert.strictEqual(socketErrors, 1, 'active socket errors are exposed to app diagnostics');
     client.close();
 }
 
