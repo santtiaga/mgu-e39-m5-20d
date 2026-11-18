@@ -9,7 +9,7 @@ const util = require('util');
 const mgu = require('./kit/mgu');
 const HudApp = require('./hud');
 const isPanelTarget = require('../../shared/panel_target_guard');
-const { Canvas } = require('../../kit/runtime/canvas');
+const { Canvas } = require('./kit/runtime/canvas');
 
 const LOG_LINES = 16;
 const LOG_TAIL_BYTES = 96 * 1024;
