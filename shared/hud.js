@@ -269,6 +269,7 @@ class HudApp {
         this.client = this._clientAt(0);
         this.target = TARGET_SIZES[this.config.target] ? this.config.target : 'hud';
         this.dcsm2 = new DCSM2Watchdog(this.client, (state, reason, previous) => {
+            if (this.stopped || this.safetyTripped) return;
             if (state === 'available') {
                 this.dcsm2WasAvailable = true;
                 this.log.info('DCSM2 available; display rendering may proceed');
@@ -485,6 +486,7 @@ class HudApp {
         }));
         c.on('ready', guard('ready', () => {
             this.log.info('cluster-render ready' + tag + ' (backend=' + c.backend + ')');
+            if (this.stopped || this.safetyTripped) return;
             this._resumeBuildForConnection(ci);
             if (this.dcsm2.state === 'available') c.restoreVisibility();
             if (ci === 0) this.dcsm2.connected();
@@ -738,7 +740,21 @@ class HudApp {
         this.safetyTripped = true;
         this.deferredRebuild = false;
         this.problem = 'SAFETY STOP: ' + incident.count + ' errors / ' + (incident.windowMs / 1000) + ' s; restart app to resume';
-        this.log.error('[safety] dropping Apex Dash layers; last error: ' + (incident.lastError && incident.lastError.name || 'unknown'));
+        this.log.error('[safety] quiescing updates and dropping Apex Dash layers; last error: ' + (incident.lastError && incident.lastError.name || 'unknown'));
+        // A latched stop must not be undone by a later DCSM2/renderer ready event.
+        this.dcsm2.stop();
+        ['tickTimer', 'themeTimer', 'statusTimer', 'renderStatsTimer', 'dmeTimer'].forEach((key) => {
+            if (this[key]) clearInterval(this[key]);
+            this[key] = null;
+        });
+        if (this.layouts && typeof this.layouts.stop === 'function') this.layouts.stop();
+        if (this.car && typeof this.car.stop === 'function') this.car.stop();
+        if (this.dmeLink && typeof this.dmeLink.stop === 'function') {
+            const shutdown = this.dmeLink.stop();
+            if (shutdown && typeof shutdown.catch === 'function') shutdown.catch((e) =>
+                this.log.warn('[safety] TASU shutdown: ' + (e && e.message || e)));
+            this.dmeLink = null;
+        }
         try { this._dropLayoutLayers(); } catch (e) {
             this.log.error('[safety] layer drop failed: ' + (e && e.stack || e));
         }
