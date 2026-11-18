@@ -1203,12 +1203,7 @@ vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1,
             nCol = mix(nCol + vec3(spec), vec3(0.0), edgeDark);
             // Black stem collar on oil needle
             if (stem > 0.0 && al <= stem) {
-                // Oil-needle base: same matte graphite tone and fine grain as the hub face.
-                float stemLight = clamp(0.5 - q.y / max(stem, 1.0) * 0.28, 0.0, 1.0);
-                vec3 stemCol = mix(vec3(0.068, 0.074, 0.082), vec3(0.126, 0.135, 0.147), stemLight);
-                float stemGrain = (hubHash12(floor(q * 0.72)) - 0.5) * mix(0.038, 0.018, u_night);
-                stemCol = clamp(stemCol + vec3(stemGrain), 0.0, 1.0);
-                nCol = mix(nCol, stemCol, cov(al - stem));
+                nCol = mix(nCol, vec3(0.02, 0.02, 0.024), cov(al - stem));
             }
             c = over(vec4(nCol, cov(d)), c);
         }
@@ -2062,7 +2057,12 @@ vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1,
             float edgeDark = max(clamp((0.25 - u) / 0.25, 0.0, 1.0), clamp((u - 0.70) / 0.30, 0.0, 1.0)) * 0.28;
             nCol = mix(nCol + vec3(spec), vec3(0.0), edgeDark);
             if (stem > 0.0 && al <= stem) {
-                nCol = mix(nCol, vec3(0.02, 0.02, 0.024), cov(al - stem));
+                // Oil-needle base: same matte graphite tone and fine grain as the hub face.
+                float stemLight = clamp(0.5 - q.y / max(stem, 1.0) * 0.28, 0.0, 1.0);
+                vec3 stemCol = mix(vec3(0.068, 0.074, 0.082), vec3(0.126, 0.135, 0.147), stemLight);
+                float stemGrain = (hubHash12(floor(q * 0.72)) - 0.5) * mix(0.038, 0.018, u_night);
+                stemCol = clamp(stemCol + vec3(stemGrain), 0.0, 1.0);
+                nCol = mix(nCol, stemCol, cov(al - stem));
             }
             c = over(vec4(nCol, cov(d)), c);
         }
