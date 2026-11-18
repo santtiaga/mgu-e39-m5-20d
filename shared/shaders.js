@@ -1784,14 +1784,15 @@ void main() {
         if (br < 30.0) {
             c = over(vec4(0.0, 0.0, 0.0, cov(length(bq - vec2(0.0, 2.5)) - 24.0)), c);
             if (bi == 0) {
-                // Match the recessed center display glass: deep warm-black surface
-                // with the same restrained edge reflection, not metallic graphite.
-                vec3 bCol = mix(vec3(0.039, 0.031, 0.031), vec3(0.031, 0.016, 0.012), u_night);
-                float bFace = cov(br - 21.0);
-                c = over(vec4(bCol, bFace), c);
-                float bEdge = cov(abs(br - 20.4) - 0.6);
-                float bAl = mix(0.05, 0.018, u_night);
-                c = over(vec4(1.0, 1.0, 1.0, bAl * bEdge), c);
+                // Same matte display-panel material: vertical tonal falloff
+                // and fine, subtle pixel grain, sampled over the dome surface.
+                float bGy = clamp((bq.y + 21.0) / 42.0, 0.0, 1.0);
+                vec3 b0 = mix(vec3(0.086, 0.094, 0.110), vec3(0.035, 0.027, 0.024), u_night);
+                vec3 b1 = mix(vec3(0.059, 0.063, 0.075), vec3(0.020, 0.016, 0.016), u_night);
+                vec3 bCol = mix(b1, b0, 1.0 - abs(bGy - 0.55) * 1.8);
+                float bGrain = (hash12(floor(bq)) - 0.5) * mix(0.018, 0.008, u_night);
+                bCol = clamp(bCol + vec3(bGrain), 0.0, 1.0);
+                c = over(vec4(bCol, cov(br - 21.0)), c);
             } else {
                 float bt = clamp(length(bq - vec2(-6.5, -7.0)) / 23.0, 0.0, 1.0);
                 vec3 b0 = mix(vec3(0.290, 0.302, 0.333), vec3(0.165, 0.102, 0.063), u_night);
