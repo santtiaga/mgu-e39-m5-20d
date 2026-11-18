@@ -1900,7 +1900,7 @@ class HudApp {
         this._frameData = this.car.data();
         try {
             const vehicle = this._vehicleGate(this._frameData);
-            if (vehicle.hold) {
+            if (this._layoutName() !== 'off' && vehicle.hold) {
                 this._holdForVehicle(vehicle);
                 return;
             }
