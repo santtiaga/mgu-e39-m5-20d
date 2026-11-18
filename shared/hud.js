@@ -258,7 +258,8 @@ class HudApp {
         this.clients = [];               // the connections to cluster-render: [0] the app's own, more for "conn" widgets
         this.renderStats = { frames: 0, diffChecks: 0, unchangedWidgets: 0, imageFrames: 0,
             fullFrames: 0, dirtyFrames: 0, dirtyRects: 0, pixels: 0, pixelBytes: 0, fullPixelBytes: 0, wireBytes: 0, backpressureWrites: 0, replayFrames: 0,
-            rasterCalls: 0, rasterMs: 0, rasterMaxUs: 0, textRasterCalls: 0, badgeRasterCalls: 0 };
+            rasterCalls: 0, rasterMs: 0, rasterMaxUs: 0, textRasterCalls: 0, badgeRasterCalls: 0,
+            diffMs: 0, diffMaxUs: 0, diffCalls: 0 };
         this.started = false;
         this.stopped = false;
         this.layerStates = new Map();    // "<conn>:<ref>" -> { state, reason } from cluster-render
@@ -566,6 +567,7 @@ class HudApp {
         const s = this.renderStats;
         if (!s.frames && !s.imageFrames && !s.diffChecks) return;
         const unchangedPct = s.diffChecks ? (100 * s.unchangedWidgets / s.diffChecks).toFixed(1) : '0.0';
+        const diffAvgUs = s.diffCalls ? (s.diffMs * 1000 / s.diffCalls).toFixed(1) : '0.0';
         const savedPct = s.fullPixelBytes ? (100 * (1 - s.pixelBytes / s.fullPixelBytes)).toFixed(1) : '0.0';
         this.log.info('[render-stats] 30s panel ticks=' + s.frames +
             ', image diffs=' + s.diffChecks + ', unchanged=' + s.unchangedWidgets + ' (' + unchangedPct + '%)' +
@@ -576,7 +578,8 @@ class HudApp {
             ', socket.write bytes=' + s.wireBytes + ', backpressure writes=' + s.backpressureWrites +
             ', renderer replay frames=' + s.replayFrames +
             ', CPU raster=' + s.rasterMs.toFixed(2) + ' ms (' + s.rasterCalls + ' calls, max=' + s.rasterMaxUs.toFixed(0) + ' us)' +
-            ', text=' + s.textRasterCalls + ', badge=' + s.badgeRasterCalls);
+            ', text=' + s.textRasterCalls + ', badge=' + s.badgeRasterCalls +
+            ', CPU diff=' + s.diffMs.toFixed(2) + ' ms (' + s.diffCalls + ' calls, avg=' + diffAvgUs + ' us, max=' + s.diffMaxUs.toFixed(0) + ' us)');
         Object.keys(s).forEach((key) => { s[key] = 0; });
     }
 
@@ -1556,7 +1559,13 @@ class HudApp {
         x.px = buf;
         if (!was || (x.sheet && x.sheet.buf)) { this._blit(x, null, buf); return; }
         this.renderStats.diffChecks++;
+        const diffStarted = process.hrtime();
         const c = changes(was, buf, w.w, w.h);
+        const diffElapsed = process.hrtime(diffStarted);
+        const diffUs = diffElapsed[0] * 1000000 + diffElapsed[1] / 1000;
+        this.renderStats.diffCalls++;
+        this.renderStats.diffMs += diffUs / 1000;
+        if (diffUs > this.renderStats.diffMaxUs) this.renderStats.diffMaxUs = diffUs;
         if (c) this._blit(x, c.rects, c.px);
         else this.renderStats.unchangedWidgets++;
     }
