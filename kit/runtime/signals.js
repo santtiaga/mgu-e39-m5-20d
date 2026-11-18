@@ -49,12 +49,13 @@ function loadConfig(iface) {
  * show up without waiting for the next change.
  * opts.pollMs: also re-read those fields that often while the provider is available - for
  * fields a car may not notify (BMW's x_call only ever reads TPMS, it never subscribes).
+ * opts.onAvailability(available): called on provider availability changes when the binding supports it.
  */
 async function watch(iface, instance, handlers, log, opts) {
     let pollTimer = null;
     let active = true;
     const fetching = Object.create(null);
-    const res = { iface, available: false, proxy: null, error: null, shutdown: () => Promise.resolve() };
+    const res = { iface, available: false, availabilityMonitored: false, proxy: null, error: null, shutdown: () => Promise.resolve() };
     if (!someip) { res.error = 'someip native module not available'; return res; }
     try {
         const cfg = loadConfig(iface);
@@ -77,9 +78,24 @@ async function watch(iface, instance, handlers, log, opts) {
                 p.getValue(f, 3000).then((v) => { if (active) handlers[f](v); }).catch(() => {}).then(() => { fetching[f] = false; });
             });
         };
+        let availabilitySupported = true;
         await nativeTick(() => {
-            try { return p.subscribeToAvailability((a) => { if (!active) return; res.available = !!a; if (a) setImmediate(() => { if (active) fetchAll(); }); }); } catch (e) { return null; /* older binding */ }
+            try {
+                return p.subscribeToAvailability((a) => {
+                    if (!active) return;
+                    res.available = !!a;
+                    if (opts && typeof opts.onAvailability === 'function') {
+                        try { opts.onAvailability(res.available); }
+                        catch (e) { if (log) log.warn(iface + ' availability: ' + e); }
+                    }
+                    if (a) setImmediate(() => { if (active) fetchAll(); });
+                });
+            } catch (e) {
+                availabilitySupported = false;
+                return null; /* older binding */
+            }
         });
+        res.availabilityMonitored = availabilitySupported;
         for (const f of fields) {
             try {
                 await nativeTick(() => p.subscribe({ name: f, onReceive: (v) => { if (!active) return; try { handlers[f](v); } catch (e) { if (log) log.warn(iface + '.' + f + ': ' + e); } } }));
@@ -91,7 +107,17 @@ async function watch(iface, instance, handlers, log, opts) {
         if (opts && opts.pollMs) pollTimer = setInterval(() => { if (active && res.available) setImmediate(() => { if (active) fetchAll(); }); }, opts.pollMs);
     } catch (e) {
         res.error = String(e);
+        res.available = false;
         if (log) log.warn('signals ' + iface + ': ' + e);
+        // A failed async subscription can happen after buildProxy/init already
+        // succeeded. Do not leave that partially initialised native proxy alive.
+        if (res.proxy && res.shutdown) {
+            try { await res.shutdown(); }
+            catch (shutdownError) {
+                if (log) log.warn('signals shutdown after init failure ' + iface + ': ' + (shutdownError && shutdownError.message || shutdownError));
+            }
+            res.proxy = null;
+        }
     }
     return res;
 }

@@ -11,11 +11,14 @@ const crypto = require('crypto');
 const util = require('util');
 const mgu = require('./kit/mgu');
 const HudApp = require('./hud');
+const isPanelTarget = require('../../shared/panel_target_guard');
 
 const LOG_LINES = 16;
 const LOG_REFRESH_MS = 2000;
 const LOG_HTTP_PORT = 18765;
 const LOG_HTTP_MAX_BYTES = 512 * 1024;
+// Reserve space for all four log sources so a large renderer log cannot crowd out Apex Dash diagnostics.
+const LOG_HTTP_FILE_MAX_BYTES = 112 * 1024;
 
 function diagnosticText(value) {
     if (value instanceof Error) return value.stack || (value.name + ': ' + value.message);
@@ -26,6 +29,13 @@ function diagnosticText(value) {
 
 mgu.run({
     start(ctx) {
+        if (!isPanelTarget(ctx.spec)) {
+            const configuredTarget = ctx.spec && ctx.spec.config && ctx.spec.config.target;
+            const message = 'Apex Dash safety stop: target must be exactly "panel" (configured: ' + String(configuredTarget) + '). Renderer was not started.';
+            ctx.log.error(message);
+            ctx.ui.text('STATUS', message);
+            return;
+        }
         let hud;
         try {
             hud = new HudApp(ctx);
@@ -37,14 +47,39 @@ mgu.run({
 
         hud.onStatus((s) => { ctx.ui.text('STATUS', s); });
         const onUnhandledRejection = (reason) => {
-            ctx.log.error('[process] unhandledRejection: ' + diagnosticText(reason));
+            if (hud.stopped) return;
+            const detail = diagnosticText(reason);
+            ctx.log.error('[process] unhandledRejection: ' + detail);
+            // The process-level listener keeps Node 8 alive; also count the fault
+            // so repeated unhandled async failures reach the latched safety stop.
+            hud.safety.record('process unhandledRejection', reason instanceof Error ? reason : new Error(detail));
         };
         process.on('unhandledRejection', onUnhandledRejection);
-        hud.start();
+        // Install shutdown cleanup before start(): a synchronous renderer/UI
+        // startup failure must not leave partially-created timers or sockets.
+        const stopHudOnExit = () => {
+            try { hud.stop(); } catch (e) { /* process is exiting */ }
+            process.removeListener('unhandledRejection', onUnhandledRejection);
+        };
+        // MainApp's shutdown event precedes the runtime's 200 ms exit delay;
+        // start async TASU/native cleanup while that grace period is available.
+        ctx.app.on('shutdown', stopHudOnExit);
+        process.on('exit', stopHudOnExit);
+        try {
+            hud.start();
+        } catch (e) {
+            const detail = e && (e.stack || e.message) || String(e);
+            ctx.log.error('Cluster failed to start: ' + detail);
+            try { hud.stop(); } catch (stopError) {
+                ctx.log.warn('Cluster startup cleanup: ' + (stopError && stopError.message || stopError));
+            }
+            ctx.ui.text('STATUS', 'Cluster failed to start: ' + (e && e.message || e));
+            return;
+        }
 
         const logFile = path.join(ctx.dataDir, 'apex_dash.log');
         const previousLogFile = logFile + '.1';
-        const logToken = crypto.randomBytes(4).toString('hex');
+        const logToken = crypto.randomBytes(16).toString('hex');
         const logPath = '/apex-log-' + logToken;
         let logServer = null;
         const localIPv4 = () => {
@@ -57,12 +92,29 @@ mgu.run({
         };
         const readFullLog = () => {
             let content = '';
+            const readTail = (file, maxBytes) => {
+                let fd = null;
+                try {
+                    fd = fs.openSync(file, 'r');
+                    const size = fs.fstatSync(fd).size;
+                    const length = Math.min(size, maxBytes || LOG_HTTP_MAX_BYTES);
+                    const data = Buffer.alloc(length);
+                    const bytesRead = length ? fs.readSync(fd, data, 0, length, size - length) : 0;
+                    let start = 0;
+                    if (size > length) {
+                        // Start at a UTF-8 code-point boundary after slicing the file tail.
+                        while (start < bytesRead && (data[start] & 0xC0) === 0x80) start++;
+                    }
+                    return data.slice(start, bytesRead).toString('utf8');
+                } finally {
+                    if (fd !== null) fs.closeSync(fd);
+                }
+            };
             const appendFiles = (heading, files) => {
                 content += '\n===== ' + heading + ' =====\n';
                 files.forEach((file) => {
                     try {
-                        const data = fs.readFileSync(file, 'utf8');
-                        content += '\n--- ' + file + ' ---\n' + data + '\n';
+                        content += '\n--- ' + file + ' ---\n' + readTail(file, LOG_HTTP_FILE_MAX_BYTES) + '\n';
                     } catch (e) {
                         const code = e && e.code || 'UNKNOWN';
                         const message = e && e.message || String(e);
@@ -78,7 +130,11 @@ mgu.run({
                 '/var/opt/cluster-render/log/cluster-render.log.1',
                 '/var/opt/cluster-render/log/cluster-render.log',
             ]);
-            return content.slice(-LOG_HTTP_MAX_BYTES);
+            const bytes = Buffer.from(content, 'utf8');
+            if (bytes.length <= LOG_HTTP_MAX_BYTES) return content;
+            let start = bytes.length - LOG_HTTP_MAX_BYTES;
+            while (start < bytes.length && (bytes[start] & 0xC0) === 0x80) start++;
+            return bytes.slice(start).toString('utf8');
         };
         const startLogServer = () => {
             logServer = http.createServer((req, res) => {
@@ -167,7 +223,7 @@ mgu.run({
             if (logTimer !== null) clearInterval(logTimer);
             if (logServer) { try { logServer.close(); } catch (e) {} }
             process.removeListener('unhandledRejection', onUnhandledRejection);
-            try { hud.stop(); } catch (e) { /* exiting anyway */ }
+            process.removeListener('exit', stopHudOnExit);
         });
     },
 });

@@ -131,6 +131,14 @@ class ClusterRender extends EventEmitter {
         this.path = socketPath || DEFAULT_PATH;
         this.sock = null;
         this.ready = false;
+        this.replaying = false;
+        this.replayVisibilitySent = false;
+        this.replayVisibilityPending = false;
+        this.visibilitySuspended = false;
+        // App-level health gate: defer reconnect visibility and allow a live
+        // connection to suspend/restore layers without changing requested state.
+        this.deferReplayVisibility = false;
+        this.helloReceived = false;
         this.closed = true;
         this.backoff = 0;
         this.timer = null;
@@ -152,9 +160,19 @@ class ClusterRender extends EventEmitter {
         this.closed = true;
         if (this.timer) clearTimeout(this.timer);
         this.timer = null;
-        if (this.sock) this.sock.destroy();
+        const sock = this.sock;
         this.sock = null;
+        if (sock) sock.destroy();
         this.ready = false;
+        this.connected = false;
+        this.blocked = false;
+        this.replaying = false;
+        this.replayVisibilitySent = false;
+        this.replayVisibilityPending = false;
+        this.visibilitySuspended = false;
+        this.helloReceived = false;
+        this.inbuf = Buffer.alloc(0);
+        this.pendingFrames.clear();
     }
 
     _open() {
@@ -163,10 +181,20 @@ class ClusterRender extends EventEmitter {
         this.sock = sock;
         this.blocked = false;
         this.connected = false;
+        this.replaying = false;
+        this.replayVisibilitySent = false;
+        this.helloReceived = false;
         this.inbuf = Buffer.alloc(0);
         sock.on('connect', () => {
-            /* Everything made before now goes in the replay below. */
+            // close() may race with a queued connect event; stale sockets must
+            // never resurrect connection or replay state after shutdown.
+            if (this.closed || this.sock !== sock) return;
+            /* Everything made before now goes in the replay below. Keep all
+             * recreated drawable layers hidden until hello and pixel replay. */
             this.connected = true;
+            this.replaying = true;
+            this.replayVisibilitySent = false;
+            this.helloReceived = false;
             this._send({ op: 'hello', app: this.app, proto: PROTO });
             /* Assets first, so binds find them; binds and animations once
              * every layer and part is made. */
@@ -190,7 +218,10 @@ class ClusterRender extends EventEmitter {
          * are ignored. */
         sock.on('data', (d) => { if (this.sock === sock) this._data(d); });
         sock.on('drain', () => { if (this.sock === sock) { this.blocked = false; this._pump(); } });
-        sock.on('error', () => {});
+        sock.on('error', (error) => {
+            if (this.sock !== sock) return;
+            this.emit('socket-error', error);
+        });
         sock.on('close', () => {
             if (this.sock !== sock) return;
             const wasReady = this.ready;
@@ -229,10 +260,13 @@ class ClusterRender extends EventEmitter {
         if (ev.ev === 'hello') {
             this.backend = ev.backend;
             this.targets = ev.targets;
-            this.ready = true;
+            this.ready = false;
+            this.replaying = true;
+            this.replayVisibilitySent = false;
+            this.replayVisibilityPending = false;
+            this.helloReceived = true;
             this.backoff = 0;
             this._pump();
-            this.emit('ready');
         } else if (ev.ev === 'layer') {
             this.emit('layer', ev.ref, ev.state, ev.reason);
         } else if (ev.ev === 'target') {
@@ -262,7 +296,7 @@ class ClusterRender extends EventEmitter {
     /* Writes frames while the socket takes them: image changes first, then
      * the newest video frame of each layer. */
     _pump() {
-        if (!this.sock || !this.ready) return;
+        if (!this.sock || (!this.ready && !this.replaying)) return;
         this.layers.forEach((l, ref) => {
             if (this.blocked || (l.kind !== 'image' && l.kind !== 'asset') || !(l.whole || l.dirty.length)) return;
             const rects = l.whole ? [] : l.dirty;
@@ -282,8 +316,58 @@ class ClusterRender extends EventEmitter {
             l.whole = false;
             l.dirty = [];
             l.dirtyBytes = 0;
-            if (!this.sock.write(frameMessage(ref, 0, rects, px))) this.blocked = true;
+            const frame = frameMessage(ref, 0, rects, px);
+            const accepted = this.sock.write(frame);
+            if (l.kind === 'image') {
+                let pixels = 0;
+                if (rects.length) rects.forEach((r) => { pixels += r.w * r.h; });
+                else pixels = l.iw * l.ih;
+                this.emit('pixels-written', {
+                    ref: ref,
+                    kind: l.kind,
+                    full: rects.length === 0,
+                    rectCount: rects.length,
+                    pixels: pixels,
+                    pixelBytes: px.length,
+                    fullPixelBytes: l.iw * l.ih * 4,
+                    wireBytes: frame.length,
+                    backpressure: !accepted,
+                    replay: this.replaying,
+                });
+            }
+            if (!accepted) this.blocked = true;
         });
+
+        /* Do not wake the app on hello alone. A large image/atlas can fill the
+         * socket's writable buffer; wait for drain and every retained pixel
+         * upload before declaring the renderer ready to the HUD. */
+        if (this.replaying && this.helloReceived) {
+            let pixelsPending = false;
+            this.layers.forEach((l) => {
+                if ((l.kind === 'image' || l.kind === 'asset') && (l.whole || l.dirty.length)) pixelsPending = true;
+            });
+            if (this.blocked || pixelsPending) return;
+
+            /* Layer definitions are replayed hidden. Restore their requested
+             * visibility only after every retained image/asset frame has been
+             * written, preserving TCP order so no incomplete layer can flash. */
+            if (!this.replayVisibilitySent) {
+                if (this.deferReplayVisibility || this.visibilitySuspended) {
+                    this.replayVisibilityPending = true;
+                } else {
+                    this.layers.forEach((l, ref) => {
+                        if (l.kind === 'asset' || l.kind === 'scene') return;
+                        this._send({ op: 'set', ref: ref, visible: l.opts.visible === undefined ? 1 : flag(l.opts.visible) });
+                    });
+                }
+                this.replayVisibilitySent = true;
+            }
+            if (this.blocked) return;
+            this.replaying = false;
+            this.ready = true;
+            this.emit('ready');
+        }
+
         for (const ref of Array.from(this.pendingFrames.keys())) {
             if (this.blocked) break;
             const m = this.pendingFrames.get(ref);
@@ -307,6 +391,7 @@ class ClusterRender extends EventEmitter {
         }
         const m = { op: 'layer', ref: ref, target: o.target, kind: l.kind };
         this._setFields(m, o);
+        if (this.replaying || this.visibilitySuspended) m.visible = 0;
         if (l.kind === 'video') {
             ['vw', 'vh', 'fps', 'level_bits', 'dirty_threshold', 'settle_ms', 'stall_ms'].forEach((k) => {
                 if (o[k] !== undefined) m[k] = o[k];
@@ -454,6 +539,9 @@ class ClusterRender extends EventEmitter {
         keys.forEach((k) => { if (opts[k] !== undefined) l.opts[k] = opts[k]; });
         const m = { op: 'set', ref: ref };
         this._setFields(m, opts);
+        // Keep the caller's requested visibility in l.opts, but never reveal a
+        // drawable layer while the app-specific health gate is suspended.
+        if (this.visibilitySuspended && opts.visible !== undefined) m.visible = 0;
         if (l.kind === 'mesh') MESH_KEYS.forEach((k) => { if (opts[k] !== undefined) m[k] = opts[k]; });
         this._send(m);
     }
@@ -631,6 +719,29 @@ class ClusterRender extends EventEmitter {
         }
         l.have = true;
         this._pump();
+        return true;
+    }
+
+    /* Suspend drawable layers without changing their requested replay visibility. */
+    suspendVisibility() {
+        this.visibilitySuspended = true;
+        if (!this.ready) return true;
+        this.layers.forEach((l, ref) => {
+            if (l.kind === 'asset' || l.kind === 'scene') return;
+            this._send({ op: 'set', ref: ref, visible: 0 });
+        });
+        return true;
+    }
+
+    /* Restore requested visibility only after an app-specific health gate passes. */
+    restoreVisibility() {
+        if (!this.ready || (!this.replayVisibilityPending && !this.visibilitySuspended)) return false;
+        this.layers.forEach((l, ref) => {
+            if (l.kind === 'asset' || l.kind === 'scene') return;
+            this._send({ op: 'set', ref: ref, visible: l.opts.visible === undefined ? 1 : flag(l.opts.visible) });
+        });
+        this.replayVisibilityPending = false;
+        this.visibilitySuspended = false;
         return true;
     }
 

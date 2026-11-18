@@ -15,7 +15,7 @@
  * Demo: setting "demo" = auto (until the car answers) / on / off.
  * data().stage = the selector position 'P' / 'R' / 'N' / 'D' (gearbox signal), else undefined.
  * data().condition = BMW's vehicle state number ('condition' group; 10 = drive-ready), else undefined.
- * data().conditionKnown = false when BMW last sent an unrecognised state (e.g. 15, no value).
+ * data().conditionKnown = false until a recognised state arrives, and again on no-value or provider loss.
  */
 const Sim = require('./sim');
 
@@ -57,7 +57,8 @@ function programOf(o) {
 // 12 = drive readiness ending; 15 = no value.
 const CONDITIONS = { PARKEN_BN_NIO: 1, PARKEN_BN_IO: 2, STANDFUNKTIONEN_KUNDE_NICHT_IM_FZG: 3, WOHNEN: 5,
     PRUEFEN_ANALYSE_DIAGNOSE: 7, FAHRBEREITSCHAFT_HERSTELLEN: 8, FAHREN: 10, FAHRBEREITSCHAFT_BEENDEN: 12 };
-const conditionOf = (x) => { const n = typeof x === 'number' ? x : CONDITIONS[x]; return n >= 1 && n <= 12 ? n : undefined; };
+const VALID_CONDITIONS = [1, 2, 3, 5, 7, 8, 10, 12];
+const conditionOf = (x) => { const n = typeof x === 'number' ? x : CONDITIONS[x]; return VALID_CONDITIONS.indexOf(n) >= 0 ? n : undefined; };
 
 // On the B47 MHEV the engine-speed signal can remain near 160 rpm after the ICE has stopped.
 // Apply the configured floor to the scaled rpm, not the raw SOME/IP value.
@@ -113,7 +114,7 @@ class Car {
         this.ctx = ctx; this.log = ctx.log;
         const over = (ctx.spec.config && ctx.spec.config.scaling) || {};
         this.S = Object.assign({}, SCALE, over);
-        this.live = {}; this.lastCar = 0; this.listeners = [];
+        this.live = { conditionKnown: false }; this.lastCar = 0; this.listeners = [];
         this.sim = new Sim(); this.simData = this.sim.sample();
         this.demoActive = false; this.guess = new GearGuess();
         this.stopped = false; this.simTimer = null; this.subs = []; this.watchPromises = [];
@@ -167,12 +168,25 @@ class Car {
         if (groups.includes('condition')) add('de.bmw.infrastructure.VehicleCondition', 'VehicleCondition', (v) => {
             const raw = v && v.statusConditionVehicle, n = conditionOf(raw);
             if (raw === undefined || raw === null) return;
+            // An explicit no-value enum still proves the live provider answered;
+            // do not let demo=auto replace unknown live vehicle state with a fake drive.
+            this.lastCar = Date.now();
             if (condSeen.length < 16 && condSeen.indexOf(String(raw)) < 0) {
                 condSeen.push(String(raw));
                 this.log.info('vehicle state: ' + JSON.stringify(raw) + (n === undefined ? ' (not known)' : ''));
             }
+            const wasKnown = this.live.conditionKnown;
+            const previous = this.live.condition;
             this.live.conditionKnown = n !== undefined;
-            if (n !== undefined) put('condition', n);
+            if (n !== undefined) {
+                // Vehicle state changes must reach the HUD immediately: the
+                // shutdown gate cannot wait for the next RPM/speed sample.
+                if (previous !== n || !wasKnown) put('condition', n, true);
+            } else if (wasKnown && !this.demoActive) {
+                // An explicit no-value state (e.g. 15) must close the gate
+                // immediately, even if the drivetrain signals are quiet.
+                this._emit(this.live, Date.now());
+            }
         });
         // negative torque (engine braking while the rpm falls) counts as 0
         if (groups.includes('torque')) add('de.bmw.infotainment.drivingexcitement.FES', 'statusActualValueTorque2', (v) => { const tq = sc('torque', v.actualValueTorqueCrankshaft); put('torque', tq === null ? null : Math.max(0, tq)); });
@@ -183,10 +197,24 @@ class Car {
         // a while" doesn't mean "no car": once a signal's provider is there, stay on live data
         this.t0 = Date.now();
         Object.keys(watches).forEach((iface) => {
-            const pending = ctx.signals.watch(iface, '1', watches[iface], this.log, pollMs[iface] ? { pollMs: pollMs[iface] } : undefined)
+            const watchOptions = {};
+            if (pollMs[iface]) watchOptions.pollMs = pollMs[iface];
+            if (iface === 'de.bmw.infrastructure.VehicleCondition') {
+                watchOptions.onAvailability = (available) => {
+                    if (this.stopped || available || !this.live.conditionKnown) return;
+                    this.live.conditionKnown = false;
+                    this.log.warn('VehicleCondition provider unavailable; live vehicle state is unknown');
+                    if (!this.demoActive) this._emit(this.live, Date.now());
+                };
+            }
+            const pending = ctx.signals.watch(iface, '1', watches[iface], this.log,
+                Object.keys(watchOptions).length ? watchOptions : undefined)
                 .then((s) => {
                     if (this.stopped) { if (s && s.shutdown) return s.shutdown(); return; }
                     this.subs.push(s);
+                    if (iface === 'de.bmw.infrastructure.VehicleCondition' && s && s.availabilityMonitored === false) {
+                        this.log.warn('VehicleCondition provider availability cannot be monitored by this SOME/IP binding');
+                    }
                     this.log.info('signal ' + iface.split('.').pop() + (s.error ? ' error: ' + s.error : ' subscribed'));
                 });
             this.watchPromises.push(pending);
@@ -215,7 +243,10 @@ class Car {
 
     _wantDemo() {
         const m = this.ctx.settings.get('demo');
-        return m === 'on' || (m !== 'off' && !this.carPresent() && Date.now() - this.t0 > 5000);
+        const panelTarget = this.ctx.spec && this.ctx.spec.config && this.ctx.spec.config.target === 'panel';
+        // Never replace an instrument panel with a simulated drive just because
+        // its live providers are absent. Manual demo=on remains available.
+        return m === 'on' || (m !== 'off' && !panelTarget && !this.carPresent() && Date.now() - this.t0 > 5000);
     }
 
     data() {

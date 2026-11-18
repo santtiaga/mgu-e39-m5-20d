@@ -44,22 +44,74 @@ class Diag extends EventEmitter {
         this.busyMs = 1000;           // pause before a retry when the transport is busy (x 1, 2, 3, 4)
         this.busyLog = true;          // log each busy verdict (false: only count them in .busy)
         this.busy = 0;
+        this.stopped = false;
+        this.pending = new Set();
     }
 
     async init() {
+        if (this.stopped) return this;
         try {
-            this.p = await this.signals.proxy(IFACE, INSTANCE);
+            const proxy = await this.signals.proxy(IFACE, INSTANCE);
+            if (this.stopped) {
+                if (proxy && typeof proxy.shutdown === 'function') await proxy.shutdown();
+                return this;
+            }
+            this.p = proxy;
             await this.signals.on(this.p, 'sendTasuResponse', (v) => this._onResponse(v), this.log);
-            await this.signals.onAvailable(this.p, (a) => { this.available = a; this.emit('available', a); });
+            if (this.stopped) return this;
+            await this.signals.onAvailable(this.p, (a) => { if (!this.stopped) { this.available = a; this.emit('available', a); } });
+            if (this.stopped) return this;
             this.log.info('TASU proxy ready (available=' + this.available + ')');
         } catch (e) {
             this.error = String(e);
             this.log.warn('TASU: ' + e);
+            const proxy = this.p;
+            this.p = null;
+            if (proxy && typeof proxy.shutdown === 'function') {
+                try { await proxy.shutdown(); } catch (shutdownError) {
+                    if (this.log) this.log.warn('TASU shutdown after init failure: ' + (shutdownError && shutdownError.message || shutdownError));
+                }
+            }
         }
         return this;
     }
 
+    /** Stop subscriptions and release the native TASU proxy. Safe to call more than once. */
+    async stop() {
+        if (this.stopped) return;
+        this.stopped = true;
+        this.available = false;
+        this.removeAllListeners();
+        Array.from(this.pending).forEach((cancel) => { try { cancel(); } catch (e) {} });
+        this.pending.clear();
+        const proxy = this.p;
+        this.p = null;
+        if (proxy && typeof proxy.shutdown === 'function') {
+            try { await proxy.shutdown(); }
+            catch (e) { if (this.log) this.log.warn('TASU shutdown: ' + (e && e.message || e)); }
+        }
+    }
+
+    _awaitOrStop(operation) {
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            const finish = (fn, value) => {
+                if (settled) return;
+                settled = true;
+                this.pending.delete(cancel);
+                fn(value);
+            };
+            const cancel = () => finish(reject, new Error('diagnostic link stopped'));
+            this.pending.add(cancel);
+            Promise.resolve(operation).then(
+                (value) => finish(resolve, value),
+                (error) => finish(reject, error)
+            );
+        });
+    }
+
     _onResponse(v) {
+        if (this.stopped) return;
         const err = v && v.errorCode;
         if (err !== undefined && err !== 'NO_ERROR' && err !== 0) { this.emit('tasError', String(err)); return; }
         const b = toBytes(v && (v.udsResponse !== undefined ? v.udsResponse : v));
@@ -75,6 +127,7 @@ class Diag extends EventEmitter {
      * such a verdict is retried a few times with a growing pause (busyMs x 1, 2, 3, 4: 1, 2, 3, 4 s).
      */
     async send(target, sid, data, opts) {
+        if (this.stopped) throw new Error('diagnostic link stopped');
         if (!this.p) throw new Error(this.error || 'no diagnostic link');
         const d = data || [];
         const maxRetries = opts && opts.maxRetries != null ? opts.maxRetries : 4;
@@ -82,16 +135,24 @@ class Diag extends EventEmitter {
         const retryBaseMs = opts && opts.retryBaseMs || this.busyMs;
         if (!this.quiet) this.log.info('UDS -> ' + hex(target) + ': ' + hex(sid) + ' ' + d.map((x) => hex(x)).join(' '));
         for (let attempt = 0; ; attempt++) {
-            const r = await this.signals.call(this.p, 'sendTasuRequest', {
+            if (this.stopped) throw new Error('diagnostic link stopped');
+            const proxy = this.p;
+            if (!proxy) throw new Error('no diagnostic link');
+            const r = await this._awaitOrStop(this.signals.call(proxy, 'sendTasuRequest', {
                 sourceAddress: TESTER, targetAddress: target, serviceID: sid, subroutineID: 0,
                 udsDataLength: d.length, udsData: Buffer.from(d), deadlockTime: 0,
-            }, callTimeoutMs);
+            }, callTimeoutMs));
             const v = r && typeof r === 'object' ? (r.TasuErrorEnum || Object.keys(r).map((k) => r[k]).find((x) => typeof x === 'string')) : r;
             const verdict = v === undefined ? 'NO_ERROR' : String(v);
             if (!/TEMPORARILY_NOT_ACCEPTED|BUSY/i.test(verdict) || attempt >= maxRetries) return verdict;
             this.busy++;
             if (this.busyLog) this.log.info('transport busy (' + verdict + '), retrying');
-            await new Promise((res) => setTimeout(res, retryBaseMs * (attempt + 1)));
+            await new Promise((resolve, reject) => {
+                let cancel;
+                const timer = setTimeout(() => { this.pending.delete(cancel); resolve(); }, retryBaseMs * (attempt + 1));
+                cancel = () => { clearTimeout(timer); this.pending.delete(cancel); reject(new Error('diagnostic link stopped')); };
+                this.pending.add(cancel);
+            });
         }
     }
 
@@ -106,9 +167,11 @@ class Diag extends EventEmitter {
     async functional(sid, data, opts) {
         const idleMs = (opts && opts.idleMs) || 4000, maxMs = (opts && opts.maxMs) || 25000;
         const replies = new Map();
-        let idle, hard, onFrame, onErr, finish, kick;
+        let idle, hard, onFrame, onErr, finish, kick, cancel, finished = false;
         const done = new Promise((resolve) => {
-            finish = () => { clearTimeout(idle); clearTimeout(hard); this.removeListener('frame', onFrame); this.removeListener('tasError', onErr); resolve(replies); };
+            finish = () => { if (finished) return; finished = true; clearTimeout(idle); clearTimeout(hard); this.pending.delete(cancel); this.removeListener('frame', onFrame); this.removeListener('tasError', onErr); resolve(replies); };
+            cancel = () => finish();
+            this.pending.add(cancel);
             kick = (ms) => { clearTimeout(idle); idle = setTimeout(finish, ms); };
             onFrame = (f) => {
                 // every app gets every frame: only this service's answer (or refusal) is a reply
@@ -122,7 +185,7 @@ class Diag extends EventEmitter {
             onErr = (e) => this.log.warn('TASU error during scan: ' + e);
             this.on('frame', onFrame); this.on('tasError', onErr);
         });
-        try { this._check(await this.send(ALL, sid, data)); } catch (e) { finish(); throw e; }
+        try { this._check(await this.send(ALL, sid, data)); } catch (e) { finish(); if (this.stopped) return done; throw e; }
         // timers from when the transport took the request (send() may have waited for it)
         if (!idle) kick(idleMs + 2000);          // first replies can take a moment
         hard = setTimeout(finish, maxMs);
@@ -140,9 +203,12 @@ class Diag extends EventEmitter {
             finish = (v) => {
                 if (done) return;
                 done = true;
+                this.pending.delete(cancel);
                 clearTimeout(t); clearTimeout(hardTimer);
                 this.removeListener('frame', onFrame); resolve(v);
             };
+            const cancel = () => finish(null);
+            this.pending.add(cancel);
             onFrame = (f) => {
                 if (f.ecu !== target) return;
                 if (f.uds[0] === 0x7F && f.uds[2] === 0x78) {      // response pending: never the reply itself
@@ -157,7 +223,7 @@ class Diag extends EventEmitter {
             this.on('frame', onFrame);
             if (opts && opts.hardTimeoutMs) hardTimer = setTimeout(() => finish(null), opts.hardTimeoutMs);
         });
-        try { this._check(await this.send(target, sid, data, opts)); } catch (e) { finish(null); throw e; }
+        try { this._check(await this.send(target, sid, data, opts)); } catch (e) { finish(null); if (this.stopped) return got; throw e; }
         if (!done && !t) t = setTimeout(() => finish(null), timeoutMs || 4000); // from when the transport took it
         return got;
     }

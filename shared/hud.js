@@ -20,9 +20,11 @@
  * Effect shaders: cluster-render's v_uv has (0,0) at the TOP-left (PROTOCOL.md; confirmed on the car,
  * Nov 4 2026, when a box's header strip drew at the bottom). The bench draws the same way.
  *
- * Layer packing (Nov 5 2026): cluster-render draws at most 8 layers per client connection (its
- * CompositorLimits.per_client; 32 across all clients; a 9th is refused with "too many layers"), which the car
- * photos showed as a theme's shaders plus the first few text widgets. So the image widgets (text, scale, stripe, badge, gridlabels, icon, swatchimg) are
+ * Layer packing (Nov 5 2026): the car observations showed that Apex Dash should stay within 8 layers per
+ * connection and 32 across its planned connections; these are conservative app operating budgets. The
+ * currently inspected upstream cluster-render protocol documents higher hard ceilings (64 per client,
+ * 96 total), but the exact renderer build installed on the car has not been identified. So the image widgets
+ * (text, scale, stripe, badge, gridlabels, icon, swatchimg) are
  * packed into SHEETS, one image layer per sheet, instead of one layer each. Widgets are grouped by
  * (class, z) and placed in file order: a widget goes into the first sheet of its group opened after every
  * earlier layer or widget its rect intersects (so an image widget never clobbers one it overlaps, and
@@ -105,7 +107,7 @@
  * Pixel memory: cluster-render has 16 MiB for every app's images together and counts each image twice
  *   (Compositor::add_image; a layer past it is refused with "the service's pixel memory is full"), so every
  *   image layer costs w*h*8 bytes. The rebuild log and the status row say what a layout costs.
- * Text and badge updates send only the one rectangle around the pixels that changed since the last paint
+ * Text and badge updates send up to 16 separate rectangles around pixels that changed since the last paint
  *   (changes() below, after PenguinDukeYDAuto/idrive7-EVAHUD's eva_canvas.js, MIT): a 3-digit readout
  *   that goes 123 -> 124 sends its last digit, not the widget.
  *   boxes     effect layer; the GT3 dash's frame in ONE layer (shaders.js boxes; the car draws only a few effect
@@ -150,8 +152,14 @@
  * app exit, and on the car a second unexpected exit uninstalls the app.
  */
 const fs = require('fs');
+const changes = require('./dirty_rects');
 const { ClusterRender, DEFAULT_PATH } = require('./cluster_render_client.js');
 const DCSM2Watchdog = require('./dcsm2_watchdog');
+const createSafetyController = require('./safety_controller');
+const StagedBuild = require('./staged_build');
+const LayoutGeneration = require('./layout_generation');
+const RendererInventory = require('./renderer_inventory');
+const VehicleGate = require('./vehicle_gate');
 const Layouts = require('./layouts');
 const { THEMES, M_STRIPE, LIGHTS, VERDICT, color } = require('./hud_themes');
 const ShiftScore = require('./shift_score');
@@ -166,8 +174,8 @@ const BOOST_SCALE = { factor: 0.01, offset: 0, invalid: 255 }; // see header com
 // the widget types drawn as pixels (image layers, packed into sheets unless "own": true); the rest are shaders
 const IMAGE_TYPES = { text: true, scale: true, stripe: true, badge: true, gridlabels: true, icon: true, swatchimg: true };
 const STATUS_ASK_MS = 2000;      // after a rebuild: ask cluster-render for its own status text
-const LAYER_BUDGET = 8;          // cluster-render's limit per client connection (CompositorLimits.per_client; confirmed on the car Nov 5 2026)
-const MAX_CONN = 4;              // connections a layout may ask for ("conn"): 32 layers service-wide / 8 per connection
+const LAYER_BUDGET = 8;          // conservative Apex Dash per-connection budget from on-car observations
+const MAX_CONN = 4;              // connections a layout may ask for ("conn"): 32-layer Apex Dash operating budget
 const PIXEL_BYTES = 16 * 1024 * 1024;   // cluster-render's pixel memory for every app's images together (CompositorLimits.pixel_bytes)
 const SHEET_AREA_FRAC = 4;       // the first sheet size limit: 1/4 of the target area (see the header)
 const TICK_MS = 50;              // 20 Hz: shift bar and gauges
@@ -237,32 +245,6 @@ function driveModeOf(raw) {
 
 function rgb(c) { return [c[0] / 255, c[1] / 255, c[2] / 255]; }
 
-/**
- * The one rectangle around what differs between two RGBA images of the same size, with its pixels, or null
- * when they are the same (after idrive7-EVAHUD's eva_canvas.js, MIT). The link is what is short, not the CPU:
- * comparing a widget costs about a tenth of painting it.
- */
-function changes(was, now, w, h) {
-    const row = w * 4;
-    const sameRow = (y) => now.compare(was, y * row, (y + 1) * row, y * row, (y + 1) * row) === 0;
-    const samePx = (o) => now[o] === was[o] && now[o + 1] === was[o + 1] && now[o + 2] === was[o + 2] && now[o + 3] === was[o + 3];
-    let top = 0;
-    while (top < h && sameRow(top)) top++;
-    if (top === h) return null;
-    let bottom = h - 1;
-    while (sameRow(bottom)) bottom--;
-    let left = w, right = -1;
-    for (let y = top; y <= bottom; y++) {
-        if (sameRow(y)) continue;
-        const o = y * row;
-        for (let x = 0; x < left; x++) if (!samePx(o + x * 4)) { left = x; break; }
-        for (let x = w - 1; x > right; x--) if (!samePx(o + x * 4)) { right = x; break; }
-    }
-    const rect = { x: left, y: top, w: right - left + 1, h: bottom - top + 1 };
-    const px = Buffer.allocUnsafe(rect.w * rect.h * 4);
-    for (let y = 0; y < rect.h; y++) now.copy(px, y * rect.w * 4, (top + y) * row + left * 4, (top + y) * row + (right + 1) * 4);
-    return { rect, px };
-}
 function rgba(c) { return [c[0] / 255, c[1] / 255, c[2] / 255, (c[3] === undefined ? 255 : c[3]) / 255]; }
 function isNum(v) { return typeof v === 'number' && isFinite(v); }
 
@@ -275,18 +257,57 @@ class HudApp {
         // HUD_CLUSTER_SOCKET: the Mac bench's fake cluster-render; never set on the car
         this.socketPath = process.env.HUD_CLUSTER_SOCKET || this.config.socketPath || DEFAULT_PATH;
         this.clients = [];               // the connections to cluster-render: [0] the app's own, more for "conn" widgets
+        this.renderStats = { frames: 0, diffChecks: 0, unchangedWidgets: 0, imageFrames: 0,
+            fullFrames: 0, dirtyFrames: 0, dirtyRects: 0, pixels: 0, pixelBytes: 0, fullPixelBytes: 0, wireBytes: 0, backpressureWrites: 0, backpressureTicks: 0, replayFrames: 0,
+            rasterCalls: 0, rasterMs: 0, rasterMaxUs: 0, textRasterCalls: 0, badgeRasterCalls: 0,
+            diffMs: 0, diffMaxUs: 0, diffCalls: 0 };
         this.started = false;
         this.stopped = false;
+        this.safetyTripped = false;
+        // Event guards are installed while the first renderer client is created,
+        // so the controller must exist before _clientAt(0) wires those events.
+        this.safety = createSafetyController({
+            log: this.log,
+            errorLimit: 5,
+            errorWindowMs: 10000,
+            onTrip: (incident) => this._onSafetyTrip(incident),
+        });
+        // Remember confirmed provider availability across temporary socket outages.
+        this.dcsm2WasAvailable = false;
         this.layerStates = new Map();    // "<conn>:<ref>" -> { state, reason } from cluster-render
         this.client = this._clientAt(0);
         this.target = TARGET_SIZES[this.config.target] ? this.config.target : 'hud';
         this.dcsm2 = new DCSM2Watchdog(this.client, (state, reason, previous) => {
+            if (this.stopped || this.safetyTripped) return;
             if (state === 'available') {
+                this.dcsm2WasAvailable = true;
                 this.log.info('DCSM2 available; display rendering may proceed');
+                this.clients.forEach((c) => c.restoreVisibility());
+                this._resumeBuildAfterGates();
                 if (this.deferredRebuild || this.activeName === null || this.widgets.size === 0) this._rebuild();
                 else this._status();
             } else {
+                // Unknown health is not proof of provider loss, but an overlay
+                // must not remain visible while its display provider is unverified.
+                if (previous === 'available') {
+                    this.clients.forEach((client) => client.suspendVisibility());
+                    if (state === 'unknown') this._pauseBuildForDCSM2();
+                }
                 this.log.warn('DCSM2 ' + state + (reason ? ': ' + reason : '') + (previous ? ' (was ' + previous + ')' : ''));
+                // A confirmed provider loss is different from a socket disconnect:
+                // stop publishing and release the last panel scene so stale gauges
+                // are not intentionally left as Apex Dash's active display.
+                if (state === 'unavailable' && this.dcsm2WasAvailable) {
+                    this.dcsm2WasAvailable = false;
+                    const hadLayout = !!(this.build || this.widgets.size || this.sheets.length);
+                    if (hadLayout) {
+                        this.log.error('DCSM2 became unavailable; releasing the active panel layout until the provider recovers');
+                        this.deferredRebuild = true;
+                        this.activeName = null;
+                        this.problem = 'DCSM2 unavailable; waiting to rebuild the panel';
+                        this._dropLayoutLayers();
+                    }
+                }
                 this._status();
             }
         }, this.log);
@@ -295,6 +316,7 @@ class HudApp {
         this.layoutTheme = null;         // the active layout's own theme, if it has one
         this.layouts = new Layouts(ctx.dataDir, this.log, this.size);
         this.widgets = new Map();        // widget.id -> { w, ref, sheet | null, last, lastPaint }
+        this.build = null;              // serial renderer-confirmed layout build transaction
         this.sheets = [];                // the packed image layers: { ref, klass, z, x, y, w, h, members, buf }
         this.boostFes = null; this.boostFesAt = 0;    // bar, from the sport display signal
         this.boostDme = null; this.boostDmeAt = 0;    // bar, from the engine unit (fallback)
@@ -312,6 +334,7 @@ class HudApp {
         this.pixelBytes = 0;             // what the layout's image layers and glyph atlases cost of cluster-render's pixel memory
         this.atlases = new Map();        // "<conn>:<font>" -> { ref, c, ci, cols, rows, cellW, cellH, chars, bytes }: R8 assets, kept across rebuilds
         this.targetState = null;         // latest cluster-render target diagnostics
+        this.rendererInventory = null;   // latest parsed status snapshot; pixel allocation may still be unknown
         this.rpmF = null; this.rpmNeedleF = null; this.rpmShown = null; this.lastTickT = 0;
         this.e39DistKm = 0; this.e39Cons = null; this.e39WearKm = 0;
         this.e39PeakG = null; this.e39Vmax = 0;
@@ -328,9 +351,19 @@ class HudApp {
         this.statusListeners = [];
         this.lastStatus = null;
 
-        this._setupVehicleData();
-        this.layouts.onChange(() => this._rebuild());
-        ctx.settings.onChange((key) => { if (key !== 'demo') this._rebuild(); else this._status(); });
+        try {
+            this._setupVehicleData();
+            this.layouts.onChange(() => this._rebuild());
+            ctx.settings.onChange((key) => { if (key !== 'demo') this._rebuild(); else this._status(); });
+        } catch (error) {
+            // A constructor failure still owns resources created earlier in the
+            // constructor (notably the layout watcher and vehicle subscriptions).
+            try { this.stop(); }
+            catch (cleanupError) {
+                this.log.warn('partial HUD constructor cleanup: ' + (cleanupError && cleanupError.message || cleanupError));
+            }
+            throw error;
+        }
     }
 
     /** A setting's value, or its default when the saved value isn't one the schema allows. */
@@ -452,6 +485,9 @@ class HudApp {
         while (this.clients.length <= i) {
             const ci = this.clients.length;
             const c = new ClusterRender(ci ? this.ctx.spec.id + '_' + (ci + 1) : this.ctx.spec.id, this.socketPath);
+            // Apex Dash owns only the panel and must re-check DCSM2 before replay
+            // makes an old panel frame visible again.
+            c.deferReplayVisibility = true;
             this.clients.push(c);
             this._wireClientEvents(c, ci);
             if (this.started) { this.log.info('connection ' + (ci + 1) + ' to cluster-render'); c.connect(); }
@@ -461,35 +497,60 @@ class HudApp {
 
     _wireClientEvents(c, ci) {
         const tag = ci ? ' [connection ' + (ci + 1) + ']' : '';
-        c.on('ready', () => {
+        const guard = (event, fn) => this.safety.guard('cluster-render ' + event + tag, fn);
+        c.on('socket-error', guard('socket-error', (error) => {
+            this.log.warn('cluster-render socket error' + tag + ': ' + (error && error.message || error));
+        }));
+        c.on('ready', guard('ready', () => {
             this.log.info('cluster-render ready' + tag + ' (backend=' + c.backend + ')');
+            if (this.stopped || this.safetyTripped) return;
+            this._resumeBuildForConnection(ci);
+            if (this.dcsm2.state === 'available') c.restoreVisibility();
             if (ci === 0) this.dcsm2.connected();
             else this._status();
-        });
-        c.on('disconnected', () => {
+        }));
+        c.on('disconnected', guard('disconnected', () => {
             this.log.warn('cluster-render disconnected' + tag + ', client will retry');
+            if (ci === 0) this.rendererInventory = null;
+            this._pauseBuildForConnection(ci);
             if (ci === 0) this.dcsm2.disconnected();
             else this._status();
-        });
-        c.on('diagnostic', (ev) => {
+        }));
+        c.on('pixels-written', guard('pixels-written', (ev) => {
+            if (ev.kind !== 'image') return;
+            const s = this.renderStats;
+            s.imageFrames++;
+            if (ev.full) s.fullFrames++;
+            else { s.dirtyFrames++; s.dirtyRects += ev.rectCount; }
+            s.pixels += ev.pixels;
+            s.pixelBytes += ev.pixelBytes;
+            s.fullPixelBytes += ev.fullPixelBytes || ev.pixelBytes;
+            s.wireBytes += ev.wireBytes;
+            if (ev.backpressure) s.backpressureWrites++;
+            if (ev.replay) s.replayFrames++;
+        }));
+        c.on('diagnostic', guard('diagnostic', (ev) => {
             if (ev.ev === 'target' || ev.ev === 'error' || (ev.ev === 'layer' && ev.state !== 'shown')) {
                 let raw;
                 try { raw = JSON.stringify(ev); } catch (e) { raw = String(ev); }
                 this.log.warn('cluster-render raw event' + tag + ': ' + raw);
             }
-        });
-        c.on('layer', (ref, state, reason) => {
+        }));
+        c.on('layer', guard('layer', (ref, state, reason) => {
             const key = ci + ':' + ref;
             const old = this.layerStates.get(key);
             this.layerStates.set(key, { state, reason });
+            this._buildLayerEvent(ci, ref, state, reason);
+            if (state === 'error') this.safety.record('renderer layer ' + ref, new Error(reason || 'layer error'));
             if (state === 'error' || ((state === 'waiting' || state === 'stalled') && (!old || old.state !== state))) {
                 const w = this._widgetOf(ci, ref);
                 this.log.warn('layer ' + ref + tag + (w ? ' (' + w + ')' : '') + ' ' + state + (reason ? ': ' + reason : ''));
             }
             this._statusSoon();
-        });
-        c.on('target', (name, state, holder, reason, guideDisabled, rendering, retryInMs, disabled) => {
-            if (ci === 0) this.dcsm2.target(state, reason);
+        }));
+        c.on('target', guard('target', (name, state, holder, reason, guideDisabled, rendering, retryInMs, disabled) => {
+            // Target ownership/availability is not a DCSM2 provider-health signal.
+            // DCSM2 state is taken only from the explicit status line.
             if (name !== this.target) return;
             this.targetState = { state, holder, reason, guideDisabled: !!guideDisabled,
                 rendering: rendering || 'none', retryInMs: retryInMs, disabled: !!disabled, connection: ci + 1 };
@@ -501,18 +562,24 @@ class HudApp {
                 (retryInMs !== null && retryInMs !== undefined ? ' retry_in_ms=' + retryInMs : '') +
                 (reason ? ': ' + reason : ''));
             this._statusSoon();
-        });
-        c.on('refused', (op, ref, reason) => {
+        }));
+        c.on('refused', guard('refused', (op, ref, reason) => {
             const w = this._widgetOf(ci, ref);
             this.log.warn('refused ' + op + ' on ' + ref + tag + (w ? ' (' + w + ')' : '') + ': ' + reason);
-            if (!this.refused) this.refused = (w || op) + ': ' + reason;   // the first one, until the next rebuild
+            this.safety.record('renderer refused ' + op, new Error(reason || 'operation refused'));
+            if (!this.refused) this.refused = (w || op) + ': ' + reason;
             this._statusSoon();
-        });
-        c.on('budget', (capKb, maxKb, reason) => this.log.info('budget' + tag + ' ' + capKb + '/' + maxKb + ' kb/s (' + reason + ')'));
-        c.on('status', (text) => {
-            if (ci === 0) this.dcsm2.status(text);
+        }));
+        c.on('budget', guard('budget', (capKb, maxKb, reason) =>
+            this.log.info('budget' + tag + ' ' + capKb + '/' + maxKb + ' kb/s (' + reason + ')')));
+        c.on('status', guard('status', (text) => {
+            if (ci === 0) {
+                this.dcsm2.status(text);
+                const parsed = RendererInventory.parseStatus(text);
+                this.rendererInventory = parsed.complete ? { at: Date.now(), data: parsed } : null;
+            }
             this.log.info('cluster-render status: ' + text);
-        });
+        }));
     }
 
     start() {
@@ -527,8 +594,41 @@ class HudApp {
             this._status();
         }), 60000);
         this.statusTimer = setInterval(() => this._guard('status', () => this._status()), 5000);
+        this.renderStatsTimer = setInterval(() => this._guard('render stats', () => this._logRenderStats()), 30000);
         this._status();
         this._startDme();
+    }
+
+    _recordRasterTime(kind, started) {
+        const elapsed = process.hrtime(started);
+        const us = elapsed[0] * 1000000 + elapsed[1] / 1000;
+        const s = this.renderStats;
+        s.rasterCalls++;
+        s.rasterMs += us / 1000;
+        if (us > s.rasterMaxUs) s.rasterMaxUs = us;
+        if (kind === 'text') s.textRasterCalls++;
+        else if (kind === 'badge') s.badgeRasterCalls++;
+    }
+
+    /** Log bounded 30-second rendering counters; byte totals are frames accepted by socket.write. */
+    _logRenderStats() {
+        const s = this.renderStats;
+        if (!s.frames && !s.imageFrames && !s.diffChecks && !s.backpressureTicks) return;
+        const unchangedPct = s.diffChecks ? (100 * s.unchangedWidgets / s.diffChecks).toFixed(1) : '0.0';
+        const diffAvgUs = s.diffCalls ? (s.diffMs * 1000 / s.diffCalls).toFixed(1) : '0.0';
+        const savedPct = s.fullPixelBytes ? (100 * (1 - s.pixelBytes / s.fullPixelBytes)).toFixed(1) : '0.0';
+        this.log.info('[render-stats] 30s panel ticks=' + s.frames +
+            ', image diffs=' + s.diffChecks + ', unchanged=' + s.unchangedWidgets + ' (' + unchangedPct + '%)' +
+            ', image frames sent=' + s.imageFrames + ' (full=' + s.fullFrames + ', dirty=' + s.dirtyFrames +
+            ', rects=' + s.dirtyRects + ')' +
+            ', changed pixels=' + s.pixels + ', pixel bytes=' + s.pixelBytes +
+            ', full-frame baseline=' + s.fullPixelBytes + ', pixel savings=' + savedPct + '%' +
+            ', socket.write bytes=' + s.wireBytes + ', backpressure writes=' + s.backpressureWrites +
+            ', backpressure-paused ticks=' + s.backpressureTicks + ', renderer replay frames=' + s.replayFrames +
+            ', CPU raster=' + s.rasterMs.toFixed(2) + ' ms (' + s.rasterCalls + ' calls, max=' + s.rasterMaxUs.toFixed(0) + ' us)' +
+            ', text=' + s.textRasterCalls + ', badge=' + s.badgeRasterCalls +
+            ', CPU diff=' + s.diffMs.toFixed(2) + ' ms (' + s.diffCalls + ' calls, avg=' + diffAvgUs + ' us, max=' + s.diffMaxUs.toFixed(0) + ' us)');
+        Object.keys(s).forEach((key) => { s[key] = 0; });
     }
 
     /** Boost from the engine unit when the sport display's value isn't there (config.dme, read-only UDS). */
@@ -542,6 +642,7 @@ class HudApp {
             const { DidReader } = require('./kit/dids');
             const link = new Diag(this.ctx.signals, this.log);
             link.quiet = true;
+            this.dmeLink = link;
             Promise.resolve().then(() => link.init()).catch((e) => this.log.info('engine unit link not available: ' + (e && e.message || e)));
             rd = new DidReader(link, { ecu: dme.ecu || 18 });
         } catch (e) { this.log.info('engine unit boost off: ' + (e && e.message || e)); return; }
@@ -572,6 +673,7 @@ class HudApp {
         clearInterval(this.tickTimer);
         clearInterval(this.themeTimer);
         clearInterval(this.statusTimer);
+        clearInterval(this.renderStatsTimer);
         clearInterval(this.dmeTimer);
         clearTimeout(this.statusAskT);
         clearTimeout(this._statusT);
@@ -580,6 +682,11 @@ class HudApp {
         clearTimeout(this.offStatusT2);
         this.statusAskT = this.offStatusT1 = this.offStatusT2 = null;
         this.clients.forEach((c) => c.close());
+        if (this.dmeLink && typeof this.dmeLink.stop === 'function') {
+            const shutdown = this.dmeLink.stop();
+            if (shutdown && typeof shutdown.catch === 'function') shutdown.catch((e) => this.log.warn('TASU shutdown: ' + (e && e.message || e)));
+            this.dmeLink = null;
+        }
         if (this.layouts && typeof this.layouts.stop === 'function') this.layouts.stop();
         if (this.car && typeof this.car.stop === 'function') this.car.stop();
         this.atlases.clear();
@@ -639,7 +746,51 @@ class HudApp {
     }
 
     _guard(what, fn) {
-        try { fn(); } catch (e) { this.log.error('hud ' + what + ': ' + (e && e.stack || e)); }
+        if (this.safety && this.safety.tripped()) return;
+        const guarded = this.safety ? this.safety.guard('hud ' + what, fn) : fn;
+        guarded();
+    }
+
+    /** A latched safety stop: remove our overlay and require an app restart to resume. */
+    _onSafetyTrip(incident) {
+        if (this.safetyTripped) return;
+        this.safetyTripped = true;
+        this.deferredRebuild = false;
+        this.problem = 'SAFETY STOP: ' + incident.count + ' errors / ' + (incident.windowMs / 1000) + ' s; restart app to resume';
+        this.log.error('[safety] quiescing updates and dropping Apex Dash layers; last error: ' + (incident.lastError && incident.lastError.name || 'unknown'));
+        // A latched stop must not be undone by a later DCSM2/renderer ready event.
+        this.dcsm2.stop();
+        ['tickTimer', 'themeTimer', 'statusTimer', 'renderStatsTimer', 'dmeTimer'].forEach((key) => {
+            if (this[key]) clearInterval(this[key]);
+            this[key] = null;
+        });
+        ['statusAskT', '_statusT', 'offStatusT1', 'offStatusT2'].forEach((key) => {
+            if (this[key]) clearTimeout(this[key]);
+            this[key] = null;
+        });
+        if (this.layouts && typeof this.layouts.stop === 'function') this.layouts.stop();
+        if (this.car && typeof this.car.stop === 'function') this.car.stop();
+        if (this.dmeLink && typeof this.dmeLink.stop === 'function') {
+            const shutdown = this.dmeLink.stop();
+            if (shutdown && typeof shutdown.catch === 'function') shutdown.catch((e) =>
+                this.log.warn('[safety] TASU shutdown: ' + (e && e.message || e)));
+            this.dmeLink = null;
+        }
+        try { this._dropLayoutLayers(); } catch (e) {
+            this.log.error('[safety] layer drop failed: ' + (e && e.stack || e));
+        }
+        // Font atlases are no longer sampled after layout layers are dropped.
+        this.atlases.forEach((atlas) => {
+            try { atlas.c.drop(atlas.ref); }
+            catch (e) { this.log.warn('[safety] atlas release failed: ' + (e && e.message || e)); }
+        });
+        this.atlases.clear();
+        this.activeName = null;
+        this.clients.forEach((c, ci) => {
+            try { if (c.ready) { this.log.info('[safety] requesting renderer status on connection ' + (ci + 1)); c.status(); } }
+            catch (e) { this.log.warn('[safety] renderer status request failed: ' + (e && e.message || e)); }
+        });
+        this._status();
     }
 
     /* ---------------- status line (the center screen's first row) ---------------- */
@@ -727,6 +878,7 @@ class HudApp {
     }
 
     statusText() {
+        if (this.safetyTripped || (this.safety && this.safety.tripped())) return this.label + ': ' + (this.problem || 'SAFETY STOP; restart app to resume');
         if (!this.client.ready) {
             let there = false;
             try { there = fs.existsSync(this.socketPath); } catch (e) { /* treat as missing */ }
@@ -1151,25 +1303,18 @@ class HudApp {
     /* ---------------- layers ---------------- */
 
     _rebuild() {
-        if (this.stopped) return;
+        if (this.stopped || this.safetyTripped || (this.safety && this.safety.tripped())) return;
         this._guard('rebuild', () => this._rebuildInner());
         this._status();
     }
 
     _rebuildInner() {
+        if (this.safetyTripped || (this.safety && this.safety.tripped())) return;
         if (!this.client.ready) return; // the 'ready' handler calls us again
         const name = this._layoutName();
         const vehicle = this._vehicleGate(this.car.data());
         if (name !== 'off' && vehicle.hold) {
-            this.deferredRebuild = true;
-            if (vehicle.off) {
-                this._dropLayoutLayers();
-                this.vehicleOff = true;
-                if (!this.vehicleOffLogged) {
-                    this.vehicleOffLogged = true;
-                    this.log.info('vehicle state ' + vehicle.condition + ': cluster layers dropped; waiting for drive-ready');
-                }
-            }
+            this._holdForVehicle(vehicle);
             return;
         }
         if (name !== 'off' && this.dcsm2.state !== 'available') {
@@ -1180,13 +1325,13 @@ class HudApp {
         this.vehicleOff = false;
         this.vehicleOffLogged = false;
         this.e39BootAt = Date.now();
-        this._dropLayoutLayers();
         clearTimeout(this.statusAskT); this.statusAskT = null;
         clearTimeout(this.offStatusT1); this.offStatusT1 = null;
         clearTimeout(this.offStatusT2); this.offStatusT2 = null;
         this.car.setRedline(this.setting('redline'));
         this.activeName = name;
         if (name === 'off') {
+            this._dropLayoutLayers();
             this.problem = null; this.layoutTheme = null; this.needsBoost = false;
             this.log.info('off: nothing drawn, BMW\'s own ' + (this.target === 'panel' ? 'cluster' : 'HUD') + ' shows');
             // Query every renderer connection after layer drops, then after the 3 s target linger expires.
@@ -1212,6 +1357,7 @@ class HudApp {
         }
         let layout;
         try { layout = this.layouts.load(name); } catch (e) {
+            this._dropLayoutLayers();
             this.problem = e.message;
             this.log.warn('layout "' + name + '" unusable (' + e.message + '); showing nothing');
             return;
@@ -1235,16 +1381,41 @@ class HudApp {
         }
         let effects = 0, own = 0, sheets = 0, bytes = 0, px = 0;
         plan.forEach((e) => {
-            if (e.kind === 'sheet') { sheets++; bytes += e.w * e.h * 4; px += e.w * e.h * 8; this._guard('sheet ' + e.members[0].id, () => this._createSheet(e)); }
+            if (e.kind === 'sheet') { sheets++; bytes += e.w * e.h * 4; px += e.w * e.h * 8; }
             else {
                 if (IMAGE_TYPES[e.w.type]) { own++; px += e.w.w * e.w.h * 8; } else effects++;
-                this._guard('widget ' + e.w.id, () => this._create(e.w, null));
             }
         });
+        if (this.safetyTripped || (this.safety && this.safety.tripped())) return;
         const atlasBytes = this._atlasBytes();
         px += atlasBytes;
+        // The renderer's status snapshot enumerates global layer/asset counts, but
+        // omits image-layer dimensions and current mesh geometry bytes. Use it only
+        // as a lower-bound layer inventory; unknown pixel memory still fails closed.
+        const activeImageBytes = {};
+        this.widgets.forEach((x) => {
+            if (!x.sheet && IMAGE_TYPES[x.w.type]) activeImageBytes[x.ci + ':' + x.ref] = x.w.w * x.w.h * 8;
+        });
+        this.sheets.forEach((s) => { activeImageBytes[s.ci + ':' + s.ref] = s.w * s.h * 8; });
+        const activeRefs = this._layerRefs().map((r) => ({ ci: r.ci, imageBytes: activeImageBytes[r.key] || 0 }));
+        const activeMeasure = LayoutGeneration.measureRefs(activeRefs);
+        const candidateMeasure = LayoutGeneration.measurePlan(plan, IMAGE_TYPES);
+        const inventory = this.rendererInventory && Date.now() - this.rendererInventory.at <= 10000
+            ? this.rendererInventory.data : null;
+        const externalLayers = inventory ? Math.max(0, inventory.layerCount - activeMeasure.layers) : 0;
+        const overlap = LayoutGeneration.assessOverlap(
+            activeMeasure,
+            candidateMeasure,
+            { perClient: LAYER_BUDGET, totalLayers: MAX_CONN * LAYER_BUDGET, pixelBytes: PIXEL_BYTES,
+                layerInventoryComplete: !!inventory, externalLayers: externalLayers, sharedAssetBytes: atlasBytes, rendererInventoryComplete: false }
+        );
+        this.log.info('layout transition: ' + (overlap.allowed ? 'make-before-break resource gate passed' :
+            'safe rebuild required (' + overlap.reason + ')'));
+        // Resource measurement must happen before releasing the active generation.
+        // The layer inventory is now visible, but pixel allocation remains incomplete; keep the established safe rebuild.
+        this._dropLayoutLayers();
         this.pixelBytes = px;
-        const n = this._layerRefs().length, counts = this._connCounts(plan);
+        const n = plan.length, counts = this._connCounts(plan);
         this.log.info('layout "' + layout.name + '": ' + shown.length + ' widgets, ' + this._layerCount(n) + ' (' + effects + ' effects, ' +
             sheets + ' image sheets' + (own ? ', ' + own + ' own image layers' : '') + ')' +
             (counts.length > 1 ? ' on ' + counts.length + ' connections (' + counts.join(' + ') + ')' : '') + ', sheet limit ' +
@@ -1254,7 +1425,10 @@ class HudApp {
             if (k > LAYER_BUDGET) this.log.warn('layout "' + layout.name + '" needs ' + k + ' layers on connection ' + (ci + 1) + ', cluster-render draws at most ' + LAYER_BUDGET + ' per connection');
         });
         if (px > PIXEL_BYTES) this.log.warn('layout "' + layout.name + '" needs ' + mib(px) + ' of pixel memory; cluster-render has 16 MiB for every app together (each image counts twice)');
-        this.statusAskT = setTimeout(() => { this.statusAskT = null; this._guard('status request', () => this.client.status()); }, STATUS_ASK_MS);
+        this.build = { plan: plan, index: 0, current: null, timer: null, deadlineAt: 0, remainingMs: 45000,
+            waitingConnection: null, waitingDCSM2: false, layout: layout.name, started: Date.now() };
+        this.log.info('layout build: staged transaction started (' + plan.length + ' renderer stages)');
+        this._buildNext();
     }
 
     /**
@@ -1294,18 +1468,167 @@ class HudApp {
         return plan;
     }
 
+    /** Create exactly one planned layer, keep it hidden, then wait for renderer confirmation. */
+    _buildNext() {
+        const b = this.build;
+        if (!b || this.stopped || this.safetyTripped) return;
+        if (b.index >= b.plan.length) {
+            this.build = null;
+            clearTimeout(this.statusAskT);
+            this.statusAskT = setTimeout(() => {
+                this.statusAskT = null;
+                this._guard('status request', () => this.client.status());
+            }, STATUS_ASK_MS);
+            this.log.info('layout build: all ' + b.plan.length + ' stages shown in ' + (Date.now() - b.started) + ' ms');
+            this._status();
+            return;
+        }
+        const e = b.plan[b.index];
+        try {
+            if (e.kind === 'sheet') this._createSheet(e);
+            else this._create(e.w, null);
+        } catch (err) {
+            this._abortBuild('stage ' + (b.index + 1) + ' creation failed: ' + (err && err.message || err));
+            this.safety.record('staged layout build', err);
+            return;
+        }
+        const x = e.kind === 'sheet' ? null : this.widgets.get(e.w.id);
+        const ref = e.kind === 'sheet' ? e.ref : (x && x.ref);
+        const c = e.kind === 'sheet' ? e.c : (x && x.c);
+        const ci = e.kind === 'sheet' ? e.ci : (x && x.ci);
+        if (!ref || !c) {
+            this._abortBuild('stage ' + (b.index + 1) + ' did not create a renderer layer');
+            return;
+        }
+        b.current = { ref: ref, c: c, ci: ci, phase: 'hidden', index: b.index };
+        // A stage's confirmation timeout counts only while its renderer connection is ready.
+        // Initial connection setup and service restarts must not consume the 45 s stage budget.
+        b.remainingMs = 45000;
+        if (c.ready) this._armBuildTimeout(b);
+        else {
+            b.waitingConnection = ci;
+            this.log.info('layout build: stage ' + (b.index + 1) + ' waiting for connection ' + (ci + 1) + ' to become ready');
+        }
+        this.log.info('layout build: stage ' + (b.index + 1) + '/' + b.plan.length + ' created hidden, waiting for renderer [connection ' + (ci + 1) + ', ref ' + ref + ']');
+    }
+
+    /** Arm the current stage timeout only while its renderer connection is ready. */
+    _armBuildTimeout(b) {
+        if (!b || this.build !== b || !b.current || b.timer || b.waitingConnection !== null) return;
+        if (this.dcsm2.state !== 'available') {
+            b.waitingDCSM2 = true;
+            return;
+        }
+        const ms = StagedBuild.resume(b, Date.now());
+        b.timer = setTimeout(() => {
+            if (this.build === b && b.current) this._abortBuild('timeout waiting for renderer confirmation at stage ' +
+                (b.index + 1) + ' (' + b.current.phase + ')');
+        }, ms);
+    }
+
+    /** Pause the deadline while the active stage's renderer connection is offline. */
+    _pauseBuildForConnection(ci) {
+        const b = this.build;
+        if (!b || !b.current || b.current.ci !== ci) return;
+        if (b.timer) {
+            StagedBuild.pause(b, Date.now());
+            clearTimeout(b.timer);
+            b.timer = null;
+        }
+        b.waitingConnection = ci;
+        this.log.warn('layout build: paused stage ' + (b.index + 1) + ' while connection ' + (ci + 1) + ' reconnects');
+    }
+
+    /** Resume the remaining stage budget after hello/replay on the same connection. */
+    _resumeBuildForConnection(ci) {
+        const b = this.build;
+        if (!b || !b.current || b.waitingConnection !== ci) return;
+        b.waitingConnection = null;
+        this.log.info('layout build: resumed stage ' + (b.index + 1) + ' after connection ' + (ci + 1) + ' recovery');
+        this._resumeBuildAfterGates();
+    }
+
+    /** Pause stage confirmations while DCSM2 is unknown after a primary connection loss. */
+    _pauseBuildForDCSM2() {
+        const b = this.build;
+        if (!b || !b.current) return;
+        if (b.timer) {
+            StagedBuild.pause(b, Date.now());
+            clearTimeout(b.timer);
+            b.timer = null;
+        }
+        b.waitingDCSM2 = true;
+        this.log.warn('layout build: paused stage ' + (b.index + 1) + ' while DCSM2 availability is checked');
+    }
+
+    /** Resume only when both the renderer connection and DCSM2 health are confirmed. */
+    _resumeBuildAfterGates() {
+        const b = this.build;
+        if (!b || !b.current || b.waitingConnection !== null || !b.current.c.ready ||
+            this.dcsm2.state !== 'available') return;
+        b.waitingDCSM2 = false;
+        const saved = this.layerStates.get(b.current.ci + ':' + b.current.ref);
+        if (saved) this._buildLayerEvent(b.current.ci, b.current.ref, saved.state, saved.reason);
+        if (this.build === b && b.current) this._armBuildTimeout(b);
+    }
+
+    /** Advance only on renderer layer events; client calls and status text are not treated as acknowledgements. */
+    _buildLayerEvent(ci, ref, state, reason) {
+        const c = this.clients[ci];
+        // During reconnect, layer-state events can arrive before retained pixels
+        // have replayed. Never reveal a staged layer until both gates are open.
+        if (!c || !c.ready || this.dcsm2.state !== 'available') return;
+        const b = this.build;
+        const action = StagedBuild.transition(b, ci, ref, state, reason);
+        if (!action) return;
+        if (action.type === 'abort') {
+            this._abortBuild('renderer rejected stage ' + (b.index + 1) + ': ' + action.reason);
+        } else if (action.type === 'reveal') {
+            this.log.info('layout build: stage ' + (b.index + 1) + ' renderer-confirmed hidden; revealing');
+            try { b.current.c.set(ref, { visible: true }); }
+            catch (e) { this._abortBuild('could not reveal stage ' + (b.index + 1) + ': ' + (e && e.message || e)); }
+        } else if (action.type === 'shown') {
+            clearTimeout(b.timer);
+            b.timer = null;
+            b.deadlineAt = 0;
+            b.remainingMs = 45000;
+            b.waitingConnection = null;
+            this.log.info('layout build: stage ' + (b.index + 1) + ' confirmed shown');
+            b.current = null;
+            b.index++;
+            this._buildNext();
+        } else if (action.type === 'wait') {
+            this.log.info('layout build: stage ' + (b.index + 1) + ' waiting (' + state + (reason ? ': ' + reason : '') + ')');
+        }
+    }
+
+    /** A failed staged build is fail-closed: release every layer already created and do not auto-retry. */
+    _abortBuild(why) {
+        const b = this.build;
+        if (!b) return;
+        if (b.timer) clearTimeout(b.timer);
+        this.build = null;
+        this.problem = 'layout build stopped: ' + why;
+        this.log.error(this.problem + '; releasing partial layout');
+        this._dropLayoutLayers();
+        this.activeName = null;
+        this._status();
+    }
+
     /** One image layer for a sheet: every member painted into a local buffer, then sent whole once. */
     _createSheet(s) {
         const c = this._clientAt(s.conn);
-        const ref = c.image({ target: this.target, klass: s.klass, z: s.z, x: s.x, y: s.y, w: s.w, h: s.h, iw: s.w, ih: s.h });
+        const ref = c.image({ target: this.target, klass: s.klass, z: s.z, x: s.x, y: s.y, w: s.w, h: s.h, iw: s.w, ih: s.h, visible: false });
         if (!ref) { this.log.warn('sheet ' + s.klass + '/' + s.z + ' at ' + s.x + ',' + s.y + ' ' + s.w + 'x' + s.h + ': layer refused'); return; }
         s.ref = ref; s.c = c; s.ci = s.conn;
         s.buf = Buffer.alloc(s.w * s.h * 4, 0);
         this.sheets.push(s);
-        s.members.forEach((w) => this._guard('widget ' + w.id, () => this._create(w, s)));
+        // Do not swallow member-construction errors here: a partially painted sheet must never be
+        // marked ready and revealed. _buildNext catches the error, aborts the transaction and drops it.
+        s.members.forEach((w) => this._create(w, s));
         const buf = s.buf;
         s.buf = null;                    // from here on _blit sends dirty rects
-        c.pixels(ref, null, buf);
+        if (!c.pixels(ref, null, buf)) throw new Error('initial sheet pixel upload rejected (ref ' + ref + ')');
     }
 
     /**
@@ -1337,8 +1660,16 @@ class HudApp {
         const w = x.w, was = x.px;
         x.px = buf;
         if (!was || (x.sheet && x.sheet.buf)) { this._blit(x, null, buf); return; }
+        this.renderStats.diffChecks++;
+        const diffStarted = process.hrtime();
         const c = changes(was, buf, w.w, w.h);
-        if (c) this._blit(x, [c.rect], c.px);
+        const diffElapsed = process.hrtime(diffStarted);
+        const diffUs = diffElapsed[0] * 1000000 + diffElapsed[1] / 1000;
+        this.renderStats.diffCalls++;
+        this.renderStats.diffMs += diffUs / 1000;
+        if (diffUs > this.renderStats.diffMaxUs) this.renderStats.diffMaxUs = diffUs;
+        if (c) this._blit(x, c.rects, c.px);
+        else this.renderStats.unchangedWidgets++;
     }
 
     /** "key" is on while that bool setting is on; "!key" while it is off. */
@@ -1355,7 +1686,7 @@ class HudApp {
         if (sheet) { ref = sheet.ref; c = sheet.c; }
         else {
             c = this._clientAt(this._connOf(w));
-            const base = { target: this.target, klass: w.class || 'content', z: w.z || 0, x: w.x, y: w.y, w: w.w, h: w.h };
+            const base = { target: this.target, klass: w.class || 'content', z: w.z || 0, x: w.x, y: w.y, w: w.w, h: w.h, visible: false };
             if (IMAGE_TYPES[w.type]) ref = c.image(Object.assign({ iw: w.w, ih: w.h }, base));
             else ref = c.effect(Object.assign({ fs: w.type === 'swatch' ? calibration.SWATCH : shaders[w.type] }, base));
             if (!ref) { this.log.warn('widget "' + w.id + '": layer refused'); return; }
@@ -1552,46 +1883,42 @@ class HudApp {
     _holeRadius(w) { return isNum(w.holeRadius) ? w.holeRadius : 28; }
 
     /** BMW vehicle-state gate, ported from the newer Redline HUD shutdown fix. */
-    _vehicleGate(data) {
-        const d = data || {};
-        const c = d.condition;
-        const known = d.conditionKnown !== false;
-        const off = known && isNum(c) && (c <= 5 || c === 12);
-        return {
-            condition: c,
-            off: off,
-            hold: d.conditionKnown === false || (isNum(c) && (c <= 5 || c === 8 || c === 12)),
-        };
-    }
+    _vehicleGate(data) { return VehicleGate.evaluate(data); }
+
+    /** Release any active panel content whenever vehicle state is not safe to display. */
+    _holdForVehicle(vehicle) { VehicleGate.hold(this, vehicle); }
 
     /** Drop only layout layers; keep the shared renderer connection and cached font assets alive. */
     _dropLayoutLayers() {
+        if (this.build && this.build.timer) clearTimeout(this.build.timer);
+        this.build = null;
         this.needsBoost = false;
-        this._layerRefs().forEach((r) => r.c.drop(r.ref));
+        const refs = this._layerRefs();
+        let failed = 0;
+        refs.forEach((r) => {
+            try { r.c.drop(r.ref); }
+            catch (e) {
+                failed++;
+                this.log.error('drop layer ' + r.ref + ' [connection ' + (r.ci + 1) + '] failed: ' + (e && e.stack || e));
+            }
+        });
+        if (refs.length) this.log.info('renderer release requested: ' + refs.length + ' layer(s)' + (failed ? ', ' + failed + ' drop command(s) failed' : '') + '; renderer acknowledgement is asynchronous');
         this.widgets.clear();
         this.sheets = [];
         this.pixelBytes = 0;
         this.layerStates.clear();
         this.refused = null;
+        return { requested: refs.length, failed: failed };
     }
 
     _tick() {
-        if (this.stopped) return;
+        if (this.stopped || this.safetyTripped || (this.safety && this.safety.tripped())) return;
         const now = Date.now();
         this._frameData = this.car.data();
         try {
             const vehicle = this._vehicleGate(this._frameData);
-            if (vehicle.off) {
-                if (!this.vehicleOff) {
-                    this._dropLayoutLayers();
-                    this.vehicleOff = true;
-                    this.deferredRebuild = true;
-                    if (!this.vehicleOffLogged) {
-                        this.vehicleOffLogged = true;
-                        this.log.info('vehicle state ' + vehicle.condition + ': cluster layers dropped; waiting for drive-ready');
-                    }
-                    this._status();
-                }
+            if (this._layoutName() !== 'off' && vehicle.hold) {
+                this._holdForVehicle(vehicle);
                 return;
             }
             if (!vehicle.hold && (this.vehicleOff || this.deferredRebuild)) {
@@ -1601,17 +1928,24 @@ class HudApp {
                 this._rebuild();
                 return;
             }
-            if (vehicle.hold && this.widgets.size === 0) {
-                this.deferredRebuild = true;
-                return;
-            }
             this._smoothRpm(now);
             if (!this.client.ready || this.dcsm2.state !== 'available') return;
+            // Do not keep queuing uniforms/commands while any renderer socket is
+            // backpressured. The next drain event lets the following tick resume.
+            if (this.clients.some((client) => client.blocked)) {
+                this.renderStats.backpressureTicks++;
+                return;
+            }
+            this.renderStats.frames++;
             // shift light: blink the whole bar at 8 Hz once the rpm reaches the redline
             const rpm = this._raw('rpm');
             const flashing = isNum(rpm) && rpm >= this.setting('redline') - 150;
             this.flash = flashing ? Math.floor(now / 62.5) % 2 === 0 : false;
-            this.widgets.forEach((x) => this._guard('widget ' + x.w.id, () => this._update(x, now, false)));
+            this.widgets.forEach((x) => {
+                if (!this.clients.some((client) => client.blocked)) {
+                    this._guard('widget ' + x.w.id, () => this._update(x, now, false));
+                }
+            });
         } finally {
             this._frameData = null;
         }
@@ -1753,11 +2087,13 @@ class HudApp {
             const key = s + '|' + role + (svcActive ? '|1' : '');
             if (!force && key === x.last) return;
             x.last = key; x.lastPaint = now;
+            const rasterStarted = process.hrtime();
             const buf = textRaster.drawText(w.w, w.h, s, {
                 font: w.font, color: svcActive ? [255, 214, 150, 255] : color(this.theme, role), align: w.align, spacing: w.spacing,
                 color2: svcActive ? color(this.theme, 'accent') : (w.color2 && role !== 'hot' ? color(this.theme, w.color2) : null),
                 glow: svcActive ? (this.theme.glow || 0.65) : (w.glow ? this.theme.glow : 0),
             });
+            this._recordRasterTime('text', rasterStarted);
             this._blitDiff(x, buf);
         } else if (w.type === 'badge') {
             if (!force && now - x.lastPaint < TEXT_MS) return;
@@ -1770,7 +2106,10 @@ class HudApp {
             const key = s + '|' + tone + '|' + fresh;
             if (!force && key === x.last) return;
             x.last = key; x.lastPaint = now;
-            this._blitDiff(x, this._paintBadge(w, s, tone, fresh));
+            const rasterStarted = process.hrtime();
+            const badge = this._paintBadge(w, s, tone, fresh);
+            this._recordRasterTime('badge', rasterStarted);
+            this._blitDiff(x, badge);
         } else if (w.type === 'shiftbar') {
             const rpm = this._raw('rpm');
             const segs = w.segments || 40;
