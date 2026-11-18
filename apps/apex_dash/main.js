@@ -129,7 +129,7 @@ mgu.run({
             try {
                 // Diagnostic rendering is optional: load Canvas only when the user opens LOGS.
                 // A font/Canvas initialization failure must never prevent the cluster GUI starting.
-                const { Canvas } = require('./kit/runtime/canvas');
+                const { Canvas } = require('./kit/canvas');
                 const lines = readLogLines();
                 const canvas = new Canvas(LOG_W, LOG_H);
                 canvas.clear('#101318');
