@@ -182,6 +182,9 @@ class ClusterRender extends EventEmitter {
         this.helloReceived = false;
         this.inbuf = Buffer.alloc(0);
         sock.on('connect', () => {
+            // close() may race with a queued connect event; stale sockets must
+            // never resurrect connection or replay state after shutdown.
+            if (this.closed || this.sock !== sock) return;
             /* Everything made before now goes in the replay below. Keep all
              * recreated drawable layers hidden until hello and pixel replay. */
             this.connected = true;
