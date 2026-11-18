@@ -2026,14 +2026,16 @@ vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1,
     vec2 dir = vec2(sin(rad), -cos(rad));
     vec2 nrm = vec2(-dir.y, dir.x);
 
-    // 1. Cast shadow onto dial face & numbers (offset +2.5, +5.0)
+    // 1. Cast shadow onto dial face, masked out over the central hub.
     vec2 qs = q - vec2(2.5, 5.0);
     float alS = dot(qs, dir), sdS = abs(dot(qs, nrm));
     if (alS >= -tail - 4.0 && alS <= len + 4.0) {
         float ts = clamp((alS + tail) / (len + tail), 0.0, 1.0);
         float hws = mix(w0, w1, ts) * 0.5;
         float ds = max(sdS - hws, max(-alS - tail, alS - len));
-        c = over(vec4(0.0, 0.0, 0.0, 0.42 * exp(-max(ds, 0.0) / 2.5)), c);
+        float hubShadowMask = smoothstep(w0 * 3.15, w0 * 3.85, length(q));
+        float shadowA = 0.42 * exp(-max(ds, 0.0) / 2.5) * hubShadowMask;
+        c = over(vec4(0.0, 0.0, 0.0, shadowA), c);
     }
 
     // 2. Needle body
