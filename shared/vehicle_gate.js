@@ -16,6 +16,8 @@ function evaluate(data) {
 /** Release active panel content while the live vehicle state is unsafe or unknown. */
 function hold(app, vehicle) {
     app.deferredRebuild = true;
+    app.activeName = null;
+    app.problem = 'waiting for a safe vehicle state';
     if (vehicle.off) app.vehicleOff = true;
     const hasLayout = !!(app.build || app.widgets.size || app.sheets.length);
     if (hasLayout) app._dropLayoutLayers();
