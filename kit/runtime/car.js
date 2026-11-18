@@ -65,6 +65,15 @@ const conditionOf = (x) => { const n = typeof x === 'number' ? x : CONDITIONS[x]
 function engineRpm(value, stoppedRpm) {
     return typeof value === 'number' && typeof stoppedRpm === 'number' && stoppedRpm > 0 && value < stoppedRpm ? 0 : value;
 }
+
+// A quiet torque signal must not be paired with newer RPM/speed samples.
+// Redline uses 300 ms for learning and 2 s for a displayed readout; keep the
+// same 2 s live-data validity window here.
+function freshTorque(value, at, now, maxAge) {
+    const age = now - at;
+    return typeof value === 'number' && isFinite(value) && typeof at === 'number' &&
+        at > 0 && age >= 0 && age <= (maxAge || 2000) ? value : null;
+}
 /**
  * DataPowerTrain2.statusGearSelectionDrive: P / R / N and the engaged gear in one enum, names or
  * wire numbers (N = 1, R = 2, P = 3, NP = 4, _1 = 5 ... _9 = 13) -> { stage, gear } or undefined.
@@ -189,7 +198,16 @@ class Car {
             }
         });
         // negative torque (engine braking while the rpm falls) counts as 0
-        if (groups.includes('torque')) add('de.bmw.infotainment.drivingexcitement.FES', 'statusActualValueTorque2', (v) => { const tq = sc('torque', v.actualValueTorqueCrankshaft); put('torque', tq === null ? null : Math.max(0, tq)); });
+        if (groups.includes('torque')) add('de.bmw.infotainment.drivingexcitement.FES', 'statusActualValueTorque2', (v) => {
+            const tq = sc('torque', v && v.actualValueTorqueCrankshaft);
+            if (tq === null) {
+                this.live.torqueAt = 0;
+                put('torque', null);
+            } else {
+                this.live.torqueAt = Date.now();
+                put('torque', Math.max(0, tq));
+            }
+        });
         // extra[iface].$pollMs: re-read that interface's fields that often (signals.js), for fields the car never notifies
         const pollMs = {};
         Object.keys(extra || {}).forEach((iface) => Object.keys(extra[iface]).forEach((f) => { if (f === '$pollMs') pollMs[iface] = extra[iface][f]; else add(iface, f, extra[iface][f]); }));
@@ -252,6 +270,7 @@ class Car {
     data() {
         const src = this.demoActive ? this.simData : this.live;
         const d = Object.assign({}, src, { demo: this.demoActive });
+        if (!this.demoActive) d.torque = freshTorque(d.torque, d.torqueAt, Date.now());
         if (d.gear === undefined && !this.demoActive) { d.gear = this.guessed; d.gearGuessed = true; }
         return d;
     }
@@ -274,6 +293,7 @@ class Car {
 
     _emit(d, t) {
         const data = Object.assign({}, d, { demo: this.demoActive });
+        if (!this.demoActive) data.torque = freshTorque(data.torque, data.torqueAt, Date.now());
         this.listeners.forEach((l) => { try { l.fn(data, t); } catch (e) { this.log.warn('sample: ' + e); } });
     }
 }
@@ -283,4 +303,5 @@ Car.GearGuess = GearGuess;
 Car.selectionOf = selectionOf;
 Car.conditionOf = conditionOf;
 Car.engineRpm = engineRpm;
+Car.freshTorque = freshTorque;
 module.exports = Car;
