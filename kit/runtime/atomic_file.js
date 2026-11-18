@@ -40,8 +40,13 @@ function writeImageResource(file, png, log) {
         const ram = '/dev/shm';
         if (fs.existsSync(ram) && fs.statSync(ram).isDirectory()) {
             staged = path.join(ram, 'mgu_img_' + process.pid + '_' + (++sequence) + '.png');
-            fs.writeFileSync(staged, png);
-            png = fs.readFileSync(staged);
+            try {
+                fs.writeFileSync(staged, png);
+                png = fs.readFileSync(staged);
+            } catch (stageError) {
+                try { fs.unlinkSync(staged); } catch (ignored2) {}
+                staged = null; // RAM staging is an optimisation, never a reason to lose a frame
+            }
         }
         if (!writeAtomicFile(file, png, false, log)) throw new Error('could not atomically publish image resource');
     } finally {
