@@ -36,7 +36,7 @@ jobs:
       - name: Upload Apex Dash packages
         uses: actions/upload-artifact@v4
         with:
-          name: apex-dash-1.5.6
+          name: apex-dash-1.5.7
           path: |
             dist/apex_dash@1.5.6.mgu
             dist/apex_dash@1.5.6.tgz
