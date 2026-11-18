@@ -28,7 +28,7 @@ try {
     assert.strictEqual(client.ready, false, 'late event cannot restore ready state');
     assert.strictEqual(client.replaying, false, 'late event cannot restart replay');
     assert.strictEqual(writes.length, 0, 'late event cannot send a hello or replay data');
-    
+
 /* Events queued by an old socket must not tear down a newer connection. */
 {
     const oldSocket = new EventEmitter();
@@ -58,7 +58,7 @@ try {
     client.close();
 }
 
-process.stdout.write('cluster_render_late_connect: stale socket events ignored\\n');
+process.stdout.write('cluster_render_late_connect: stale socket events ignored\n');
 } finally {
     net.connect = originalConnect;
 }
