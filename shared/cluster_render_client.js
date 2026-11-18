@@ -134,6 +134,7 @@ class ClusterRender extends EventEmitter {
         this.replaying = false;
         this.replayVisibilitySent = false;
         this.replayVisibilityPending = false;
+        this.visibilitySuspended = false;
         // Optional app-level gate: wait for an external health check before
         // restoring previously visible drawable layers after reconnect.
         this.deferReplayVisibility = false;
@@ -168,6 +169,7 @@ class ClusterRender extends EventEmitter {
         this.replaying = false;
         this.replayVisibilitySent = false;
         this.replayVisibilityPending = false;
+        this.visibilitySuspended = false;
         this.helloReceived = false;
         this.inbuf = Buffer.alloc(0);
         this.pendingFrames.clear();
@@ -350,7 +352,7 @@ class ClusterRender extends EventEmitter {
              * visibility only after every retained image/asset frame has been
              * written, preserving TCP order so no incomplete layer can flash. */
             if (!this.replayVisibilitySent) {
-                if (this.deferReplayVisibility) {
+                if (this.deferReplayVisibility || this.visibilitySuspended) {
                     this.replayVisibilityPending = true;
                 } else {
                     this.layers.forEach((l, ref) => {
@@ -389,7 +391,7 @@ class ClusterRender extends EventEmitter {
         }
         const m = { op: 'layer', ref: ref, target: o.target, kind: l.kind };
         this._setFields(m, o);
-        if (this.replaying) m.visible = 0;
+        if (this.replaying || this.visibilitySuspended) m.visible = 0;
         if (l.kind === 'video') {
             ['vw', 'vh', 'fps', 'level_bits', 'dirty_threshold', 'settle_ms', 'stall_ms'].forEach((k) => {
                 if (o[k] !== undefined) m[k] = o[k];
@@ -537,6 +539,9 @@ class ClusterRender extends EventEmitter {
         keys.forEach((k) => { if (opts[k] !== undefined) l.opts[k] = opts[k]; });
         const m = { op: 'set', ref: ref };
         this._setFields(m, opts);
+        // Keep the caller's requested visibility in l.opts, but never reveal a
+        // drawable layer while the app-specific health gate is suspended.
+        if (this.visibilitySuspended && opts.visible !== undefined) m.visible = 0;
         if (l.kind === 'mesh') MESH_KEYS.forEach((k) => { if (opts[k] !== undefined) m[k] = opts[k]; });
         this._send(m);
     }
@@ -717,14 +722,26 @@ class ClusterRender extends EventEmitter {
         return true;
     }
 
+    /* Suspend drawable layers without changing their requested replay visibility. */
+    suspendVisibility() {
+        this.visibilitySuspended = true;
+        if (!this.ready) return true;
+        this.layers.forEach((l, ref) => {
+            if (l.kind === 'asset' || l.kind === 'scene') return;
+            this._send({ op: 'set', ref: ref, visible: 0 });
+        });
+        return true;
+    }
+
     /* Restore requested visibility only after an app-specific health gate passes. */
     restoreVisibility() {
-        if (!this.ready || !this.replayVisibilityPending) return false;
+        if (!this.ready || (!this.replayVisibilityPending && !this.visibilitySuspended)) return false;
         this.layers.forEach((l, ref) => {
             if (l.kind === 'asset' || l.kind === 'scene') return;
             this._send({ op: 'set', ref: ref, visible: l.opts.visible === undefined ? 1 : flag(l.opts.visible) });
         });
         this.replayVisibilityPending = false;
+        this.visibilitySuspended = false;
         return true;
     }
 
