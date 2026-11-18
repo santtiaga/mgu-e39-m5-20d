@@ -15,7 +15,7 @@
  * Demo: setting "demo" = auto (until the car answers) / on / off.
  * data().stage = the selector position 'P' / 'R' / 'N' / 'D' (gearbox signal), else undefined.
  * data().condition = BMW's vehicle state number ('condition' group; 10 = drive-ready), else undefined.
- * data().conditionKnown = false when BMW last sent an unrecognised state (e.g. 15, no value).
+ * data().conditionKnown = false until a recognised state arrives, and again on no-value or provider loss.
  */
 const Sim = require('./sim');
 
