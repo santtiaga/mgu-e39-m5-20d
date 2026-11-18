@@ -159,11 +159,16 @@ class ClusterRender extends EventEmitter {
         this.closed = true;
         if (this.timer) clearTimeout(this.timer);
         this.timer = null;
-        if (this.sock) this.sock.destroy();
+        const sock = this.sock;
         this.sock = null;
+        if (sock) sock.destroy();
         this.ready = false;
+        this.connected = false;
+        this.blocked = false;
         this.replaying = false;
         this.helloReceived = false;
+        this.inbuf = Buffer.alloc(0);
+        this.pendingFrames.clear();
     }
 
     _open() {
