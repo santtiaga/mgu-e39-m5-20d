@@ -56,7 +56,7 @@ A confirmed DCSM2 loss stops Apex Dash updates, requests drops for the tracked p
 
 ## Vehicle-state startup gate
 
-Live vehicle state starts as unknown and remains fail-closed until BMW reports a recognised `VehicleCondition` value. This prevents Apex Dash from creating panel layers during the initial ignition/start-up window before drive-ready is confirmed. An explicit no-value/unknown state closes the gate again. Demo mode uses its own simulated data and is not blocked by the live vehicle-state gate.
+Live vehicle state starts as unknown and remains fail-closed until BMW reports a recognised `VehicleCondition` enum value. This prevents Apex Dash from creating panel layers during the initial ignition/start-up window before the vehicle state is known. An explicit no-value/unknown state closes the gate again and is emitted immediately, without waiting for an RPM/speed sample. Any held state releases an already active layout as well as preventing a new build; the app waits for an eligible state before rebuilding. Demo mode uses its own simulated data and is not blocked by the live vehicle-state gate.
 
 ## Deliberate safety behavior
 
@@ -80,6 +80,7 @@ node tests/dcsm2_watchdog.test.js
 node tests/diag_lifecycle.test.js
 node tests/safety_controller.test.js
 node tests/staged_build.test.js
+node tests/vehicle_gate.test.js
 node tests/cluster_render_reconnect.test.js
 node --check shared/safety_controller.js
 node --check tests/safety_controller.test.js
