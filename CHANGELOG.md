@@ -1,3 +1,7 @@
+## Apex Dash 1.5.7
+- Fix diagnostic log line parsing (CR/LF and whitespace regexes).
+- Wait for the diagnostic PNG to finish loading before opening the logs screen.
+
 # Changes
 
 ## 1.5.6
