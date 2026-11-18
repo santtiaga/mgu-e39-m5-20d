@@ -16,4 +16,32 @@ assert.strictEqual(Car.engineRpm(160), 160);
 assert.strictEqual(Car.engineRpm(null, 400), null);
 assert.strictEqual(Car.engineRpm(undefined, 400), undefined);
 
-console.log('Car MHEV engine-speed cutoff: OK');
+
+/* A live vehicle state is unknown until BMW sends a recognised value. */
+{
+    let vehicleStateHandler;
+    const ctx = {
+        spec: { config: {} },
+        log: { info: function () {}, warn: function () {} },
+        settings: { get: function () { return 'off'; } },
+        signals: {
+            watch: function (iface, instance, handlers) {
+                vehicleStateHandler = handlers.VehicleCondition;
+                return Promise.resolve({ available: false, shutdown: function () {} });
+            }
+        }
+    };
+    const car = new Car(ctx, ['condition']);
+    assert.strictEqual(car.data().conditionKnown, false,
+        'the initial live state must fail closed until BMW reports vehicle condition');
+    vehicleStateHandler({ statusConditionVehicle: 'FAHREN' });
+    assert.strictEqual(car.data().condition, 10);
+    assert.strictEqual(car.data().conditionKnown, true,
+        'a recognised drive-ready state unlocks the vehicle gate');
+    vehicleStateHandler({ statusConditionVehicle: 15 });
+    assert.strictEqual(car.data().conditionKnown, false,
+        'an explicit no-value state closes the vehicle gate again');
+    car.stop();
+}
+
+console.log('Car MHEV engine-speed cutoff and vehicle-state startup gate: OK');
