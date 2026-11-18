@@ -596,7 +596,7 @@ class HudApp {
     /** Log bounded 30-second rendering counters; byte totals are frames accepted by socket.write. */
     _logRenderStats() {
         const s = this.renderStats;
-        if (!s.frames && !s.imageFrames && !s.diffChecks) return;
+        if (!s.frames && !s.imageFrames && !s.diffChecks && !s.backpressureTicks) return;
         const unchangedPct = s.diffChecks ? (100 * s.unchangedWidgets / s.diffChecks).toFixed(1) : '0.0';
         const diffAvgUs = s.diffCalls ? (s.diffMs * 1000 / s.diffCalls).toFixed(1) : '0.0';
         const savedPct = s.fullPixelBytes ? (100 * (1 - s.pixelBytes / s.fullPixelBytes)).toFixed(1) : '0.0';
