@@ -258,7 +258,7 @@ class HudApp {
         this.socketPath = process.env.HUD_CLUSTER_SOCKET || this.config.socketPath || DEFAULT_PATH;
         this.clients = [];               // the connections to cluster-render: [0] the app's own, more for "conn" widgets
         this.renderStats = { frames: 0, diffChecks: 0, unchangedWidgets: 0, imageFrames: 0,
-            fullFrames: 0, dirtyFrames: 0, dirtyRects: 0, pixels: 0, pixelBytes: 0, fullPixelBytes: 0, wireBytes: 0, backpressureWrites: 0, replayFrames: 0,
+            fullFrames: 0, dirtyFrames: 0, dirtyRects: 0, pixels: 0, pixelBytes: 0, fullPixelBytes: 0, wireBytes: 0, backpressureWrites: 0, backpressureTicks: 0, replayFrames: 0,
             rasterCalls: 0, rasterMs: 0, rasterMaxUs: 0, textRasterCalls: 0, badgeRasterCalls: 0,
             diffMs: 0, diffMaxUs: 0, diffCalls: 0 };
         this.started = false;
@@ -607,7 +607,7 @@ class HudApp {
             ', changed pixels=' + s.pixels + ', pixel bytes=' + s.pixelBytes +
             ', full-frame baseline=' + s.fullPixelBytes + ', pixel savings=' + savedPct + '%' +
             ', socket.write bytes=' + s.wireBytes + ', backpressure writes=' + s.backpressureWrites +
-            ', renderer replay frames=' + s.replayFrames +
+            ', backpressure-paused ticks=' + s.backpressureTicks + ', renderer replay frames=' + s.replayFrames +
             ', CPU raster=' + s.rasterMs.toFixed(2) + ' ms (' + s.rasterCalls + ' calls, max=' + s.rasterMaxUs.toFixed(0) + ' us)' +
             ', text=' + s.textRasterCalls + ', badge=' + s.badgeRasterCalls +
             ', CPU diff=' + s.diffMs.toFixed(2) + ' ms (' + s.diffCalls + ' calls, avg=' + diffAvgUs + ' us, max=' + s.diffMaxUs.toFixed(0) + ' us)');
@@ -1913,12 +1913,22 @@ class HudApp {
             }
             this._smoothRpm(now);
             if (!this.client.ready || this.dcsm2.state !== 'available') return;
+            // Do not keep queuing uniforms/commands while any renderer socket is
+            // backpressured. The next drain event lets the following tick resume.
+            if (this.clients.some((client) => client.blocked)) {
+                this.renderStats.backpressureTicks++;
+                return;
+            }
             this.renderStats.frames++;
             // shift light: blink the whole bar at 8 Hz once the rpm reaches the redline
             const rpm = this._raw('rpm');
             const flashing = isNum(rpm) && rpm >= this.setting('redline') - 150;
             this.flash = flashing ? Math.floor(now / 62.5) % 2 === 0 : false;
-            this.widgets.forEach((x) => this._guard('widget ' + x.w.id, () => this._update(x, now, false)));
+            this.widgets.forEach((x) => {
+                if (!this.clients.some((client) => client.blocked)) {
+                    this._guard('widget ' + x.w.id, () => this._update(x, now, false));
+                }
+            });
         } finally {
             this._frameData = null;
         }
