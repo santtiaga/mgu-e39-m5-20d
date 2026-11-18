@@ -1091,51 +1091,41 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
         vec3 rLight = mix(vec3(0.933, 0.945, 0.961), vec3(0.227, 0.165, 0.118), u_night);
         vec3 rDark  = mix(vec3(0.549, 0.569, 0.612), vec3(0.078, 0.055, 0.039), u_night);
 
-        // The large bezels get a stronger polished-aluminium response; small dials stay unchanged.
+        // Keep the original finish for the small dials and night mode.
         if (big && u_night < 0.5) {
-            // Satin aluminium: neutral metallic body with broad environmental reflections.
-            float keyEnv = pow(max(cos(ang - 0.55), 0.0), 1.8);
-            float fillEnv = pow(max(cos(ang - 2.45), 0.0), 2.4);
-            float darkEnv = pow(max(cos(ang - 1.72), 0.0), 2.0);
-            w = 0.43 + 0.20 * keyEnv + 0.075 * fillEnv - 0.13 * darkEnv;
-            rLight = vec3(0.690, 0.705, 0.725);
-            rDark = vec3(0.255, 0.270, 0.295);
-        }
-        vec3 rCol = mix(rDark, rLight, clamp(w, 0.0, 1.0));
+            // A curved, rough-metal cross-section: the surface normal rolls across the
+            // bezel instead of painting a brightness gradient around the circumference.
+            float profile = cos(PI * u);
+            float normalTilt = 0.62 * profile;
+            float ca = cos(ang - 0.62);
+            float diffuseN = max(0.0, 0.835 * cos(normalTilt) + 0.55 * ca * sin(normalTilt));
+            float diffuse = 0.30 + 0.70 * diffuseN;
 
-        // Radial bevel (inner shadow, raised ridge, and a crisp outer metal lip).
-        float u = clamp((r - R * ringIn) / (R * (1.0 - ringIn)), 0.0, 1.0);
-        float inSh = clamp(1.0 - u / 0.22, 0.0, 1.0) * 0.55;
-        float outSh = clamp((u - 0.80) / 0.20, 0.0, 1.0) * 0.60;
-        float ridge = max(0.0, 1.0 - abs(u - 0.55) / 0.25) * 0.20;
-        if (big && u_night < 0.5) {
-            // Satin-machined aluminium cross-section: a shallow curved crown catches a wide softbox.
-            inSh = clamp(1.0 - u / 0.30, 0.0, 1.0) * 0.27;
-            outSh = clamp((u - 0.89) / 0.11, 0.0, 1.0) * 0.25;
-            ridge = max(0.0, 1.0 - abs(u - 0.50) / 0.40) * 0.025;
+            // Broad, low-energy specular return. High roughness keeps it satin, not chrome.
+            float halfN = 0.914 * cos(normalTilt) + 0.406 * ca * sin(normalTilt);
+            float specular = pow(max(halfN, 0.0), 9.0) * 0.17;
+            float edgeOcclusion = 0.90 + 0.10 * sin(PI * u);
 
-            float textureMask = smoothstep(0.015, 0.09, u) * (1.0 - smoothstep(0.91, 0.99, u));
-            // Fine circumferential machining lines: grooves follow the circular edge.
-            float brushPhase = u * 78.0 + 0.16 * sin(ang * 4.0) + 0.05 * sin(ang * 11.0);
-            float brush = sin(brushPhase) * 0.010 + sin(brushPhase * 0.47 + 1.1) * 0.004;
-            // Crisp, unfiltered per-pixel grain, restrained enough not to read as digital noise.
-            float grain = (hash12(floor(gl_FragCoord.xy)) - 0.5) * 0.018;
-            float coating = (sin(ang * 31.0 + u * 23.0) * sin(ang * 53.0 - u * 15.0)) * 0.008;
-            rCol += vec3(brush + grain + coating) * textureMask;
+            vec3 aluminium = vec3(0.405, 0.420, 0.445) * diffuse;
+            vec3 metalTint = vec3(0.70, 0.72, 0.75);
+            rCol = (aluminium + metalTint * specular) * edgeOcclusion;
 
-            // Rough-metal specular response: broad light and a soft dark environment return.
-            float softKey = pow(max(cos(ang - 0.55), 0.0), 1.8);
-            float softFill = pow(max(cos(ang - 2.45), 0.0), 2.4);
-            float darkReturn = pow(max(cos(ang - 1.72), 0.0), 2.0);
-            float crossSection = 0.72 + 0.28 * sin(PI * u);
-            float metalReflection = (0.105 * softKey + 0.038 * softFill - 0.065 * darkReturn) * crossSection;
-            rCol += vec3(metalReflection * 0.94, metalReflection * 0.97, metalReflection);
+            // Fine circumferential machining: shallow grooves across the radial profile.
+            float textureMask = smoothstep(0.025, 0.13, u) * (1.0 - smoothstep(0.87, 0.975, u));
+            float brushWave = sin(u * 46.0 + 0.10 * sin(ang * 5.0) + 0.035 * sin(ang * 13.0));
+            float secondaryBrush = sin(u * 19.0 + 0.08 * sin(ang * 7.0));
+            float grain = (hash12(floor(gl_FragCoord.xy)) - 0.5) * 0.012;
+            float coating = sin(ang * 37.0 + u * 29.0) * 0.0035;
+            rCol += vec3((brushWave * 0.009 + secondaryBrush * 0.0035 + grain + coating) * textureMask);
 
-            // Narrow, subdued edge roll-off; no white chrome outline.
-            float innerLip = 1.0 - smoothstep(0.02, 0.10, u);
-            float outerLip = smoothstep(0.92, 0.99, u);
-            rCol -= vec3(0.020, 0.021, 0.023) * innerLip;
-            rCol -= vec3(0.024, 0.025, 0.027) * outerLip;
+            // Softly rolled edges, with no bright outline.
+            float innerLip = 1.0 - smoothstep(0.015, 0.10, u);
+            float outerLip = smoothstep(0.90, 0.985, u);
+            rCol -= vec3(0.018, 0.019, 0.021) * innerLip;
+            rCol -= vec3(0.021, 0.022, 0.024) * outerLip;
+            inSh = clamp(1.0 - u / 0.30, 0.0, 1.0) * 0.16;
+            outSh = clamp((u - 0.90) / 0.10, 0.0, 1.0) * 0.17;
+            ridge = 0.0;
         }
         rCol = mix(rCol + vec3(ridge), vec3(0.0), max(inSh, outSh));
 
