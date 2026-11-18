@@ -29,6 +29,7 @@ assert.strictEqual(parse(''), null);
     watchdog.disconnected();
     assert.deepStrictEqual(changes[2], { state: 'unknown', previous: 'unavailable' },
         'a socket disconnect returns health to unknown, not unavailable');
+    assert.strictEqual(watchdog.lastStatusAt, 0, 'a reconnect starts a fresh status-response deadline');
     watchdog.stop();
 }
 
