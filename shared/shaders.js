@@ -1112,15 +1112,16 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
             ridge = max(0.0, 1.0 - abs(u - 0.50) / 0.36) * 0.045;
 
             float textureMask = smoothstep(0.02, 0.10, u) * (1.0 - smoothstep(0.90, 0.99, u));
-            // Continuous, band-limited surface variation: no floor/hash discontinuities (no pixel aliasing).
-            // Three broad concentric machining traces across the narrow bezel.
-            float radialBrush = sin(u * 19.0 + 0.22 * sin(ang * 5.0));
-            // Very low-contrast fine bead-blast mottling, with spatial frequencies kept below pixel Nyquist.
-            float grainA = sin(ang * 74.0 + u * 7.0);
-            float grainB = sin(ang * 113.0 - u * 11.0 + 1.3);
-            float grainC = sin(ang * 41.0 + u * 15.0 + 2.1);
-            float softGrain = (grainA * grainB + 0.5 * grainC) * 0.5;
-            float surfaceTexture = radialBrush * 0.010 + softGrain * 0.008;
+            // Radial brushed-metal striations: crisp angular grooves running from inner to outer edge.
+            float radialBrush = sin(ang * 520.0 + 1.8 * u + 0.18 * sin(ang * 13.0));
+            float brushVariation = sin(ang * 167.0 + u * 4.0) * 0.22;
+            // Unsoftened pixel-scale grain. One independent value per output pixel; no blur/interpolation.
+            float rawGrain = hash12(floor(gl_FragCoord.xy)) - 0.5;
+            float grain = rawGrain * 0.030;
+            // Subtle coating mottling, kept separate from the sharp grain.
+            float coating = (sin(ang * 29.0 + u * 17.0) * sin(ang * 47.0 - u * 9.0)) * 0.006;
+            float surfaceTexture = radialBrush * (0.014 + brushVariation * 0.004)
+                                 + grain + coating;
             rCol += vec3(surfaceTexture) * textureMask;
 
             // Wide diffuse reflection gives the rough aluminium a gentle directional response.
