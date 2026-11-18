@@ -1111,20 +1111,22 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
             outSh = clamp((u - 0.88) / 0.12, 0.0, 1.0) * 0.30;
             ridge = max(0.0, 1.0 - abs(u - 0.50) / 0.36) * 0.045;
 
-            float textureMask = smoothstep(0.025, 0.12, u) * (1.0 - smoothstep(0.88, 0.99, u));
-            // Pixel-scale bead-blast grain; the previous sub-pixel noise vanished after rasterisation.
-            float fineGrain = hash12(floor(p * 1.05)) - 0.5;
-            float coatingNoise = hash12(floor(vec2(ang * 8.0, u * 13.0))) - 0.5;
-            float lineWarp = (hash12(floor(vec2(ang * 17.0, u * 11.0))) - 0.5) * 0.12;
-            // Concentric satin brushing: a handful of fine grooves across the narrow bezel.
-            float circularGrain = sin(u * 42.0 + lineWarp + 0.06 * sin(ang * 9.0));
-            float surfaceTexture = fineGrain * 0.012 + coatingNoise * 0.010 + circularGrain * 0.018;
+            float textureMask = smoothstep(0.02, 0.10, u) * (1.0 - smoothstep(0.90, 0.99, u));
+            // Continuous, band-limited surface variation: no floor/hash discontinuities (no pixel aliasing).
+            // Three broad concentric machining traces across the narrow bezel.
+            float radialBrush = sin(u * 19.0 + 0.22 * sin(ang * 5.0));
+            // Very low-contrast fine bead-blast mottling, with spatial frequencies kept below pixel Nyquist.
+            float grainA = sin(ang * 74.0 + u * 7.0);
+            float grainB = sin(ang * 113.0 - u * 11.0 + 1.3);
+            float grainC = sin(ang * 41.0 + u * 15.0 + 2.1);
+            float softGrain = (grainA * grainB + 0.5 * grainC) * 0.5;
+            float surfaceTexture = radialBrush * 0.010 + softGrain * 0.008;
             rCol += vec3(surfaceTexture) * textureMask;
 
-            // Broad rough-metal reflection: visible tonal roll-off, with no sharp chrome streak.
-            float softKey = pow(max(cos(ang - 0.55), 0.0), 1.7);
-            float softFill = pow(max(cos(ang - 2.45), 0.0), 2.2);
-            float broadLight = 0.075 * softKey + 0.022 * softFill - 0.018;
+            // Wide diffuse reflection gives the rough aluminium a gentle directional response.
+            float softKey = pow(max(cos(ang - 0.55), 0.0), 1.35);
+            float softFill = pow(max(cos(ang - 2.45), 0.0), 2.0);
+            float broadLight = 0.062 * softKey + 0.018 * softFill - 0.014;
             rCol += vec3(broadLight * 0.96, broadLight * 0.98, broadLight);
 
             // Soft rolled edges; preserve a wide, textured central metal surface.
