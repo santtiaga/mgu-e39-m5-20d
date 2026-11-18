@@ -214,7 +214,10 @@ class ClusterRender extends EventEmitter {
          * are ignored. */
         sock.on('data', (d) => { if (this.sock === sock) this._data(d); });
         sock.on('drain', () => { if (this.sock === sock) { this.blocked = false; this._pump(); } });
-        sock.on('error', () => {});
+        sock.on('error', (error) => {
+            if (this.sock !== sock) return;
+            this.emit('socket-error', error);
+        });
         sock.on('close', () => {
             if (this.sock !== sock) return;
             const wasReady = this.ready;
