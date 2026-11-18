@@ -330,8 +330,8 @@ const renderServer = net.createServer((sock) => {
                         inventory.push('layer ' + index++ + ' ' + item.kind + ' of ' + (item.w || 0) + 'x' + (item.h || 0) + ' on ' + item.target + ', connection ' + item.conn + ' ref ' + item.ref);
                     }
                 });
-                const summary = 'bench: ' + layerCount() + ' layers' + (assets ? ' and ' + assets + ' asset' + (assets > 1 ? 's' : '') : '') + ' on ' + conns + ' connection(s), layer cap ' + (layerCap || 'off') + ', ' + overCap() + ' over it, pixel memory ' + mib(pixelBytes()) + ' of ' + (PIXEL_BYTES ? mib(PIXEL_BYTES) : 'unlimited') + '\\n' + DCSM2Mock.statusLine(dcsm2State);
-                writeEv(sock, { ev: 'status', text: inventory.join('\\n') + '\\n' + summary });
+                const summary = 'bench: ' + layerCount() + ' layers' + (assets ? ' and ' + assets + ' asset' + (assets > 1 ? 's' : '') : '') + ' on ' + conns + ' connection(s), layer cap ' + (layerCap || 'off') + ', ' + overCap() + ' over it, pixel memory ' + mib(pixelBytes()) + ' of ' + (PIXEL_BYTES ? mib(PIXEL_BYTES) : 'unlimited') + '\n' + DCSM2Mock.statusLine(dcsm2State);
+                writeEv(sock, { ev: 'status', text: inventory.join('\n') + '\n' + summary });
                 return;
             }
             default:
