@@ -17,6 +17,7 @@
 const fs = require('fs');
 const path = require('path');
 const Module = require('module');
+const VehicleStateMock = require('./vehicle_state');
 
 const stage = process.argv[2], dataDir = process.argv[3];
 if (!stage || !dataDir) { console.error('usage: run-app.js <dist/<id>> <data dir>'); process.exit(2); }
@@ -81,8 +82,15 @@ function press(key, value) {
 const SCALE = { rpm: [0.25, 0], speed: [0.015625, 0], accel: [0.002, -65], temp: [1, -48], torque: [0.5, -1023.5], boost: [0.01, 0] };
 const raw = (k, v) => Math.round((v - SCALE[k][1]) / SCALE[k][0]);
 let mode = 'demo', manual = {}, drive = null;
+let vehicleState = 'unknown';
 // the drive mode buttons, sent once a second as the car does on change (wire numbers: 1 Sport, 4 Comfort, 7 Eco Pro)
 setInterval(() => { if (drive !== null) hu.feed('de.bmw.infotainment.drivingexcitement.FES', 'statusFESVehicleDynamicSwitchHMI', { actualValueModeDrivingExperience: drive }); }, 1000);
+// Feed the exact SOME/IP field consumed by kit/runtime/car.js. 15 is BMW's explicit no-value enum.
+setInterval(() => {
+    hu.feed('de.bmw.infrastructure.VehicleCondition', 'VehicleCondition', {
+        statusConditionVehicle: VehicleStateMock.condition(vehicleState),
+    });
+}, 500);
 setInterval(() => {
     if (mode !== 'manual') return;
     const v = manual, num = (k, d) => (typeof v[k] === 'number' && isFinite(v[k]) ? v[k] : d);
