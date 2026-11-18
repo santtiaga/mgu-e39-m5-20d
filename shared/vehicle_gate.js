@@ -22,7 +22,7 @@ function hold(app, vehicle) {
     if (!app.vehicleOffLogged) {
         app.vehicleOffLogged = true;
         app.log.info('vehicle state ' + (vehicle.condition === undefined ? 'unknown' : vehicle.condition) +
-            ': cluster layers ' + (hasLayout ? 'dropped' : 'held') + '; waiting for drive-ready');
+            ': cluster layers ' + (hasLayout ? 'dropped' : 'held') + '; waiting for a safe vehicle state');
         app._status();
     }
 }
