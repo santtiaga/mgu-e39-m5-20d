@@ -1529,7 +1529,10 @@ class HudApp {
 
     /** Advance only on renderer layer events; client calls and status text are not treated as acknowledgements. */
     _buildLayerEvent(ci, ref, state, reason) {
-        if (this.dcsm2.state !== 'available') return;
+        const c = this.clients[ci];
+        // During reconnect, layer-state events can arrive before retained pixels
+        // have replayed. Never reveal a staged layer until both gates are open.
+        if (!c || !c.ready || this.dcsm2.state !== 'available') return;
         const b = this.build;
         const action = StagedBuild.transition(b, ci, ref, state, reason);
         if (!action) return;
