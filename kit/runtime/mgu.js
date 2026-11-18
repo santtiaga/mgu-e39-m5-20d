@@ -107,7 +107,7 @@ class Settings {
             const mark = '_reset_' + it.key;
             if (it.reset && this.values[mark] !== it.reset) { this.values[it.key] = it.default; this.values[mark] = it.reset; changed = true; }
         }
-        if (changed && fs.existsSync(this.file)) writeAtomicFile(this.file, JSON.stringify(this.values, null, 1), true);
+        if (changed && fs.existsSync(this.file)) writeAtomicFile(this.file, JSON.stringify(this.values, null, 1), true, log);
     }
     get(key) { return this.values[key]; }
     set(key, value) {
@@ -390,8 +390,7 @@ class Widget {
             const rb = this.comp.getResourceBundle();
             const file = path.join(RHMI_RES, 'dyn_' + RUN_TAG + '_w' + spawnId + '_' + (st.n++ % 4) + '.png');
             const t0 = Date.now(), png = frame.png(), t1 = Date.now();
-            fs.writeFileSync(file + '.tmp', png);
-            fs.renameSync(file + '.tmp', file);
+            writeImageResource(file, png, log);
             await rb.createResourceHandles([file]);
             await this.comp.setValue(Number(spawnId), cell, rb.getResourceHandle(file), 'Asset');
             this.timing.png += t1 - t0; this.timing.push += Date.now() - t1;
