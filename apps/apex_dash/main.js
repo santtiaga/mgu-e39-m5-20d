@@ -136,8 +136,8 @@ mgu.run({
             const shown = lines.length ? lines : ['Waiting for Apex Dash / cluster-render log entries...'];
             shown.forEach((line, i) => {
                 const y = 126 + i * LOG_LINE_HEIGHT;
-                const color = /\\b(FATAL|ERROR|INCIDENT)\\b/i.test(line) ? '#ff7777' :
-                    /\\b(WARN|WARNING)\\b|stalled fetch|no answer after a fetch/i.test(line) ? '#f0c36a' : '#d8dee8';
+                const color = /\b(FATAL|ERROR|INCIDENT)\b/i.test(line) ? '#ff7777' :
+                    /\b(WARN|WARNING)\b|stalled fetch|no answer after a fetch/i.test(line) ? '#f0c36a' : '#d8dee8';
                 canvas.text(line, 48, y, LOG_FONT, color, { literal: true });
             });
             ctx.ui.image('LOG_GFX', canvas);
