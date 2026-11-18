@@ -1,8 +1,7 @@
 'use strict';
 
 const assert = require('assert');
-const HudApp = require('../shared/hud');
-const changes = HudApp._changes;
+const changes = require('../shared/dirty_rects');
 
 function pixel(buf, width, x, y, rgba) {
     const off = (y * width + x) * 4;
