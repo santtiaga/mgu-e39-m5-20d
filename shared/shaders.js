@@ -1090,6 +1090,7 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
         float w = 0.5 + 0.32 * cos(ang * 2.0) + 0.18 * sin(ang * 3.0 - 0.7);
         vec3 rLight = mix(vec3(0.933, 0.945, 0.961), vec3(0.227, 0.165, 0.118), u_night);
         vec3 rDark  = mix(vec3(0.549, 0.569, 0.612), vec3(0.078, 0.055, 0.039), u_night);
+        float u = clamp((r - R * ringIn) / (R * (1.0 - ringIn)), 0.0, 1.0);
         vec3 rCol = mix(rDark, rLight, clamp(w, 0.0, 1.0));
 
         // Subtle satin anodised-aluminium surface: fine concentric brushing and oxide grain.
@@ -1106,7 +1107,6 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
         }
 
         // Radial bevel (inner shadow, ridge highlight at 0.55, outer shadow)
-        float u = clamp((r - R * ringIn) / (R * (1.0 - ringIn)), 0.0, 1.0);
         float inSh = clamp(1.0 - u / 0.22, 0.0, 1.0) * 0.55;
         float outSh = clamp((u - 0.80) / 0.20, 0.0, 1.0) * 0.60;
         float ridge = max(0.0, 1.0 - abs(u - 0.55) / 0.25) * 0.20;
