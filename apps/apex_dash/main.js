@@ -52,7 +52,23 @@ mgu.run({
             hud.safety.record('process unhandledRejection', reason instanceof Error ? reason : new Error(detail));
         };
         process.on('unhandledRejection', onUnhandledRejection);
-        hud.start();
+        // Install shutdown cleanup before start(): a synchronous renderer/UI
+        // startup failure must not leave partially-created timers or sockets.
+        const stopHudOnExit = () => {
+            try { hud.stop(); } catch (e) { /* process is exiting */ }
+        };
+        process.on('exit', stopHudOnExit);
+        try {
+            hud.start();
+        } catch (e) {
+            const detail = e && (e.stack || e.message) || String(e);
+            ctx.log.error('Cluster failed to start: ' + detail);
+            try { hud.stop(); } catch (stopError) {
+                ctx.log.warn('Cluster startup cleanup: ' + (stopError && stopError.message || stopError));
+            }
+            ctx.ui.text('STATUS', 'Cluster failed to start: ' + (e && e.message || e));
+            return;
+        }
 
         const logFile = path.join(ctx.dataDir, 'apex_dash.log');
         const previousLogFile = logFile + '.1';
@@ -179,7 +195,7 @@ mgu.run({
             if (logTimer !== null) clearInterval(logTimer);
             if (logServer) { try { logServer.close(); } catch (e) {} }
             process.removeListener('unhandledRejection', onUnhandledRejection);
-            try { hud.stop(); } catch (e) { /* exiting anyway */ }
+            process.removeListener('exit', stopHudOnExit);
         });
     },
 });
