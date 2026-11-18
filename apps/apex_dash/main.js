@@ -95,13 +95,13 @@ mgu.run({
                     const size = fs.fstatSync(fd).size;
                     const length = Math.min(size, LOG_HTTP_MAX_BYTES);
                     const data = Buffer.alloc(length);
-                    if (length) fs.readSync(fd, data, 0, length, size - length);
+                    const bytesRead = length ? fs.readSync(fd, data, 0, length, size - length) : 0;
                     let start = 0;
                     if (size > length) {
                         // Start at a UTF-8 code-point boundary after slicing the file tail.
-                        while (start < data.length && (data[start] & 0xC0) === 0x80) start++;
+                        while (start < bytesRead && (data[start] & 0xC0) === 0x80) start++;
                     }
-                    return data.slice(start).toString('utf8');
+                    return data.slice(start, bytesRead).toString('utf8');
                 } finally {
                     if (fd !== null) fs.closeSync(fd);
                 }
