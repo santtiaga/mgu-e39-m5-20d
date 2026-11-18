@@ -2,6 +2,10 @@
 
 Newest first. Dates are when the build was pushed.
 
+## Nov 18 2026
+
+- **Apex Dash 1.5.3:** serialize native SOME/IP operations through a fair urgent/normal queue (a waiting read gets a turn after at most three urgent operations), retain per-operation timeouts and idempotent proxy shutdown/subscription teardown; stage transient RHMI PNGs in RAM when available and atomically publish resource files; durably replace settings files with fsync + rename. Verify the bundled cluster-render client against upstream 0.6.9 without replacing local replay, visibility, reconnect, and socket-lifecycle safety.
+
 ## Nov 17 2026
 
 - **Apex Dash 1.4.9:** add a DCSM2 availability watchdog using cluster-render's status protocol. Defer initial panel layers until DCSM2 is confirmed available, pause live widget updates while unavailable, and automatically resume after recovery; expose the wait state in the app status line.
