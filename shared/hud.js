@@ -263,6 +263,15 @@ class HudApp {
             diffMs: 0, diffMaxUs: 0, diffCalls: 0 };
         this.started = false;
         this.stopped = false;
+        this.safetyTripped = false;
+        // Event guards are installed while the first renderer client is created,
+        // so the controller must exist before _clientAt(0) wires those events.
+        this.safety = createSafetyController({
+            log: this.log,
+            errorLimit: 5,
+            errorWindowMs: 10000,
+            onTrip: (incident) => this._onSafetyTrip(incident),
+        });
         // Remember confirmed provider availability across temporary socket outages.
         this.dcsm2WasAvailable = false;
         this.layerStates = new Map();    // "<conn>:<ref>" -> { state, reason } from cluster-render
@@ -341,13 +350,6 @@ class HudApp {
         this.problem = null;             // why nothing shows (a bad layout), for the status line
         this.statusListeners = [];
         this.lastStatus = null;
-        this.safetyTripped = false;
-        this.safety = createSafetyController({
-            log: this.log,
-            errorLimit: 5,
-            errorWindowMs: 10000,
-            onTrip: (incident) => this._onSafetyTrip(incident),
-        });
 
         try {
             this._setupVehicleData();
