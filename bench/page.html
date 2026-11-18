@@ -82,6 +82,8 @@
       <h2>Vehicle signals</h2>
       <div class="srow"><label for="dcsm2State">DCSM2 provider (bench mock only)</label><select id="dcsm2State"><option value="available">Available</option><option value="unavailable">Unavailable</option><option value="unknown">Unknown / no response</option></select></div>
       <div class="note">Controls the fake cluster-render status reply. This does not change the car app or real DCSM2.</div>
+      <div class="srow"><label for="vehicleState">Vehicle state (bench mock only)</label><select id="vehicleState"><option value="unknown">Unknown / no value (15)</option><option value="safe">Safe / FAHREN (10)</option><option value="off">Parked / WOHNEN (5)</option></select></div>
+      <div class="note">Feeds BMW VehicleCondition.VehicleCondition to the app in the bench only. Safe (10) releases the panel gate; Off (5) and Unknown (15) keep it closed. No MGU signals are changed.</div>
       <div class="seg"><button id="mDemo" class="on">Demo drive</button><button id="mManual">Manual</button></div>
       <div class="seg" id="drive" title="The drive mode buttons: FES statusFESVehicleDynamicSwitchHMI"><button data-v="" class="on">Mode not sent</button><button data-v="4">COMFORT</button><button data-v="1">SPORT</button><button data-v="2">SPORT+</button><button data-v="7">ECO PRO</button></div>
       <div id="sliders"></div>
@@ -390,6 +392,8 @@
   capEl.addEventListener('change', () => fetch('/cap', { method: 'POST', body: JSON.stringify({ cap: Number(capEl.value) || 0 }) }));
   const dcsm2El = document.getElementById('dcsm2State');
   dcsm2El.addEventListener('change', () => fetch('/dcsm2', { method: 'POST', body: JSON.stringify({ state: dcsm2El.value }) }));
+  const vehicleStateEl = document.getElementById('vehicleState');
+  vehicleStateEl.addEventListener('change', () => fetch('/vehicle-state', { method: 'POST', body: JSON.stringify({ state: vehicleStateEl.value }) }));
 
   /* ---------- server events ---------- */
   function addLog(e) {
@@ -447,11 +451,13 @@
     dbgN++; dbgLast = m.t + ':' + (m.key || '') + ':' + (m.w === undefined ? 'whole' : 'rect'); dirty = true;
     if (m.t === 'log') addLog(m);
     else if (m.t === 'dcsm2') dcsm2El.value = m.state;
+    else if (m.t === 'vehicleState') vehicleStateEl.value = m.state;
     else if (m.t === 'hello') {
       geo = m.geometry || geo;
       pixelCap = m.pixelCap === undefined ? pixelCap : m.pixelCap;
       if (document.activeElement !== capEl) capEl.value = m.cap || 0;
       if (document.activeElement !== dcsm2El && m.dcsm2) dcsm2El.value = m.dcsm2;
+      if (document.activeElement !== vehicleStateEl && m.vehicleState) vehicleStateEl.value = m.vehicleState;
       setView(m.view || 'hud', m.targets); document.getElementById('title').textContent = 'Bench: ' + m.app;
     }
     else if (m.t === 'scene') {
