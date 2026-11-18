@@ -16,6 +16,37 @@ assert.strictEqual(Car.engineRpm(399.75, 400), 0);
 assert.strictEqual(Car.engineRpm(400, 400), 400);
 assert.strictEqual(Car.engineRpm(800, 400), 800);
 
+// Torque values are only current while the engine signal is fresh; stale values
+// must not be paired with new RPM samples in power/torque calculations.
+assert.strictEqual(Car.freshTorque(500, 1000, 1200), 500);
+assert.strictEqual(Car.freshTorque(500, 1000, 3000), 500);
+assert.strictEqual(Car.freshTorque(500, 1000, 3001), null);
+assert.strictEqual(Car.freshTorque(500, 3000, 2000), null, 'future timestamps are rejected');
+assert.strictEqual(Car.freshTorque(null, 1000, 1200), null);
+
+{
+    let torqueHandler;
+    const ctx = {
+        spec: { config: {} },
+        log: { info: function () {}, warn: function () {} },
+        settings: { get: function () { return 'off'; } },
+        signals: {
+            watch: function (iface, instance, handlers) {
+                torqueHandler = handlers.statusActualValueTorque2;
+                return Promise.resolve({ available: true, shutdown: function () {} });
+            }
+        }
+    };
+    const car = new Car(ctx, ['torque']);
+    torqueHandler({ actualValueTorqueCrankshaft: 3047 }); // 500 Nm at 0.5 Nm/bit, offset -1023.5
+    assert.strictEqual(car.data().torque, 500, 'fresh torque signal is exposed');
+    car.live.torqueAt = Date.now() - 2001;
+    assert.strictEqual(car.data().torque, null, 'stale torque is not reused indefinitely');
+    torqueHandler({ actualValueTorqueCrankshaft: 4095 });
+    assert.strictEqual(car.data().torque, null, 'invalid torque sentinel clears the value');
+    car.stop();
+}
+
 // The cutoff is opt-in so other engine profiles retain their original rpm values.
 assert.strictEqual(Car.engineRpm(160, 0), 160);
 assert.strictEqual(Car.engineRpm(160), 160);
