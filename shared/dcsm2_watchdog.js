@@ -7,6 +7,7 @@
  */
 const POLL_WAITING_MS = 1500;
 const POLL_AVAILABLE_MS = 5000;
+const STATUS_STALE_MS = 12000;
 
 function parseStatus(text) {
     const match = /(?:^|\n)\s*dcsm:\s*(?:Dcsm2|DCSM provider)\s+(not available yet|not available|available)\b/i.exec(String(text || ''));
@@ -25,6 +26,7 @@ class DCSM2Watchdog {
         this.state = 'unknown';
         this.reason = 'waiting for cluster-render status';
         this.timer = null;
+        this.lastStatusAt = 0;
         this.stopped = false;
     }
 
@@ -36,6 +38,7 @@ class DCSM2Watchdog {
     disconnected() {
         if (this.stopped) return;
         this._cancel();
+        this.lastStatusAt = 0;
         this._set('unknown', 'cluster-render disconnected');
     }
 
@@ -43,6 +46,7 @@ class DCSM2Watchdog {
         if (this.stopped) return;
         const state = parseStatus(text);
         if (state === null) return;
+        this.lastStatusAt = Date.now();
         const reason = state === 'available' ? 'cluster-render reports DCSM2 available'
             : state === 'unavailable' ? 'cluster-render reports DCSM2 not available'
                 : 'cluster-render has not received DCSM2 availability yet';
@@ -70,6 +74,12 @@ class DCSM2Watchdog {
         this.timer = setTimeout(() => {
             this.timer = null;
             if (this.stopped || !this.client.ready) return;
+            // A connected socket is not proof that DCSM2 is still answering.
+            // If two health polls pass without a parseable status line, fail
+            // closed and keep the panel hidden until a fresh response arrives.
+            if (this.lastStatusAt && Date.now() - this.lastStatusAt > STATUS_STALE_MS && this.state !== 'unknown') {
+                this._set('unknown', 'DCSM2 status response is stale');
+            }
             try {
                 // Do not add diagnostic traffic to a socket already under
                 // writable backpressure; the next poll retries after drain.
