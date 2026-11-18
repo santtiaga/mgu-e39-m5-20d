@@ -58,7 +58,7 @@ A confirmed DCSM2 loss stops Apex Dash updates, requests drops for the tracked p
 
 ## Vehicle-state startup gate
 
-Live vehicle state starts as unknown and remains fail-closed until BMW reports a recognised `VehicleCondition` enum value. Ignition-on/diagnostic state (7) is eligible so the panel can initialise with the car's ignition; the transient start/stop and parked states are held. An explicit no-value/unknown state closes the gate again and is emitted immediately, without waiting for an RPM/speed sample. Any held state releases an already active layout as well as preventing a new build; the app waits for an eligible state before rebuilding. Demo mode uses its own simulated data and is not blocked by the live vehicle-state gate.
+Live vehicle state starts as unknown and remains fail-closed until BMW reports a recognised `VehicleCondition` enum value. Ignition-on/diagnostic state (7) is eligible so the panel can initialise with the car's ignition; the transient start/stop and parked states are held. An explicit no-value/unknown state closes the gate again and is emitted immediately, without waiting for an RPM/speed sample. That response still counts as a live provider answer, preventing `demo=auto` from replacing an unknown live vehicle state with simulated driving data. Any held state releases an already active layout as well as preventing a new build; the app waits for an eligible state before rebuilding. Demo mode uses its own simulated data and is not blocked by the live vehicle-state gate.
 
 ## Deliberate safety behavior
 
