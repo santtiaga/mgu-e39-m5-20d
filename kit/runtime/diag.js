@@ -132,7 +132,10 @@ class Diag extends EventEmitter {
         const retryBaseMs = opts && opts.retryBaseMs || this.busyMs;
         if (!this.quiet) this.log.info('UDS -> ' + hex(target) + ': ' + hex(sid) + ' ' + d.map((x) => hex(x)).join(' '));
         for (let attempt = 0; ; attempt++) {
-            const r = await this.signals.call(this.p, 'sendTasuRequest', {
+            if (this.stopped) throw new Error('diagnostic link stopped');
+            const proxy = this.p;
+            if (!proxy) throw new Error('no diagnostic link');
+            const r = await this._awaitOrStop(this.signals.call(proxy, 'sendTasuRequest', {
                 sourceAddress: TESTER, targetAddress: target, serviceID: sid, subroutineID: 0,
                 udsDataLength: d.length, udsData: Buffer.from(d), deadlockTime: 0,
             }, callTimeoutMs));
