@@ -28,9 +28,9 @@ jobs:
       - name: Upload Apex Dash packages
         uses: actions/upload-artifact@v4
         with:
-          name: apex-dash-1.5.0
+          name: apex-dash-1.5.1
           path: |
-            dist/apex_dash@1.5.0.mgu
-            dist/apex_dash@1.5.0.tgz
+            dist/apex_dash@1.5.1.mgu
+            dist/apex_dash@1.5.1.tgz
           if-no-files-found: error
           retention-days: 30
