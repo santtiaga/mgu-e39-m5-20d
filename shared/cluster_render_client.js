@@ -135,8 +135,8 @@ class ClusterRender extends EventEmitter {
         this.replayVisibilitySent = false;
         this.replayVisibilityPending = false;
         this.visibilitySuspended = false;
-        // Optional app-level gate: wait for an external health check before
-        // restoring previously visible drawable layers after reconnect.
+        // App-level health gate: defer reconnect visibility and allow a live
+        // connection to suspend/restore layers without changing requested state.
         this.deferReplayVisibility = false;
         this.helloReceived = false;
         this.closed = true;
