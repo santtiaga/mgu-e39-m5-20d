@@ -63,7 +63,7 @@ function cleanup(error) {
             console.error(error && error.stack || error);
             process.exitCode = 1;
         } else {
-            console.log('cluster_render_deferred_visibility: reconnect visibility waits for health gate');
+            console.log('cluster_render_deferred_visibility: health suspension and reconnect visibility gate');
         }
     });
 }
@@ -78,7 +78,15 @@ client.on('ready', () => {
             'no visible=true command may be sent before the app health check');
         assert.strictEqual(client.restoreVisibility(), true, 'health gate can restore pending visibility');
         if (readyCount === 1) {
-            // First connection: make the image visible, then simulate renderer restart.
+            // A same-socket DCSM2 uncertainty must hide the active layer without
+            // losing its requested visibility; a reconnect while suspended must
+            // keep it hidden until the health gate opens again.
+            assert.strictEqual(client.suspendVisibility(), true, 'health uncertainty suspends active visibility');
+            assert.strictEqual(client.layers.get(image).opts.visible, true,
+                'suspension must not overwrite the caller requested visibility');
+            client.set(image, { visible: true });
+            assert.strictEqual(messages[0].filter((m) => m.op === 'set' && m.ref === image).slice(-1)[0].visible, 0,
+                'ordinary updates cannot reveal a layer while visibility is suspended');
             setTimeout(() => {
                 if (connections[0] && !connections[0].destroyed) connections[0].destroy();
             }, 40);
