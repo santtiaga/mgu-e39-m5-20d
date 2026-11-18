@@ -166,6 +166,8 @@ class ClusterRender extends EventEmitter {
         this.connected = false;
         this.blocked = false;
         this.replaying = false;
+        this.replayVisibilitySent = false;
+        this.replayVisibilityPending = false;
         this.helloReceived = false;
         this.inbuf = Buffer.alloc(0);
         this.pendingFrames.clear();
