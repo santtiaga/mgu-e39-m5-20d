@@ -28,7 +28,31 @@ try {
     assert.strictEqual(client.ready, false, 'late event cannot restore ready state');
     assert.strictEqual(client.replaying, false, 'late event cannot restart replay');
     assert.strictEqual(writes.length, 0, 'late event cannot send a hello or replay data');
-    process.stdout.write('cluster_render_late_connect: stale connect ignored after close\\n');
+    
+/* Events queued by an old socket must not tear down a newer connection. */
+{
+    const oldSocket = new EventEmitter();
+    const newSocket = new EventEmitter();
+    const sockets = [oldSocket, newSocket];
+    oldSocket.write = newSocket.write = function () { return true; };
+    oldSocket.destroy = newSocket.destroy = function () { this.destroyed = true; };
+    net.connect = function () { return sockets.shift(); };
+    const client = new ClusterRender('apex_dash_stale_socket_test', '/tmp/unused.sock');
+    client.connect();
+    client.close();
+    client.connect();
+    assert.strictEqual(client.sock, newSocket, 'second connection is attached');
+    client.blocked = true;
+    oldSocket.emit('drain');
+    oldSocket.emit('close');
+    oldSocket.emit('connect');
+    assert.strictEqual(client.sock, newSocket, 'stale close cannot detach the replacement socket');
+    assert.strictEqual(client.blocked, true, 'stale drain cannot clear replacement backpressure');
+    assert.strictEqual(client.timer, null, 'stale close cannot schedule a reconnect timer');
+    client.close();
+}
+
+process.stdout.write('cluster_render_late_connect: stale socket events ignored\\n');
 } finally {
     net.connect = originalConnect;
 }
