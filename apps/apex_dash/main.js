@@ -94,7 +94,7 @@ mgu.run({
                 if (size > length) {
                     while (offset < bytesRead && (data[offset] & 0xC0) === 0x80) offset++;
                 }
-                return data.slice(offset, bytesRead).toString('utf8').split(/\\r?\\n/).filter(Boolean);
+                return data.slice(offset, bytesRead).toString('utf8').split(/\r?\n/).filter(Boolean);
             } catch (e) {
                 return [];
             } finally {
@@ -109,7 +109,7 @@ mgu.run({
             let order = 0;
             logFiles.forEach(({ source, file }) => {
                 readTailLines(file).forEach((line) => {
-                    const stamp = (line.match(/^(\\d{4}-\\d{2}-\\d{2}[T ][^ ]+)/) || [])[1] || '';
+                    const stamp = (line.match(/^(\d{4}-\d{2}-\d{2}[T ][^ ]+)/) || [])[1] || '';
                     records.push({ source, line, stamp, order: order++ });
                 });
             });
@@ -120,12 +120,12 @@ mgu.run({
                 return a.order - b.order;
             });
             return records.slice(-LOG_LINES).map((r) => {
-                const clean = r.line.replace(/[\\r\\t]/g, ' ').replace(/\\s+/g, ' ').trim();
+                const clean = r.line.replace(/[\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
                 return ('[' + r.source + '] ' + clean).slice(0, 220);
             });
         };
 
-        const drawLogs = () => {
+        const drawLogs = async () => {
             try {
                 // Diagnostic rendering is optional: load Canvas only when the user opens LOGS.
                 // A font/Canvas initialization failure must never prevent the cluster GUI starting.
@@ -143,7 +143,7 @@ mgu.run({
                         /\b(WARN|WARNING)\b|stalled fetch|no answer after a fetch/i.test(line) ? '#f0c36a' : '#d8dee8';
                     canvas.text(line, 48, y, LOG_FONT, color, { literal: true });
                 });
-                ctx.ui.image('LOG_GFX', canvas);
+                await ctx.ui.image('LOG_GFX', canvas);
             } catch (e) {
                 ctx.log.error('[logs] render failed: ' + (e && e.stack || e));
             }
@@ -153,7 +153,7 @@ mgu.run({
             drawLogs();
             return ctx.ui.open('LOGS');
         });
-        ctx.ui.onClick('LOG_REFRESH', () => drawLogs());
+        ctx.ui.onClick('LOG_REFRESH', async () => drawLogs());
         ctx.ui.onClick('LOG_BACK', () => ctx.ui.open('MAIN'));
 
         process.on('exit', () => {
