@@ -762,6 +762,12 @@ class HudApp {
         try { this._dropLayoutLayers(); } catch (e) {
             this.log.error('[safety] layer drop failed: ' + (e && e.stack || e));
         }
+        // Font atlases are no longer sampled after layout layers are dropped.
+        this.atlases.forEach((atlas) => {
+            try { atlas.c.drop(atlas.ref); }
+            catch (e) { this.log.warn('[safety] atlas release failed: ' + (e && e.message || e)); }
+        });
+        this.atlases.clear();
         this.activeName = null;
         this.clients.forEach((c, ci) => {
             try { if (c.ready) { this.log.info('[safety] requesting renderer status on connection ' + (ci + 1)); c.status(); } }
