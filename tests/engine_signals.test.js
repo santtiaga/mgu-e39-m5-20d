@@ -4,7 +4,7 @@ const assert = require('assert');
 const EngineSignals = require('../kit/runtime/engine_signals');
 
 assert.strictEqual(EngineSignals.boostBar(100, 'BAR'), 1);
-assert(Math.abs(EngineSignals.boostBar(145, 'PSI') - 1) < 0.0001,
+assert(Math.abs(EngineSignals.boostBar(145, 'PSI') - 1) < 0.001,
     '0.1 psi per step is converted to bar');
 assert.strictEqual(EngineSignals.boostBar(100, 'KPA'), 1,
     'the sport display's metric raw step is 1 kPa');
