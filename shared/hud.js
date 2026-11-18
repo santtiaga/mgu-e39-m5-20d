@@ -107,7 +107,7 @@
  * Pixel memory: cluster-render has 16 MiB for every app's images together and counts each image twice
  *   (Compositor::add_image; a layer past it is refused with "the service's pixel memory is full"), so every
  *   image layer costs w*h*8 bytes. The rebuild log and the status row say what a layout costs.
- * Text and badge updates send only the one rectangle around the pixels that changed since the last paint
+ * Text and badge updates send up to 16 separate rectangles around pixels that changed since the last paint
  *   (changes() below, after PenguinDukeYDAuto/idrive7-EVAHUD's eva_canvas.js, MIT): a 3-digit readout
  *   that goes 123 -> 124 sends its last digit, not the widget.
  *   boxes     effect layer; the GT3 dash's frame in ONE layer (shaders.js boxes; the car draws only a few effect
