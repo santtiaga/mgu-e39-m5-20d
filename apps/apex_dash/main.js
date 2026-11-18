@@ -57,6 +57,9 @@ mgu.run({
         const stopHudOnExit = () => {
             try { hud.stop(); } catch (e) { /* process is exiting */ }
         };
+        // MainApp's shutdown event precedes the runtime's 200 ms exit delay;
+        // start async TASU/native cleanup while that grace period is available.
+        ctx.app.on('shutdown', stopHudOnExit);
         process.on('exit', stopHudOnExit);
         try {
             hud.start();
