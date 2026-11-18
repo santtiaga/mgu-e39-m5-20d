@@ -113,7 +113,7 @@ class Car {
         this.ctx = ctx; this.log = ctx.log;
         const over = (ctx.spec.config && ctx.spec.config.scaling) || {};
         this.S = Object.assign({}, SCALE, over);
-        this.live = {}; this.lastCar = 0; this.listeners = [];
+        this.live = { conditionKnown: false }; this.lastCar = 0; this.listeners = [];
         this.sim = new Sim(); this.simData = this.sim.sample();
         this.demoActive = false; this.guess = new GearGuess();
         this.stopped = false; this.simTimer = null; this.subs = []; this.watchPromises = [];
