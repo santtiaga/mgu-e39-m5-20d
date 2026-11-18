@@ -479,6 +479,9 @@ class HudApp {
     _wireClientEvents(c, ci) {
         const tag = ci ? ' [connection ' + (ci + 1) + ']' : '';
         const guard = (event, fn) => this.safety.guard('cluster-render ' + event + tag, fn);
+        c.on('socket-error', guard('socket-error', (error) => {
+            this.log.warn('cluster-render socket error' + tag + ': ' + (error && error.message || error));
+        }));
         c.on('ready', guard('ready', () => {
             this.log.info('cluster-render ready' + tag + ' (backend=' + c.backend + ')');
             this._resumeBuildForConnection(ci);
