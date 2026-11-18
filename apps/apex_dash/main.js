@@ -149,8 +149,8 @@ mgu.run({
             }
         };
 
-        ctx.ui.onClick('OPEN_LOGS', () => {
-            drawLogs();
+        ctx.ui.onClick('OPEN_LOGS', async () => {
+            await drawLogs();
             return ctx.ui.open('LOGS');
         });
         ctx.ui.onClick('LOG_REFRESH', async () => drawLogs());
