@@ -1967,18 +1967,43 @@ vec4 over(vec4 top, vec4 under) {
 }
 
 vec4 drawHub(vec2 q, float capR, vec4 c) {
+    // Black cylindrical needle boss: cast shadow, visible lower side wall, bevel and inset end face.
     float r = length(q);
-    if (r > capR + 8.0) return c;
-    float rs = length(q - vec2(0.0, 2.5));
-    c = over(vec4(0.0, 0.0, 0.0, 0.55 * exp(-max(rs - capR, 0.0) / 3.0)), c);
-    if (r <= capR + 1.0) {
-        float t = clamp(length(q - vec2(-capR * 0.3, -capR * 0.35)) / (capR * 1.1), 0.0, 1.0);
-        vec3 h0 = mix(vec3(0.110, 0.118, 0.137), vec3(0.031, 0.024, 0.020), u_night);
-        vec3 h1 = mix(vec3(0.047, 0.051, 0.063), vec3(0.008, 0.004, 0.004), u_night);
-        c = over(vec4(mix(h0, h1, t), cov(r - capR)), c);
-        vec3 rim = mix(vec3(1.0, 1.0, 1.0), vec3(1.0, 0.55, 0.24), u_night);
-        float rimA = mix(0.06, 0.11, u_night);
-        c = over(vec4(rim, rimA * cov(abs(r - (capR - 0.8)) - 0.6)), c);
+    if (r > capR + 7.0) return c;
+
+    // Soft contact shadow behind the boss.
+    float shadowD = length(q - vec2(0.0, 3.8)) - capR;
+    c = over(vec4(0.0, 0.0, 0.0, 0.48 * exp(-max(shadowD, 0.0) / 3.2)), c);
+
+    // Cylindrical side wall. The offset circle leaves a narrow crescent visible below the face.
+    float sideR = capR * 0.985;
+    float sideD = length(q - vec2(0.0, 3.2)) - sideR;
+    float sideA = cov(sideD);
+    if (sideA > 0.0) {
+        float sideLight = clamp((q.y / max(capR, 1.0) + 0.25) * 0.5, 0.0, 1.0);
+        vec3 sideCol = mix(vec3(0.006, 0.007, 0.009), vec3(0.035, 0.038, 0.043), sideLight);
+        c = over(vec4(sideCol, sideA), c);
+        float lowerEdge = cov(abs(sideD + 1.0) - 0.65);
+        c = over(vec4(vec3(0.10, 0.11, 0.12), lowerEdge * 0.16), c);
+    }
+
+    // Narrow machined bevel around the flat black end face.
+    float faceR = capR * 0.91;
+    float bevelD = r - capR;
+    float bevelA = cov(abs(bevelD + capR * 0.045) - max(0.65, capR * 0.035));
+    vec3 bevelCol = mix(vec3(0.018, 0.020, 0.024), vec3(0.105, 0.112, 0.122), clamp(-q.y / max(capR, 1.0) * 0.5 + 0.5, 0.0, 1.0));
+    c = over(vec4(bevelCol, bevelA * 0.82), c);
+
+    // Matte near-black top surface; restrained directional reflection, not a glossy plastic gradient.
+    float faceA = cov(r - faceR);
+    if (faceA > 0.0) {
+        float light = clamp(0.5 - q.x / max(capR, 1.0) * 0.22 - q.y / max(capR, 1.0) * 0.28, 0.0, 1.0);
+        vec3 faceCol = mix(vec3(0.004, 0.005, 0.007), vec3(0.026, 0.029, 0.034), light);
+        c = over(vec4(faceCol, faceA), c);
+        // Very fine upper-left edge reflection to separate the black face from the dial.
+        float rimA = cov(abs(r - (faceR - 0.45)) - 0.55) * 0.12;
+        vec3 rimCol = mix(vec3(0.32, 0.34, 0.37), vec3(0.62, 0.64, 0.67), 1.0 - u_night);
+        c = over(vec4(rimCol, rimA), c);
     }
     return c;
 }
