@@ -52,6 +52,23 @@ The page draws whichever target the app's `app.json` `config.target` names. One 
 (800x480 for the HUD.) `?dbg=1` shows whether it worked: `images N px N` means every image layer's pixels arrived.
 
 
+## Vehicle-state gate test
+
+The **Vehicle state** selector in the browser bench feeds the same signal the app reads on the car:
+`de.bmw.infrastructure.VehicleCondition.VehicleCondition`, with payload field
+`statusConditionVehicle`. The mapping is copied from `kit/runtime/car.js`:
+
+- **Unknown (15):** BMW's explicit no-value enum; the panel gate stays closed.
+- **Safe / FAHREN (10):** drive-ready / READY; the panel gate may open.
+- **Parked / WOHNEN (5):** ignition off; the panel gate stays closed.
+
+The bench starts at **Unknown** (or `BENCH_VEHICLE_STATE=unknown|safe|off`). Changing the selector posts to
+`/vehicle-state` and feeds the mock into the forked bench app. This is test-only: the mock module is under
+`bench/`, is not included in the app package, and never changes real MGU signals.
+
+For the panel test, select **Safe / FAHREN (10)**, then switch the app from Demo to live/manual if needed.
+Select **Unknown** or **Parked** to verify the fail-closed behavior again.
+
 ## Graphics benchmark
 
 Open the bench and use the **Graphics performance** panel. For repeatable runs, select **Manual**, set the same signal values, and keep the layout, layer cap and values unchanged. The test warms up for 2 seconds and measures for 10 seconds; export JSON to compare runs.
