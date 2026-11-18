@@ -60,7 +60,7 @@ Live vehicle state starts as unknown and remains fail-closed until BMW reports a
 
 ## Deliberate safety behavior
 
-A trip is latched for the lifetime of the app process. Apex Dash does not automatically rebuild the overlay after a safety stop; restart the app after collecting logs and resolving the underlying fault. This avoids an automatic render/restart loop on the instrument cluster.
+A trip is latched for the lifetime of the app process. Apex Dash stops its render, theme, status and diagnostic polling timers, stops vehicle/TASU subscriptions, disables DCSM2 visibility restoration, and drops its tracked panel layers. The renderer connection remains open for status diagnostics, but later ready/status events cannot reveal layers or restart a build. Apex Dash does not automatically rebuild the overlay after a safety stop; restart the app after collecting logs and resolving the underlying fault. This avoids an automatic render/restart loop on the instrument cluster.
 
 The safety controller does not alter the E39 graphics, shaders, diesel warm-up thresholds, shift logic, or vehicle telemetry.
 
