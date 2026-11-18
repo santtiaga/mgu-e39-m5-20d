@@ -2269,4 +2269,6 @@ class HudApp {
 function pad2(n) { return n < 10 ? '0' + n : String(n); }
 function mib(bytes) { return (bytes / 1048576).toFixed(1) + ' MiB'; }
 
-// Kept as a static test seam so dirty-rectangle packing can be regression-tested without a renderer.\nHudApp._changes = changes;\nmodule.exports = HudApp;
+// Kept as a static test seam so dirty-rectangle packing can be regression-tested without a renderer.
+HudApp._changes = changes;
+module.exports = HudApp;
