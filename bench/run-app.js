@@ -149,6 +149,10 @@ process.on('message', (m) => {
         if (settings.get('demo') !== want) press('demo', want);
     } else if (m.t === 'set') press(m.key, m.value);
     else if (m.t === 'drive') drive = m.value;
+    else if (m.t === 'vehicle') {
+        vehicleState = VehicleStateMock.normalize(m.state);
+        log.info('bench: vehicle state mock = ' + vehicleState + ' (' + VehicleStateMock.condition(vehicleState) + ')');
+    }
 });
 process.on('disconnect', () => process.exit(0));
 process.on('SIGTERM', () => process.exit(0));
