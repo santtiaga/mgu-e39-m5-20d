@@ -71,7 +71,9 @@ class DCSM2Watchdog {
             this.timer = null;
             if (this.stopped || !this.client.ready) return;
             try {
-                this.client.status();
+                // Do not add diagnostic traffic to a socket already under
+                // writable backpressure; the next poll retries after drain.
+                if (!this.client.blocked) this.client.status();
             } catch (error) {
                 // A transient socket write failure must not kill the timer or
                 // leave DCSM2 monitoring permanently stopped.
