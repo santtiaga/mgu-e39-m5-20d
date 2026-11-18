@@ -49,6 +49,7 @@ function loadConfig(iface) {
  * show up without waiting for the next change.
  * opts.pollMs: also re-read those fields that often while the provider is available - for
  * fields a car may not notify (BMW's x_call only ever reads TPMS, it never subscribes).
+ * opts.onAvailability(available): called on provider availability changes when the binding supports it.
  */
 async function watch(iface, instance, handlers, log, opts) {
     let pollTimer = null;
