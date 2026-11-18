@@ -6,23 +6,26 @@ const os = require('os');
 const path = require('path');
 const Module = require('module');
 
-// The app build copies these runtime helpers beside shared/hud.js. Stub the
-// pack reader for source-tree tests and point the copied Car path at its source.
-const packPath = path.resolve(__dirname, '../shared/kit/pack.js');
-const packModule = new Module(packPath);
-packModule.filename = packPath;
-packModule.loaded = true;
-packModule.exports = { open: function () { return { json: function () { return {}; } }; } };
-require.cache[packPath] = packModule;
+// The app build copies these runtime helpers beside shared/hud.js. In the
+// source-tree test, provide the packed-data module and resolve the copied Car
+// alias to its source implementation.
+const hudDataPath = path.resolve(__dirname, '../shared/hud_data.js');
+const hudDataModule = new Module(hudDataPath);
+hudDataModule.filename = hudDataPath;
+hudDataModule.loaded = true;
+hudDataModule.exports = { json: function () { return {}; } };
+require.cache[hudDataPath] = hudDataModule;
 
-const carPath = path.resolve(__dirname, '../shared/kit/car.js');
-const carModule = new Module(carPath);
-carModule.filename = carPath;
-carModule.loaded = true;
-carModule.exports = require('../kit/runtime/car');
-require.cache[carPath] = carModule;
-
+const hudPath = path.resolve(__dirname, '../shared/hud.js');
+const originalResolveFilename = Module._resolveFilename;
+Module._resolveFilename = function (request, parent, isMain) {
+    if (request === './kit/car' && parent && parent.filename === hudPath) {
+        return path.resolve(__dirname, '../kit/runtime/car.js');
+    }
+    return originalResolveFilename.call(this, request, parent, isMain);
+};
 const HudApp = require('../shared/hud');
+Module._resolveFilename = originalResolveFilename;
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-hud-constructor-'));
 let watches = 0, shutdowns = 0;
