@@ -1775,18 +1775,28 @@ void main() {
         }
     }
 
-    // Two physical 3D reset buttons at (392, 486) and (1388, 486), well clear of the main dial bezels
+    // Physical reset domes: the left dome between the fuel and speed dials shares
+    // the center hub's matte graphite finish and the stop-pin's finer, harder grain.
     for (int bi = 0; bi < 2; bi++) {
         vec2 bc = vec2(bi == 0 ? 392.0 : 1388.0, 486.0);
-        float br = length(p - bc);
+        vec2 bq = p - bc;
+        float br = length(bq);
         if (br < 30.0) {
-            c = over(vec4(0.0, 0.0, 0.0, cov(length(p - (bc + vec2(0.0, 2.5))) - 24.0)), c);
-            float bt = clamp(length(p - (bc - vec2(6.5, 7.0))) / 23.0, 0.0, 1.0);
-            vec3 b0 = mix(vec3(0.290, 0.302, 0.333), vec3(0.165, 0.102, 0.063), u_night);
-            vec3 b1 = mix(vec3(0.110, 0.114, 0.129), vec3(0.047, 0.031, 0.027), u_night);
-            vec3 b2 = mix(vec3(0.024, 0.024, 0.027), vec3(0.008, 0.008, 0.008), u_night);
-            vec3 bCol = bt < 0.5 ? mix(b0, b1, bt * 2.0) : mix(b1, b2, (bt - 0.5) * 2.0);
-            c = over(vec4(bCol, cov(br - 21.0)), c);
+            c = over(vec4(0.0, 0.0, 0.0, cov(length(bq - vec2(0.0, 2.5)) - 24.0)), c);
+            if (bi == 0) {
+                float bLight = clamp(0.5 - bq.y / 21.0 * 0.28, 0.0, 1.0);
+                vec3 bCol = mix(vec3(0.068, 0.074, 0.082), vec3(0.126, 0.135, 0.147), bLight);
+                float bGrain = (hash12(floor(bq * 1.65)) - 0.5) * mix(0.070, 0.042, u_night);
+                bCol = clamp(bCol + vec3(bGrain), 0.0, 1.0);
+                c = over(vec4(bCol, cov(br - 21.0)), c);
+            } else {
+                float bt = clamp(length(bq - vec2(-6.5, -7.0)) / 23.0, 0.0, 1.0);
+                vec3 b0 = mix(vec3(0.290, 0.302, 0.333), vec3(0.165, 0.102, 0.063), u_night);
+                vec3 b1 = mix(vec3(0.110, 0.114, 0.129), vec3(0.047, 0.031, 0.027), u_night);
+                vec3 b2 = mix(vec3(0.024, 0.024, 0.027), vec3(0.008, 0.008, 0.008), u_night);
+                vec3 bCol = bt < 0.5 ? mix(b0, b1, bt * 2.0) : mix(b1, b2, (bt - 0.5) * 2.0);
+                c = over(vec4(bCol, cov(br - 21.0)), c);
+            }
         }
     }
 
