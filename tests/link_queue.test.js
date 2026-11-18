@@ -35,14 +35,19 @@ const { linkQueue, URGENT_RUN } = require(path.join(__dirname, '..', 'kit', 'run
     // Urgent FIFO ordering and serial execution.
     const order2 = [];
     const q2 = linkQueue({ warn() {} });
-    const t = (name) => () => new Promise((resolve) => setImmediate(() => { order2.push(name); resolve(name); }));
-    await Promise.all([
-        q2(t('normal-1'), false, 'normal-1'),
-        q2(t('normal-2'), false, 'normal-2'),
-        q2(t('urgent-1'), true, 'urgent-1'),
-        q2(t('urgent-2'), true, 'urgent-2'),
+    let releaseFirst;
+    const first = q2(() => new Promise((resolve) => {
+        releaseFirst = () => { order2.push('normal-1'); resolve('normal-1'); };
+    }), false, 'normal-1');
+    const waiting = Promise.all([
+        q2(() => Promise.resolve().then(() => { order2.push('normal-2'); }), false, 'normal-2'),
+        q2(() => Promise.resolve().then(() => { order2.push('urgent-1'); }), true, 'urgent-1'),
+        q2(() => Promise.resolve().then(() => { order2.push('urgent-2'); }), true, 'urgent-2'),
     ]);
-    assert.deepStrictEqual(order2, ['urgent-1', 'urgent-2', 'normal-1', 'normal-2']);
+    await new Promise((resolve) => setImmediate(resolve));
+    releaseFirst();
+    await Promise.all([first, waiting]);
+    assert.deepStrictEqual(order2, ['normal-1', 'urgent-1', 'urgent-2', 'normal-2']);
 
     // A rejected native operation must not poison the lane.
     let rejected = false;
