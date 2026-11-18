@@ -1112,9 +1112,10 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
             ridge = max(0.0, 1.0 - abs(u - 0.50) / 0.36) * 0.045;
 
             float textureMask = smoothstep(0.02, 0.10, u) * (1.0 - smoothstep(0.90, 0.99, u));
-            // Radial brushed-metal striations: crisp angular grooves running from inner to outer edge.
-            float radialBrush = sin(ang * 520.0 + 1.8 * u + 0.18 * sin(ang * 13.0));
-            float brushVariation = sin(ang * 167.0 + u * 4.0) * 0.22;
+            // Circumferential brushing: fine concentric marks running along the bezel, not radial spokes.
+            // u spans the narrow ring width, so this creates several stable grooves across its width.
+            float radialBrush = sin(u * 27.0 + 0.10 * sin(ang * 5.0));
+            float brushVariation = sin(u * 13.0 + ang * 2.0) * 0.18;
             // Unsoftened pixel-scale grain. One independent value per output pixel; no blur/interpolation.
             float rawGrain = hash12(floor(gl_FragCoord.xy)) - 0.5;
             float grain = rawGrain * 0.030;
