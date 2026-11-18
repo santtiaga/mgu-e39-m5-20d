@@ -747,6 +747,10 @@ class HudApp {
             if (this[key]) clearInterval(this[key]);
             this[key] = null;
         });
+        ['statusAskT', '_statusT', 'offStatusT1', 'offStatusT2'].forEach((key) => {
+            if (this[key]) clearTimeout(this[key]);
+            this[key] = null;
+        });
         if (this.layouts && typeof this.layouts.stop === 'function') this.layouts.stop();
         if (this.car && typeof this.car.stop === 'function') this.car.stop();
         if (this.dmeLink && typeof this.dmeLink.stop === 'function') {
