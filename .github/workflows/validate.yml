@@ -20,6 +20,14 @@ jobs:
         run: |
           python3 -m json.tool apps/apex_dash/app.json > /dev/null
           find apps/apex_dash/hud -type f -name '*.json' -print0 | xargs -0 -n1 python3 -m json.tool > /dev/null
+      - name: Test B47 boost signal helpers
+        run: node tests/engine_signals.test.js
+      - name: Test read-only diagnostic shutdown
+        run: node tests/readonly_diag.test.js
+      - name: Test cluster-render 0.6.9 compatibility
+        run: node tests/cluster_render_069_compat.test.js
+      - name: Test live car signal freshness
+        run: node tests/car.test.js
       - name: Run JavaScript unit tests
         run: |
           for test in tests/*.test.js; do node "$test"; done
