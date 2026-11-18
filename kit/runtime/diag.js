@@ -89,6 +89,24 @@ class Diag extends EventEmitter {
         }
     }
 
+    _awaitOrStop(operation) {
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            const finish = (fn, value) => {
+                if (settled) return;
+                settled = true;
+                this.pending.delete(cancel);
+                fn(value);
+            };
+            const cancel = () => finish(reject, new Error('diagnostic link stopped'));
+            this.pending.add(cancel);
+            Promise.resolve(operation).then(
+                (value) => finish(resolve, value),
+                (error) => finish(reject, error)
+            );
+        });
+    }
+
     _onResponse(v) {
         if (this.stopped) return;
         const err = v && v.errorCode;
@@ -117,7 +135,7 @@ class Diag extends EventEmitter {
             const r = await this.signals.call(this.p, 'sendTasuRequest', {
                 sourceAddress: TESTER, targetAddress: target, serviceID: sid, subroutineID: 0,
                 udsDataLength: d.length, udsData: Buffer.from(d), deadlockTime: 0,
-            }, callTimeoutMs);
+            }, callTimeoutMs));
             const v = r && typeof r === 'object' ? (r.TasuErrorEnum || Object.keys(r).map((k) => r[k]).find((x) => typeof x === 'string')) : r;
             const verdict = v === undefined ? 'NO_ERROR' : String(v);
             if (!/TEMPORARILY_NOT_ACCEPTED|BUSY/i.test(verdict) || attempt >= maxRetries) return verdict;
@@ -154,7 +172,7 @@ class Diag extends EventEmitter {
             onErr = (e) => this.log.warn('TASU error during scan: ' + e);
             this.on('frame', onFrame); this.on('tasError', onErr);
         });
-        try { this._check(await this.send(ALL, sid, data)); } catch (e) { finish(); throw e; }
+        try { this._check(await this.send(ALL, sid, data)); } catch (e) { finish(); if (this.stopped) return done; throw e; }
         // timers from when the transport took the request (send() may have waited for it)
         if (!idle) kick(idleMs + 2000);          // first replies can take a moment
         hard = setTimeout(finish, maxMs);
@@ -172,6 +190,7 @@ class Diag extends EventEmitter {
             finish = (v) => {
                 if (done) return;
                 done = true;
+                this.pending.delete(cancel);
                 clearTimeout(t); clearTimeout(hardTimer);
                 this.removeListener('frame', onFrame); resolve(v);
             };
@@ -189,7 +208,7 @@ class Diag extends EventEmitter {
             this.on('frame', onFrame);
             if (opts && opts.hardTimeoutMs) hardTimer = setTimeout(() => finish(null), opts.hardTimeoutMs);
         });
-        try { this._check(await this.send(target, sid, data, opts)); } catch (e) { finish(null); throw e; }
+        try { this._check(await this.send(target, sid, data, opts)); } catch (e) { finish(null); if (this.stopped) return got; throw e; }
         if (!done && !t) t = setTimeout(() => finish(null), timeoutMs || 4000); // from when the transport took it
         return got;
     }

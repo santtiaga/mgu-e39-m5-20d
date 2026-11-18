@@ -43,6 +43,34 @@ async function run() {
     await initializing;
     assert.strictEqual(lateShutdowns, 1, 'a proxy resolving after stop is immediately released');
     assert.strictEqual(pending.p, null);
+    // Stop must settle an in-flight physical request without waiting for its timeout.
+    let callStarted;
+    const started = new Promise(function (resolve) { callStarted = resolve; });
+    const inFlight = new Diag({
+        proxy: async function () { return {}; }, on: async function () {}, onAvailable: async function () {},
+        call: function () { callStarted(); return new Promise(function () {}); },
+    }, logger());
+    await inFlight.init();
+    const physical = inFlight.physical(0x12, 0x22, [0xF4, 0x70], 30000);
+    await started;
+    await inFlight.stop();
+    const physicalResult = await Promise.race([physical, new Promise(function (resolve) { setTimeout(function () { resolve('timeout'); }, 50); })]);
+    assert.strictEqual(physicalResult, null, 'stop resolves an in-flight physical request immediately');
+
+    // Stop must cancel a pending busy retry instead of sending again.
+    let calls = 0;
+    const busy = new Diag({
+        proxy: async function () { return {}; }, on: async function () {}, onAvailable: async function () {},
+        call: async function () { calls++; return 'APP_REQUEST_TEMPORARILY_NOT_ACCEPTED'; },
+    }, logger());
+    await busy.init();
+    const sending = busy.send(0x12, 0x22, [], { retryBaseMs: 1000 });
+    await new Promise(function (resolve) { setTimeout(resolve, 10); });
+    await busy.stop();
+    let sendStopped = false;
+    try { await sending; } catch (e) { sendStopped = /stopped/.test(e.message); }
+    assert.strictEqual(sendStopped, true, 'stop cancels the busy retry wait');
+    assert.strictEqual(calls, 1, 'no retry is sent after stop');
     process.stdout.write('diag_lifecycle: TASU proxy shutdown and init race passed\n');
 }
 
