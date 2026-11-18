@@ -2002,7 +2002,8 @@ vec4 drawHub(vec2 q, float capR, vec4 c) {
     // Matte near-black top surface; restrained directional reflection, not a glossy plastic gradient.
     float faceA = cov(r - faceR);
     if (faceA > 0.0) {
-        float light = clamp(0.5 - q.x / max(capR, 1.0) * 0.22 - q.y / max(capR, 1.0) * 0.28, 0.0, 1.0);
+        // Keep the hub shading vertical; remove the horizontal component that made it read as down-right.
+        float light = clamp(0.5 - q.y / max(capR, 1.0) * 0.28, 0.0, 1.0);
         // Lift the end face into visible graphite; keep the cylindrical boss distinctly darker than the dial.
         vec3 faceCol = mix(vec3(0.068, 0.074, 0.082), vec3(0.126, 0.135, 0.147), light);
         // Softer, finer matte grain: retain visible surface texture without a coarse speckled look.
