@@ -80,6 +80,7 @@ node tests/cluster_render_close.test.js
 node tests/cluster_render_deferred_visibility.test.js
 node tests/cluster_render_late_connect.test.js
 node tests/dcsm2_watchdog.test.js
+node tests/hud_constructor_cleanup.test.js
 node tests/diag_lifecycle.test.js
 node tests/safety_controller.test.js
 node tests/staged_build.test.js
