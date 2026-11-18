@@ -4,11 +4,11 @@ const fs = require('fs');
 const path = require('path');
 let sequence = 0;
 
-function writeAtomicFile(file, data, durable, log) {
+function writeAtomicFile(file, data, durable, log, mode) {
     const temp = file + '.tmp.' + process.pid + '_' + (++sequence);
     let fd = null;
     try {
-        fd = fs.openSync(temp, 'wx', 0o600);
+        fd = fs.openSync(temp, 'wx', mode === undefined ? 0o600 : mode);
         fs.writeFileSync(fd, data);
         if (durable) fs.fsyncSync(fd);
         fs.closeSync(fd);
@@ -48,7 +48,7 @@ function writeImageResource(file, png, log) {
                 staged = null; // RAM staging is an optimisation, never a reason to lose a frame
             }
         }
-        if (!writeAtomicFile(file, png, false, log)) throw new Error('could not atomically publish image resource');
+        if (!writeAtomicFile(file, png, false, log, 0o644)) throw new Error('could not atomically publish image resource');
     } finally {
         if (staged) try { fs.unlinkSync(staged); } catch (ignored) {}
     }
