@@ -237,6 +237,7 @@ const renderServer = net.createServer((sock) => {
                         log('warn', 'layer ' + m.ref + ' (' + m.kind + ' ' + nl.x + ',' + nl.y + ' ' + nl.w + 'x' + nl.h + ') is live layer #' + (live + 1) + ' on this connection: over the layer cap of ' + layerCap + ', not drawn');
                     }
                 }
+                if (nl.state !== 'waiting' && !nl.visible) nl.state = 'hidden';
                 if (nl.x + nl.w > tw || nl.y + nl.h > th || nl.x < 0 || nl.y < 0) {
                     log('warn', 'layer ' + m.ref + ' (' + nl.x + ',' + nl.y + ' ' + nl.w + 'x' + nl.h + ') runs off the ' + tw + 'x' + th + ' ' + m.target + ' target');
                 }
@@ -253,7 +254,7 @@ const renderServer = net.createServer((sock) => {
                 }
                 layers.set(key, nl);   // its visibility warnings (hood, gear box, belt light, HUD window) ride along in sceneMeta()
                 if (nl.state === 'waiting') writeEv(sock, { ev: 'layer', ref: m.ref, state: 'waiting', reason: nl.reason });
-                else writeEv(sock, { ev: 'layer', ref: m.ref, state: 'shown' });
+                else writeEv(sock, { ev: 'layer', ref: m.ref, state: nl.state });
                 sceneChanged();
                 return;
             }
@@ -290,7 +291,12 @@ const renderServer = net.createServer((sock) => {
             }
             case 'set': {
                 if (!l) return refuse('set', m.ref, 'no such layer');
+                const wasVisible = !!l.visible;
                 ['class', 'z', 'x', 'y', 'w', 'h', 'visible', 'exclusive', 'opacity'].forEach((k) => { if (m[k] !== undefined) l[k] = m[k]; });
+                if (m.visible !== undefined && l.state !== 'waiting' && !!l.visible !== wasVisible) {
+                    l.state = l.visible ? 'shown' : 'hidden';
+                    writeEv(sock, { ev: 'layer', ref: m.ref, state: l.state });
+                }
                 sceneChanged();
                 return;
             }
