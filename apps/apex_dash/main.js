@@ -17,6 +17,8 @@ const LOG_LINES = 16;
 const LOG_REFRESH_MS = 2000;
 const LOG_HTTP_PORT = 18765;
 const LOG_HTTP_MAX_BYTES = 512 * 1024;
+// Reserve space for all four log sources so a large renderer log cannot crowd out Apex Dash diagnostics.
+const LOG_HTTP_FILE_MAX_BYTES = 112 * 1024;
 
 function diagnosticText(value) {
     if (value instanceof Error) return value.stack || (value.name + ': ' + value.message);
@@ -88,12 +90,12 @@ mgu.run({
         };
         const readFullLog = () => {
             let content = '';
-            const readTail = (file) => {
+            const readTail = (file, maxBytes) => {
                 let fd = null;
                 try {
                     fd = fs.openSync(file, 'r');
                     const size = fs.fstatSync(fd).size;
-                    const length = Math.min(size, LOG_HTTP_MAX_BYTES);
+                    const length = Math.min(size, maxBytes || LOG_HTTP_MAX_BYTES);
                     const data = Buffer.alloc(length);
                     const bytesRead = length ? fs.readSync(fd, data, 0, length, size - length) : 0;
                     let start = 0;
@@ -110,7 +112,7 @@ mgu.run({
                 content += '\n===== ' + heading + ' =====\n';
                 files.forEach((file) => {
                     try {
-                        content += '\n--- ' + file + ' ---\n' + readTail(file) + '\n';
+                        content += '\n--- ' + file + ' ---\n' + readTail(file, LOG_HTTP_FILE_MAX_BYTES) + '\n';
                     } catch (e) {
                         const code = e && e.code || 'UNKNOWN';
                         const message = e && e.message || String(e);
