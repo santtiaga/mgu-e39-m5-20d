@@ -107,7 +107,17 @@ async function watch(iface, instance, handlers, log, opts) {
         if (opts && opts.pollMs) pollTimer = setInterval(() => { if (active && res.available) setImmediate(() => { if (active) fetchAll(); }); }, opts.pollMs);
     } catch (e) {
         res.error = String(e);
+        res.available = false;
         if (log) log.warn('signals ' + iface + ': ' + e);
+        // A failed async subscription can happen after buildProxy/init already
+        // succeeded. Do not leave that partially initialised native proxy alive.
+        if (res.proxy && res.shutdown) {
+            try { await res.shutdown(); }
+            catch (shutdownError) {
+                if (log) log.warn('signals shutdown after init failure ' + iface + ': ' + (shutdownError && shutdownError.message || shutdownError));
+            }
+            res.proxy = null;
+        }
     }
     return res;
 }
