@@ -4,6 +4,10 @@ Newest first. Dates are when the build was pushed.
 
 ## Nov 18 2026
 
+## Nov 18 2026
+
+- **Apex Dash 1.5.4:** verify cluster-render 0.6.9 protocol-v1 diagnostics without replacing local replay/safety logic; highlight native renderer INCIDENT/stalled-fetch diagnostics; use Redline's validated boost-unit and freshness rules; expire stale B47 torque samples; move DME boost reads to the paced read-only UDS scheduler with availability checks, ECU wake and bounded retry backoff. Keep GPU/shader, glyph-atlas, sheet-packing and dirty-rectangle rendering optimisations; do not port Redline HUD-only canvas or V8/twin-engine code.
+
 - **Apex Dash 1.5.3:** serialize native SOME/IP operations through a fair urgent/normal queue (a waiting read gets a turn after at most three urgent operations), retain per-operation timeouts and idempotent proxy shutdown/subscription teardown; stage transient RHMI PNGs in RAM when available and atomically publish resource files; durably replace settings files with fsync + rename. Verify the bundled cluster-render client against upstream 0.6.9 without replacing local replay, visibility, reconnect, and socket-lifecycle safety.
 
 ## Nov 17 2026
