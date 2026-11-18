@@ -244,30 +244,70 @@ function driveModeOf(raw) {
 function rgb(c) { return [c[0] / 255, c[1] / 255, c[2] / 255]; }
 
 /**
- * The one rectangle around what differs between two RGBA images of the same size, with its pixels, or null
- * when they are the same (after idrive7-EVAHUD's eva_canvas.js, MIT). The link is what is short, not the CPU:
- * comparing a widget costs about a tenth of painting it.
+ * Changed RGBA pixels as up to 16 packed rectangles, vertically coalesced when adjacent rows
+ * have the same run. A single bounding rectangle is the safe fallback when fragmentation is high.
+ * null means identical. The renderer client retains the complete image and applies these patches.
  */
 function changes(was, now, w, h) {
-    const row = w * 4;
-    const sameRow = (y) => now.compare(was, y * row, (y + 1) * row, y * row, (y + 1) * row) === 0;
-    const samePx = (o) => now[o] === was[o] && now[o + 1] === was[o + 1] && now[o + 2] === was[o + 2] && now[o + 3] === was[o + 3];
-    let top = 0;
-    while (top < h && sameRow(top)) top++;
-    if (top === h) return null;
-    let bottom = h - 1;
-    while (sameRow(bottom)) bottom--;
-    let left = w, right = -1;
-    for (let y = top; y <= bottom; y++) {
-        if (sameRow(y)) continue;
-        const o = y * row;
-        for (let x = 0; x < left; x++) if (!samePx(o + x * 4)) { left = x; break; }
-        for (let x = w - 1; x > right; x--) if (!samePx(o + x * 4)) { right = x; break; }
+    const rowBytes = w * 4;
+    const rects = [];
+    let active = new Map();
+    let left = w, right = -1, top = h, bottom = -1;
+
+    for (let y = 0; y < h; y++) {
+        const row = y * rowBytes;
+        const next = new Map();
+        let x = 0;
+        while (x < w) {
+            const o = row + x * 4;
+            if (now[o] === was[o] && now[o + 1] === was[o + 1] &&
+                now[o + 2] === was[o + 2] && now[o + 3] === was[o + 3]) {
+                x++;
+                continue;
+            }
+            const start = x++;
+            while (x < w) {
+                const p = row + x * 4;
+                if (now[p] === was[p] && now[p + 1] === was[p + 1] &&
+                    now[p + 2] === was[p + 2] && now[p + 3] === was[p + 3]) break;
+                x++;
+            }
+            const width = x - start;
+            const key = start + ':' + width;
+            const prior = active.get(key);
+            if (prior) {
+                prior.h++;
+                next.set(key, prior);
+            } else {
+                next.set(key, { x: start, y: y, w: width, h: 1 });
+            }
+            if (start < left) left = start;
+            if (x - 1 > right) right = x - 1;
+            if (y < top) top = y;
+            if (y > bottom) bottom = y;
+        }
+        active.forEach((r, key) => { if (!next.has(key)) rects.push(r); });
+        active = next;
     }
-    const rect = { x: left, y: top, w: right - left + 1, h: bottom - top + 1 };
-    const px = Buffer.allocUnsafe(rect.w * rect.h * 4);
-    for (let y = 0; y < rect.h; y++) now.copy(px, y * rect.w * 4, (top + y) * row + left * 4, (top + y) * row + (right + 1) * 4);
-    return { rect, px };
+    active.forEach((r) => rects.push(r));
+    if (right < left) return null;
+
+    // The client accepts at most 16 dirty rectangles. Collapse fragmented updates to one bounded patch.
+    if (rects.length > 16) rects.splice(0, rects.length, { x: left, y: top, w: right - left + 1, h: bottom - top + 1 });
+
+    let bytes = 0;
+    rects.forEach((r) => { bytes += r.w * r.h * 4; });
+    const px = Buffer.allocUnsafe(bytes);
+    let offset = 0;
+    rects.forEach((r) => {
+        for (let y = 0; y < r.h; y++) {
+            const start = (r.y + y) * rowBytes + r.x * 4;
+            const end = start + r.w * 4;
+            now.copy(px, offset, start, end);
+            offset += r.w * 4;
+        }
+    });
+    return { rects, px };
 }
 function rgba(c) { return [c[0] / 255, c[1] / 255, c[2] / 255, (c[3] === undefined ? 255 : c[3]) / 255]; }
 function isNum(v) { return typeof v === 'number' && isFinite(v); }
@@ -2229,4 +2269,4 @@ class HudApp {
 function pad2(n) { return n < 10 ? '0' + n : String(n); }
 function mib(bytes) { return (bytes / 1048576).toFixed(1) + ' MiB'; }
 
-module.exports = HudApp;
+// Kept as a static test seam so dirty-rectangle packing can be regression-tested without a renderer.\nHudApp._changes = changes;\nmodule.exports = HudApp;
