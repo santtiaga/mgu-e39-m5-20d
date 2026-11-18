@@ -1537,7 +1537,7 @@ class HudApp {
         x.px = buf;
         if (!was || (x.sheet && x.sheet.buf)) { this._blit(x, null, buf); return; }
         this.renderStats.diffChecks++;
-        const c = changes(was, buf, w.w, h);
+        const c = changes(was, buf, w.w, w.h);
         if (c) this._blit(x, c.rects, c.px);
         else this.renderStats.unchangedWidgets++;
     }
