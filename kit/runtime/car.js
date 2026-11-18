@@ -57,7 +57,8 @@ function programOf(o) {
 // 12 = drive readiness ending; 15 = no value.
 const CONDITIONS = { PARKEN_BN_NIO: 1, PARKEN_BN_IO: 2, STANDFUNKTIONEN_KUNDE_NICHT_IM_FZG: 3, WOHNEN: 5,
     PRUEFEN_ANALYSE_DIAGNOSE: 7, FAHRBEREITSCHAFT_HERSTELLEN: 8, FAHREN: 10, FAHRBEREITSCHAFT_BEENDEN: 12 };
-const conditionOf = (x) => { const n = typeof x === 'number' ? x : CONDITIONS[x]; return n >= 1 && n <= 12 ? n : undefined; };
+const VALID_CONDITIONS = [1, 2, 3, 5, 7, 8, 10, 12];
+const conditionOf = (x) => { const n = typeof x === 'number' ? x : CONDITIONS[x]; return VALID_CONDITIONS.indexOf(n) >= 0 ? n : undefined; };
 
 // On the B47 MHEV the engine-speed signal can remain near 160 rpm after the ICE has stopped.
 // Apply the configured floor to the scaled rpm, not the raw SOME/IP value.
