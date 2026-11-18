@@ -1996,15 +1996,13 @@ vec4 drawHub(vec2 q, float capR, vec4 c) {
     float faceR = capR * 0.91;
     float bevelD = r - capR;
     float bevelA = cov(abs(bevelD + capR * 0.045) - max(0.65, capR * 0.035));
-    // Keep the bevel reflection strictly vertical: brighter toward the lower edge, with no rightward bias.
-    float verticalLight = clamp(0.5 + q.y / max(capR, 1.0) * 0.5, 0.0, 1.0);
-    vec3 bevelCol = mix(vec3(0.018, 0.020, 0.024), vec3(0.105, 0.112, 0.122), verticalLight);
+    vec3 bevelCol = mix(vec3(0.018, 0.020, 0.024), vec3(0.105, 0.112, 0.122), clamp(-q.y / max(capR, 1.0) * 0.5 + 0.5, 0.0, 1.0));
     c = over(vec4(bevelCol, bevelA * 0.82), c);
 
     // Matte near-black top surface; restrained directional reflection, not a glossy plastic gradient.
     float faceA = cov(r - faceR);
     if (faceA > 0.0) {
-        float light = clamp(0.5 + q.y / max(capR, 1.0) * 0.28, 0.0, 1.0);
+        float light = clamp(0.5 - q.x / max(capR, 1.0) * 0.22 - q.y / max(capR, 1.0) * 0.28, 0.0, 1.0);
         // Lift the end face into visible graphite; keep the cylindrical boss distinctly darker than the dial.
         vec3 faceCol = mix(vec3(0.068, 0.074, 0.082), vec3(0.126, 0.135, 0.147), light);
         // Softer, finer matte grain: retain visible surface texture without a coarse speckled look.
