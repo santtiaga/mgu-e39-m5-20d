@@ -171,8 +171,18 @@ class Car {
                 condSeen.push(String(raw));
                 this.log.info('vehicle state: ' + JSON.stringify(raw) + (n === undefined ? ' (not known)' : ''));
             }
+            const wasKnown = this.live.conditionKnown;
+            const previous = this.live.condition;
             this.live.conditionKnown = n !== undefined;
-            if (n !== undefined) put('condition', n);
+            if (n !== undefined) {
+                // Vehicle state changes must reach the HUD immediately: the
+                // shutdown gate cannot wait for the next RPM/speed sample.
+                if (previous !== n || !wasKnown) put('condition', n, true);
+            } else if (wasKnown && !this.demoActive) {
+                // An explicit no-value state (e.g. 15) must close the gate
+                // immediately, even if the drivetrain signals are quiet.
+                this._emit(this.live, Date.now());
+            }
         });
         // negative torque (engine braking while the rpm falls) counts as 0
         if (groups.includes('torque')) add('de.bmw.infotainment.drivingexcitement.FES', 'statusActualValueTorque2', (v) => { const tq = sc('torque', v.actualValueTorqueCrankshaft); put('torque', tq === null ? null : Math.max(0, tq)); });
