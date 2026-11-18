@@ -4,6 +4,24 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const Module = require('module');
+
+// The app build copies these runtime helpers beside shared/hud.js. Stub the
+// pack reader for source-tree tests and point the copied Car path at its source.
+const packPath = path.resolve(__dirname, '../shared/kit/pack.js');
+const packModule = new Module(packPath);
+packModule.filename = packPath;
+packModule.loaded = true;
+packModule.exports = { open: function () { return { json: function () { return {}; } }; } };
+require.cache[packPath] = packModule;
+
+const carPath = path.resolve(__dirname, '../shared/kit/car.js');
+const carModule = new Module(carPath);
+carModule.filename = carPath;
+carModule.loaded = true;
+carModule.exports = require('../kit/runtime/car');
+require.cache[carPath] = carModule;
+
 const HudApp = require('../shared/hud');
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-hud-constructor-'));
