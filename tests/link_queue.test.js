@@ -6,12 +6,8 @@ const { linkQueue, URGENT_RUN } = require(path.join(__dirname, '..', 'kit', 'run
 (async () => {
     const order = [];
     const q = linkQueue({ warn() {} });
-    let active = 0, maxActive = 0;
     const task = (name) => () => new Promise((resolve) => setImmediate(() => {
-        active++;
-        maxActive = Math.max(maxActive, active);
         order.push(name);
-        active--;
         resolve(name);
     }));
 
