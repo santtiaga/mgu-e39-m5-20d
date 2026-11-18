@@ -25,6 +25,7 @@ const themes = require('./themes');
 const { Display } = require('./display');
 const { HmiText } = require('./hmi-text');
 const { listSheet } = require('./sheet');
+const { writeAtomicFile, writeImageResource } = require('./atomic_file');
 
 const sdkLog = logging.getSDKLogger();
 const SPEC = JSON.parse(fs.readFileSync(path.join(__dirname, 'app-spec.json'), 'utf8'));
@@ -80,53 +81,6 @@ const log = {};
 process.on('uncaughtException', (e) => { fileLog('FATAL', 'uncaught: ' + (e && e.stack || e)); process.exit(1); });
 process.on('exit', (code) => fileLog(code ? 'FATAL' : 'INFO', 'exit code ' + code + ' rss=' + Math.round(process.memoryUsage().rss / 1048576) + 'MB'));
 
-/* ---------------- atomic file writes ---------------- */
-let ATOMIC_SEQ = 0;
-function writeAtomicFile(file, data, durable) {
-    const temp = file + '.tmp.' + RUN_TAG + '_' + (++ATOMIC_SEQ);
-    let fd = null;
-    try {
-        fd = fs.openSync(temp, 'wx', 0o600);
-        fs.writeFileSync(fd, data);
-        if (durable) fs.fsyncSync(fd);
-        fs.closeSync(fd);
-        fd = null;
-        fs.renameSync(temp, file);
-        if (durable) {
-            let dirFd = null;
-            try { dirFd = fs.openSync(path.dirname(file), 'r'); fs.fsyncSync(dirFd); }
-            catch (ignored) { /* some filesystems do not support directory fsync */ }
-            finally { if (dirFd !== null) try { fs.closeSync(dirFd); } catch (ignored2) {} }
-        }
-        return true;
-    } catch (error) {
-        if (fd !== null) try { fs.closeSync(fd); } catch (ignored3) {}
-        try { fs.unlinkSync(temp); } catch (ignored4) {}
-        log.warn('atomic write ' + path.basename(file) + ': ' + (error && error.message || error));
-        return false;
-    }
-}
-
-/*
- * RHMI only accepts image resources from rhmiData/resources. Encode in memory,
- * stage the transient PNG in /dev/shm when available, then atomically promote
- * it into that ACL-approved directory. The final path is never a partial PNG.
- */
-function writeImageResource(file, png) {
-    let staged = null;
-    try {
-        const ram = '/dev/shm';
-        if (fs.existsSync(ram) && fs.statSync(ram).isDirectory()) {
-            staged = path.join(ram, 'mgu_img_' + RUN_TAG + '_' + (++ATOMIC_SEQ) + '.png');
-            fs.writeFileSync(staged, png);
-            png = fs.readFileSync(staged);
-        }
-        if (!writeAtomicFile(file, png, false)) throw new Error('could not atomically publish image resource');
-    } finally {
-        if (staged) try { fs.unlinkSync(staged); } catch (ignored) {}
-    }
-}
-
 /* ---------------- settings (persisted in data/settings.json) ---------------- */
 class Settings {
     constructor(schema) {
@@ -143,7 +97,7 @@ class Settings {
             this.values._themeV = 2;            // (a fresh install has the default: the mark is saved with its first setting)
             if (saved) {
                 this.values.theme = th.default;
-                writeAtomicFile(this.file, JSON.stringify(this.values, null, 1), true);
+                writeAtomicFile(this.file, JSON.stringify(this.values, null, 1), true, log);
             }
         }
         // a setting with "reset": n in app.json goes back to its default once when n changes
@@ -299,7 +253,7 @@ class Ui {
             const t0 = Date.now(), first = !st.shown;
             const png = Buffer.isBuffer(frame) ? frame : frame.png();
             const t1 = Date.now();
-            writeImageResource(file, png);
+            writeImageResource(file, png, log);
             if (first) log.info('image ' + name + ': png written ' + (Date.now() - t0) + ' ms');
             await rb.createResourceHandles([file]);
             const handle = rb.getResourceHandle(file);
