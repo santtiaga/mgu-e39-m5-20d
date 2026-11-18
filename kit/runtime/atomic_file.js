@@ -39,7 +39,9 @@ function writeImageResource(file, png, log) {
     let staged = null;
     try {
         const ram = '/dev/shm';
-        if (fs.existsSync(ram) && fs.statSync(ram).isDirectory()) {
+        let canStage = false;
+        try { canStage = fs.existsSync(ram) && fs.statSync(ram).isDirectory(); } catch (ignoredStat) {}
+        if (canStage) {
             staged = path.join(ram, 'mgu_img_' + process.pid + '_' + (++sequence) + '.png');
             try {
                 fs.writeFileSync(staged, png);
