@@ -1114,7 +1114,7 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
 
             // Fine circumferential brushing and irregular micro-grain restore the aluminium texture.
             float grain = (hash12(floor(p * 1.35)) - 0.5) * 0.105;
-            float brush = sin(dot(p, vec2(-q.y, q.x)) * 0.018 + ang * 2.0) * 0.018;
+            float brush = sin(dot(p, normalize(vec2(-q.y, q.x))) * 0.72 + ang * 2.0) * 0.018;
             float textureMask = smoothstep(0.02, 0.12, u) * (1.0 - smoothstep(0.88, 0.99, u));
             rCol += vec3(grain + brush) * textureMask;
 
