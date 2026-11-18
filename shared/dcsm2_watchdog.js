@@ -38,12 +38,6 @@ class DCSM2Watchdog {
         this._set('unknown', 'cluster-render disconnected');
     }
 
-    target(state, reason) {
-        if (state !== 'unavailable') return;
-        this._set('unavailable', reason || 'display service not available');
-        this._schedule(0);
-    }
-
     status(text) {
         const state = parseStatus(text);
         if (state === null) return;

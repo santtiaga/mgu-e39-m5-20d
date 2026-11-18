@@ -272,6 +272,19 @@ class HudApp {
                 else this._status();
             } else {
                 this.log.warn('DCSM2 ' + state + (reason ? ': ' + reason : '') + (previous ? ' (was ' + previous + ')' : ''));
+                // A confirmed provider loss is different from a socket disconnect:
+                // stop publishing and release the last panel scene so stale gauges
+                // are not intentionally left as Apex Dash's active display.
+                if (state === 'unavailable' && previous === 'available') {
+                    const hadLayout = !!(this.build || this.widgets.size || this.sheets.length);
+                    if (hadLayout) {
+                        this.log.error('DCSM2 became unavailable; releasing the active panel layout until the provider recovers');
+                        this.deferredRebuild = true;
+                        this.activeName = null;
+                        this.problem = 'DCSM2 unavailable; waiting to rebuild the panel';
+                        this._dropLayoutLayers();
+                    }
+                }
                 this._status();
             }
         }, this.log);
@@ -502,7 +515,8 @@ class HudApp {
             this._statusSoon();
         }));
         c.on('target', guard('target', (name, state, holder, reason, guideDisabled, rendering, retryInMs, disabled) => {
-            if (ci === 0) this.dcsm2.target(state, reason);
+            // Target ownership/availability is not a DCSM2 provider-health signal.
+            // DCSM2 state is taken only from the explicit status line.
             if (name !== this.target) return;
             this.targetState = { state, holder, reason, guideDisabled: !!guideDisabled,
                 rendering: rendering || 'none', retryInMs: retryInMs, disabled: !!disabled, connection: ci + 1 };
