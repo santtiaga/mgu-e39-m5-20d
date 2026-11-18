@@ -14,6 +14,7 @@ assert.strictEqual(VehicleGate.evaluate({ conditionKnown: true, condition: 10 })
     'drive-ready state permits the panel');
 
 let dropped = 0, statuses = 0, logs = 0;
+const gate = {};
 gate.build = { current: {} };
 gate.widgets = new Map([['speed', {}]]);
 gate.sheets = [{}];
@@ -36,7 +37,7 @@ assert.strictEqual(gate.vehicleOff, false, 'a starting state is not mislabeled a
 assert.strictEqual(statuses, 1);
 assert.strictEqual(logs, 1);
 
-gate._holdForVehicle({ condition: 8, off: false, hold: true });
+VehicleGate.hold(gate, { condition: 8, off: false, hold: true });
 assert.strictEqual(dropped, 1, 'repeated unsafe samples do not repeatedly drop layers');
 assert.strictEqual(statuses, 1, 'the hold transition is logged once');
 
