@@ -80,6 +80,8 @@
     </section>
     <section>
       <h2>Vehicle signals</h2>
+      <div class="srow"><label for="dcsm2State">DCSM2 provider (bench mock only)</label><select id="dcsm2State"><option value="available">Available</option><option value="unavailable">Unavailable</option><option value="unknown">Unknown / no response</option></select></div>
+      <div class="note">Controls the fake cluster-render status reply. This does not change the car app or real DCSM2.</div>
       <div class="seg"><button id="mDemo" class="on">Demo drive</button><button id="mManual">Manual</button></div>
       <div class="seg" id="drive" title="The drive mode buttons: FES statusFESVehicleDynamicSwitchHMI"><button data-v="" class="on">Mode not sent</button><button data-v="4">COMFORT</button><button data-v="1">SPORT</button><button data-v="2">SPORT+</button><button data-v="7">ECO PRO</button></div>
       <div id="sliders"></div>
@@ -386,6 +388,8 @@
   ['outlines', 'road', 'carview'].forEach((id) => document.getElementById(id).addEventListener('change', () => { dirty = true; }));
   const capEl = document.getElementById('cap');
   capEl.addEventListener('change', () => fetch('/cap', { method: 'POST', body: JSON.stringify({ cap: Number(capEl.value) || 0 }) }));
+  const dcsm2El = document.getElementById('dcsm2State');
+  dcsm2El.addEventListener('change', () => fetch('/dcsm2', { method: 'POST', body: JSON.stringify({ state: dcsm2El.value }) }));
 
   /* ---------- server events ---------- */
   function addLog(e) {
@@ -442,10 +446,12 @@
   function onMessage(m) {
     dbgN++; dbgLast = m.t + ':' + (m.key || '') + ':' + (m.w === undefined ? 'whole' : 'rect'); dirty = true;
     if (m.t === 'log') addLog(m);
+    else if (m.t === 'dcsm2') dcsm2El.value = m.state;
     else if (m.t === 'hello') {
       geo = m.geometry || geo;
       pixelCap = m.pixelCap === undefined ? pixelCap : m.pixelCap;
       if (document.activeElement !== capEl) capEl.value = m.cap || 0;
+      if (document.activeElement !== dcsm2El && m.dcsm2) dcsm2El.value = m.dcsm2;
       setView(m.view || 'hud', m.targets); document.getElementById('title').textContent = 'Bench: ' + m.app;
     }
     else if (m.t === 'scene') {
