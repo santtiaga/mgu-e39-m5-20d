@@ -440,6 +440,11 @@ uniform float u_segSlant; // px each segment leans
 const float PI = 3.14159265;
 
 float cov(float d) { return clamp(0.5 - d, 0.0, 1.0); }
+float hubHash12(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
 vec4 over(vec4 top, vec4 under) {
     float a = top.a + under.a * (1.0 - top.a);
     if (a <= 0.0) return vec4(0.0);
@@ -1998,7 +2003,10 @@ vec4 drawHub(vec2 q, float capR, vec4 c) {
     float faceA = cov(r - faceR);
     if (faceA > 0.0) {
         float light = clamp(0.5 - q.x / max(capR, 1.0) * 0.22 - q.y / max(capR, 1.0) * 0.28, 0.0, 1.0);
-        vec3 faceCol = mix(vec3(0.004, 0.005, 0.007), vec3(0.026, 0.029, 0.034), light);
+        // Slightly lifted charcoal-black end face, with the same fine pixel-grain as the dial background.
+        vec3 faceCol = mix(vec3(0.009, 0.010, 0.012), vec3(0.034, 0.037, 0.042), light);
+        float grain = (hubHash12(floor(q)) - 0.5) * mix(0.018, 0.008, u_night);
+        faceCol += vec3(grain);
         c = over(vec4(faceCol, faceA), c);
         // Very fine upper-left edge reflection to separate the black face from the dial.
         float rimA = cov(abs(r - (faceR - 0.45)) - 0.55) * 0.12;
