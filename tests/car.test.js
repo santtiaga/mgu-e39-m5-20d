@@ -34,13 +34,21 @@ assert.strictEqual(Car.engineRpm(undefined, 400), undefined);
     const car = new Car(ctx, ['condition']);
     assert.strictEqual(car.data().conditionKnown, false,
         'the initial live state must fail closed until BMW reports vehicle condition');
+    const transitions = [];
+    car.onSample(function (data) { transitions.push({ condition: data.condition, known: data.conditionKnown }); });
     vehicleStateHandler({ statusConditionVehicle: 'FAHREN' });
     assert.strictEqual(car.data().condition, 10);
     assert.strictEqual(car.data().conditionKnown, true,
         'a recognised drive-ready state unlocks the vehicle gate');
+    assert.deepStrictEqual(transitions, [{ condition: 10, known: true }],
+        'a recognised vehicle state is emitted immediately without waiting for RPM/speed');
     vehicleStateHandler({ statusConditionVehicle: 15 });
     assert.strictEqual(car.data().conditionKnown, false,
         'an explicit no-value state closes the vehicle gate again');
+    assert.deepStrictEqual(transitions, [
+        { condition: 10, known: true },
+        { condition: 10, known: false },
+    ], 'an explicit no-value state is emitted immediately to close the gate');
     car.stop();
 }
 
