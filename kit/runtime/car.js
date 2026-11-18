@@ -168,6 +168,9 @@ class Car {
         if (groups.includes('condition')) add('de.bmw.infrastructure.VehicleCondition', 'VehicleCondition', (v) => {
             const raw = v && v.statusConditionVehicle, n = conditionOf(raw);
             if (raw === undefined || raw === null) return;
+            // An explicit no-value enum still proves the live provider answered;
+            // do not let demo=auto replace unknown live vehicle state with a fake drive.
+            this.lastCar = Date.now();
             if (condSeen.length < 16 && condSeen.indexOf(String(raw)) < 0) {
                 condSeen.push(String(raw));
                 this.log.info('vehicle state: ' + JSON.stringify(raw) + (n === undefined ? ' (not known)' : ''));
