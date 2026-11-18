@@ -9,6 +9,7 @@ function writeAtomicFile(file, data, durable, log, mode) {
     let fd = null;
     try {
         fd = fs.openSync(temp, 'wx', mode === undefined ? 0o600 : mode);
+        if (mode !== undefined) fs.fchmodSync(fd, mode);
         fs.writeFileSync(fd, data);
         if (durable) fs.fsyncSync(fd);
         fs.closeSync(fd);
