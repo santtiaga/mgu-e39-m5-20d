@@ -24,7 +24,10 @@ async function run() {
     assert.strictEqual(diag.available, false);
     await diag.stop();
     assert.strictEqual(shutdowns, 1, 'stop is idempotent');
-    await assert.rejects(diag.send(0x12, 0x22, [0xF4, 0x70]), /stopped/);
+    let stoppedSendRejected = false;
+    try { await diag.send(0x12, 0x22, [0xF4, 0x70]); }
+    catch (e) { stoppedSendRejected = /stopped/.test(e.message); }
+    assert.strictEqual(stoppedSendRejected, true, 'requests are rejected after stop');
 
     let releaseProxy;
     let lateShutdowns = 0;
