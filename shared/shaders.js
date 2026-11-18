@@ -2002,23 +2002,25 @@ vec4 drawHub(vec2 q, float capR, float needleDeg, vec4 c) {
     float bevelA = cov(abs(bevelD + capR * 0.045) - max(0.65, capR * 0.035));
     // Bias the bevel reflection diagonally so its falloff runs toward the lower-right.
     // Stronger upper-left highlight makes the bevel's shading fall visibly toward the lower-right.
-    float bevelLight = clamp(0.5 - faceQ.x / max(capR, 1.0) * 0.62 - faceQ.y / max(capR, 1.0) * 0.50, 0.0, 1.0);
+    float bevelLight = clamp(0.5 - q.x / max(capR, 1.0) * 0.62 - q.y / max(capR, 1.0) * 0.50, 0.0, 1.0);
     vec3 bevelCol = mix(vec3(0.018, 0.020, 0.024), vec3(0.105, 0.112, 0.122), bevelLight);
     c = over(vec4(bevelCol, bevelA * 0.82), c);
 
     // Matte near-black top surface; restrained directional reflection, not a glossy plastic gradient.
     float faceA = cov(r - faceR);
     if (faceA > 0.0) {
-        // Directional face shading follows the needle, making the cap read as mechanically linked.
-        float light = clamp(0.5 - faceQ.y / max(capR, 1.0) * 0.28, 0.0, 1.0);
+        // Keep the face gradient fixed in the dial coordinate system.
+        float light = clamp(0.5 - q.y / max(capR, 1.0) * 0.28, 0.0, 1.0);
         // Lift the end face into visible graphite; keep the cylindrical boss distinctly darker than the dial.
         vec3 faceCol = mix(vec3(0.068, 0.074, 0.082), vec3(0.126, 0.135, 0.147), light);
         // Softer, finer matte grain: retain visible surface texture without a coarse speckled look.
         float grain = (hubHash12(floor(faceQ * 0.72)) - 0.5) * mix(0.038, 0.018, u_night);
         faceCol = clamp(faceCol + vec3(grain), 0.0, 1.0);
         c = over(vec4(faceCol, faceA), c);
-        // Very fine upper-left edge reflection to separate the black face from the dial.
-        float rimA = cov(abs(r - (faceR - 0.45)) - 0.55) * 0.12;
+        // The narrow rim highlight rotates with the needle; the ring geometry remains fixed.
+        float rimBand = cov(abs(r - (faceR - 0.45)) - 0.55);
+        float rimLight = clamp(0.5 - faceQ.y / max(faceR, 1.0) * 0.5, 0.0, 1.0);
+        float rimA = rimBand * mix(0.035, 0.22, rimLight);
         vec3 rimCol = mix(vec3(0.32, 0.34, 0.37), vec3(0.62, 0.64, 0.67), 1.0 - u_night);
         c = over(vec4(rimCol, rimA), c);
     }
