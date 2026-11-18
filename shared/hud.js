@@ -1392,7 +1392,7 @@ class HudApp {
         // The layer inventory is now visible, but pixel allocation remains incomplete; keep the established safe rebuild.
         this._dropLayoutLayers();
         this.pixelBytes = px;
-        const n = this._layerRefs().length, counts = this._connCounts(plan);
+        const n = plan.length, counts = this._connCounts(plan);
         this.log.info('layout "' + layout.name + '": ' + shown.length + ' widgets, ' + this._layerCount(n) + ' (' + effects + ' effects, ' +
             sheets + ' image sheets' + (own ? ', ' + own + ' own image layers' : '') + ')' +
             (counts.length > 1 ? ' on ' + counts.length + ' connections (' + counts.join(' + ') + ')' : '') + ', sheet limit ' +
