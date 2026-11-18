@@ -88,6 +88,12 @@ class ReadOnlyDiag {
     /** Drop every request still waiting in the queue: they resolve with undefined (not sent), not null. */
     cancel() { this.gen++; }
 
+    /** Cancel queued reads and release the native TASU proxy. */
+    async stop() {
+        this.cancel();
+        await LINKS.get(this).stop();
+    }
+
     /** Physical request (kit/dids.js calls this): the unit's reply bytes, or null. */
     physical(target, sid, data, timeoutMs, accept) {
         const d = Array.isArray(data) ? data.slice() : data;          // checked = sent: no change after the check
