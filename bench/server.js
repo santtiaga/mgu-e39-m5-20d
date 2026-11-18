@@ -36,8 +36,11 @@ const { fork, execFileSync } = require('child_process');
 // What the driver sees of each target (hood curve, BMW's gear box and belt light, the HUD window):
 // one source of truth, shared with the app's layout check. The page gets it in the 'hello' event.
 const visible = require('../shared/visible');
+const DCSM2Mock = require('./dcsm2_mock');
 
 const PORT = Number(process.env.BENCH_PORT) || 8078;
+// Bench-only provider signal. Default to available so the real watchdog can exercise rendering in a browser.
+let dcsm2State = DCSM2Mock.normalize(process.env.BENCH_DCSM2 || 'available');
 // BENCH_LAYER_CAP: the car seems to draw only an app's first 8 layers (photos, Nov 5 2026).
 // 0 = unlimited. Layers past the cap get state 'waiting' and are not drawn. POST /cap sets it live.
 let layerCap = Math.max(0, Number(process.env.BENCH_LAYER_CAP) || 0);
@@ -105,7 +108,7 @@ function sceneMeta() {
     }));
 }
 function helloMsg() {
-    return { t: 'hello', targets: TARGETS, view: appView(), app: APP_ID, cap: layerCap, pixelCap: PIXEL_BYTES,
+    return { t: 'hello', targets: TARGETS, view: appView(), app: APP_ID, cap: layerCap, pixelCap: PIXEL_BYTES, dcsm2: dcsm2State,
         geometry: { HOOD: visible.HOOD, BLACK_BOX: visible.BLACK_BOX, BELT: visible.BELT, HUD_WINDOW: visible.HUD_WINDOW } };
 }
 let sceneTimer = null;
@@ -317,7 +320,7 @@ const renderServer = net.createServer((sock) => {
             case 'status':
                 const conns = new Set(Array.from(layers.values()).map((l) => l.conn)).size;
                 const assets = layers.size - layerCount();
-                writeEv(sock, { ev: 'status', text: 'bench: ' + layerCount() + ' layers' + (assets ? ' and ' + assets + ' asset' + (assets > 1 ? 's' : '') : '') + ' on ' + conns + ' connection(s), layer cap ' + (layerCap || 'off') + ', ' + overCap() + ' over it, pixel memory ' + mib(pixelBytes()) + ' of ' + (PIXEL_BYTES ? mib(PIXEL_BYTES) : 'unlimited') });
+                writeEv(sock, { ev: 'status', text: 'bench: ' + layerCount() + ' layers' + (assets ? ' and ' + assets + ' asset' + (assets > 1 ? 's' : '') : '') + ' on ' + conns + ' connection(s), layer cap ' + (layerCap || 'off') + ', ' + overCap() + ' over it, pixel memory ' + mib(pixelBytes()) + ' of ' + (PIXEL_BYTES ? mib(PIXEL_BYTES) : 'unlimited') + '\n' + DCSM2Mock.statusLine(dcsm2State) });
                 return;
             default:
                 bad('op "' + m.op + '" not handled by the bench');
@@ -489,6 +492,13 @@ const web = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url === '/restart') {
         restartApp('restart button');
+        res.writeHead(204); return res.end();
+    }
+    if (req.method === 'POST' && url === '/dcsm2') {
+        const b = await body(req);
+        dcsm2State = DCSM2Mock.normalize(b.state);
+        send({ t: 'dcsm2', state: dcsm2State });
+        log('info', 'bench: mocked DCSM2 state = ' + dcsm2State);
         res.writeHead(204); return res.end();
     }
     if (req.method === 'POST' && url === '/cap') {
