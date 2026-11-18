@@ -16,17 +16,20 @@ const { linkQueue, URGENT_RUN } = require(path.join(__dirname, '..', 'kit', 'run
     }));
 
     // A waiting read must get a turn after no more than three urgent turns.
-    let keepUrgent = true;
-    const urgent = () => q(async () => {
-        order.push('u');
-        if (keepUrgent) urgent();
-    }, true, 'urgent');
-    urgent();
+    let urgentCount = 0;
+    const urgentJobs = [];
+    for (let i = 0; i < 6; i++) {
+        urgentJobs.push(q(() => new Promise((resolve) => setImmediate(() => {
+            order.push('u' + (++urgentCount));
+            resolve();
+        })), true, 'urgent-' + i));
+    }
     const read = q(task('read'), false, 'read');
     const result = await read;
-    keepUrgent = false;
+    await Promise.all(urgentJobs);
     assert.strictEqual(result, 'read');
-    assert(order.indexOf('read') >= 0 && order.indexOf('read') <= URGENT_RUN,
+    const readAt = order.indexOf('read');
+    assert(readAt >= 0 && readAt <= URGENT_RUN,
         'normal work must run after at most ' + URGENT_RUN + ' urgent turns');
 
     // Urgent FIFO ordering and serial execution.
