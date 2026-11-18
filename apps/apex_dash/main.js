@@ -97,7 +97,7 @@ mgu.run({
                 if (size > length) {
                     while (offset < bytesRead && (data[offset] & 0xC0) === 0x80) offset++;
                 }
-                return data.slice(offset, bytesRead).toString('utf8').split(/\\r?\\n/).filter(Boolean);
+                return data.slice(offset, bytesRead).toString('utf8').split(/\r?\n/).filter(Boolean);
             } catch (e) {
                 return [];
             } finally {
@@ -112,7 +112,7 @@ mgu.run({
             let order = 0;
             logFiles.forEach(({ source, file }) => {
                 readTailLines(file).forEach((line) => {
-                    const stamp = (line.match(/^(\\d{4}-\\d{2}-\\d{2}[T ][^ ]+)/) || [])[1] || '';
+                    const stamp = (line.match(/^(\d{4}-\d{2}-\d{2}[T ][^ ]+)/) || [])[1] || '';
                     records.push({ source, line, stamp, order: order++ });
                 });
             });
@@ -123,7 +123,7 @@ mgu.run({
                 return a.order - b.order;
             });
             return records.slice(-LOG_BUFFER_LINES).map((r) => {
-                const clean = r.line.replace(/[\\r\\t]/g, ' ').replace(/\\s+/g, ' ').trim();
+                const clean = r.line.replace(/[\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
                 return '[' + r.source + '] ' + clean;
             });
         };
@@ -177,6 +177,6 @@ mgu.run({
             if (logTimer !== null) clearInterval(logTimer);
             process.removeListener('unhandledRejection', onUnhandledRejection);
             process.removeListener('exit', stopHudOnExit);
-        });;
+        });
     },
 });
