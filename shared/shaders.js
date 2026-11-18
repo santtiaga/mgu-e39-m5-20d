@@ -2119,7 +2119,7 @@ void main() {
         float pinD = pinR - mR * 0.022;
         float pinLight = clamp(0.5 - pinQ.y / max(mR * 0.022, 1.0) * 0.28, 0.0, 1.0);
         vec3 pinCol = mix(vec3(0.068, 0.074, 0.082), vec3(0.126, 0.135, 0.147), pinLight);
-        float pinGrain = (hubHash12(floor(pinQ * 0.72)) - 0.5) * mix(0.038, 0.018, u_night);
+        float pinGrain = (hubHash12(floor(pinQ * 1.65)) - 0.5) * mix(0.070, 0.042, u_night);
         pinCol = clamp(pinCol + vec3(pinGrain), 0.0, 1.0);
         c = over(vec4(pinCol, cov(pinD)), c);
         float pinInnerShadow = 0.95 * (1.0 - smoothstep(0.0, 1.5, -pinD)) * step(pinD, 0.0) * cov(pinD);
