@@ -32,4 +32,34 @@ assert.strictEqual(parse(''), null);
     watchdog.stop();
 }
 
-console.log('DCSM2 watchdog status parsing and transitions: OK');
+
+{
+    const originalSetTimeout = global.setTimeout;
+    const originalClearTimeout = global.clearTimeout;
+    let queued = null;
+    let calls = 0;
+    const warnings = [];
+    global.setTimeout = function (fn) { queued = fn; return 123; };
+    global.clearTimeout = function () {};
+    try {
+        const client = { ready: true, status: function () { calls++; throw new Error('temporary write failure'); } };
+        const watchdog = new DCSM2Watchdog(client, function () {}, {
+            info: function () {}, warn: function (message) { warnings.push(message); }
+        });
+        watchdog.connected();
+        assert.strictEqual(typeof queued, 'function');
+        const firstPoll = queued;
+        queued = null;
+        firstPoll();
+        assert.strictEqual(calls, 1, 'failed status request is attempted once');
+        assert.strictEqual(typeof queued, 'function', 'watchdog schedules another poll after a write failure');
+        assert(warnings.some((message) => message.indexOf('temporary write failure') >= 0),
+            'write failure is logged');
+        watchdog.stop();
+    } finally {
+        global.setTimeout = originalSetTimeout;
+        global.clearTimeout = originalClearTimeout;
+    }
+}
+
+console.log('DCSM2 watchdog status parsing, transitions and retry: OK');

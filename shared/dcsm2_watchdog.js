@@ -67,7 +67,14 @@ class DCSM2Watchdog {
         this.timer = setTimeout(() => {
             this.timer = null;
             if (this.stopped || !this.client.ready) return;
-            this.client.status();
+            try {
+                this.client.status();
+            } catch (error) {
+                // A transient socket write failure must not kill the timer or
+                // leave DCSM2 monitoring permanently stopped.
+                if (this.log) this.log.warn('DCSM2 watchdog: status request failed: ' +
+                    (error && error.message || error));
+            }
             this._schedule(this.state === 'available' ? POLL_AVAILABLE_MS : POLL_WAITING_MS);
         }, ms);
     }
