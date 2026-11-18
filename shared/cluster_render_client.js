@@ -133,6 +133,10 @@ class ClusterRender extends EventEmitter {
         this.ready = false;
         this.replaying = false;
         this.replayVisibilitySent = false;
+        this.replayVisibilityPending = false;
+        // Optional app-level gate: wait for an external health check before
+        // restoring previously visible drawable layers after reconnect.
+        this.deferReplayVisibility = false;
         this.helloReceived = false;
         this.closed = true;
         this.backoff = 0;
@@ -244,6 +248,7 @@ class ClusterRender extends EventEmitter {
             this.ready = false;
             this.replaying = true;
             this.replayVisibilitySent = false;
+            this.replayVisibilityPending = false;
             this.helloReceived = true;
             this.backoff = 0;
             this._pump();
@@ -332,10 +337,14 @@ class ClusterRender extends EventEmitter {
              * visibility only after every retained image/asset frame has been
              * written, preserving TCP order so no incomplete layer can flash. */
             if (!this.replayVisibilitySent) {
-                this.layers.forEach((l, ref) => {
-                    if (l.kind === 'asset' || l.kind === 'scene') return;
-                    this._send({ op: 'set', ref: ref, visible: l.opts.visible === undefined ? 1 : flag(l.opts.visible) });
-                });
+                if (this.deferReplayVisibility) {
+                    this.replayVisibilityPending = true;
+                } else {
+                    this.layers.forEach((l, ref) => {
+                        if (l.kind === 'asset' || l.kind === 'scene') return;
+                        this._send({ op: 'set', ref: ref, visible: l.opts.visible === undefined ? 1 : flag(l.opts.visible) });
+                    });
+                }
                 this.replayVisibilitySent = true;
             }
             if (this.blocked) return;
@@ -692,6 +701,17 @@ class ClusterRender extends EventEmitter {
         }
         l.have = true;
         this._pump();
+        return true;
+    }
+
+    /* Restore requested visibility only after an app-specific health gate passes. */
+    restoreVisibility() {
+        if (!this.ready || !this.replayVisibilityPending) return false;
+        this.layers.forEach((l, ref) => {
+            if (l.kind === 'asset' || l.kind === 'scene') return;
+            this._send({ op: 'set', ref: ref, visible: l.opts.visible === undefined ? 1 : flag(l.opts.visible) });
+        });
+        this.replayVisibilityPending = false;
         return true;
     }
 

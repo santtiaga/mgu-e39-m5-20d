@@ -271,9 +271,12 @@ class HudApp {
             if (state === 'available') {
                 this.dcsm2WasAvailable = true;
                 this.log.info('DCSM2 available; display rendering may proceed');
+                this.clients.forEach((c) => c.restoreVisibility());
+                this._resumeBuildAfterGates();
                 if (this.deferredRebuild || this.activeName === null || this.widgets.size === 0) this._rebuild();
                 else this._status();
             } else {
+                if (state === 'unknown' && previous === 'available') this._pauseBuildForDCSM2();
                 this.log.warn('DCSM2 ' + state + (reason ? ': ' + reason : '') + (previous ? ' (was ' + previous + ')' : ''));
                 // A confirmed provider loss is different from a socket disconnect:
                 // stop publishing and release the last panel scene so stale gauges
@@ -463,6 +466,9 @@ class HudApp {
         while (this.clients.length <= i) {
             const ci = this.clients.length;
             const c = new ClusterRender(ci ? this.ctx.spec.id + '_' + (ci + 1) : this.ctx.spec.id, this.socketPath);
+            // Apex Dash owns only the panel and must re-check DCSM2 before replay
+            // makes an old panel frame visible again.
+            c.deferReplayVisibility = true;
             this.clients.push(c);
             this._wireClientEvents(c, ci);
             if (this.started) { this.log.info('connection ' + (ci + 1) + ' to cluster-render'); c.connect(); }
@@ -476,6 +482,7 @@ class HudApp {
         c.on('ready', guard('ready', () => {
             this.log.info('cluster-render ready' + tag + ' (backend=' + c.backend + ')');
             this._resumeBuildForConnection(ci);
+            if (this.dcsm2.state === 'available') c.restoreVisibility();
             if (ci === 0) this.dcsm2.connected();
             else this._status();
         }));
@@ -1374,7 +1381,7 @@ class HudApp {
         });
         if (px > PIXEL_BYTES) this.log.warn('layout "' + layout.name + '" needs ' + mib(px) + ' of pixel memory; cluster-render has 16 MiB for every app together (each image counts twice)');
         this.build = { plan: plan, index: 0, current: null, timer: null, deadlineAt: 0, remainingMs: 45000,
-            waitingConnection: null, layout: layout.name, started: Date.now() };
+            waitingConnection: null, waitingDCSM2: false, layout: layout.name, started: Date.now() };
         this.log.info('layout build: staged transaction started (' + plan.length + ' renderer stages)');
         this._buildNext();
     }
@@ -1463,6 +1470,10 @@ class HudApp {
     /** Arm the current stage timeout only while its renderer connection is ready. */
     _armBuildTimeout(b) {
         if (!b || this.build !== b || !b.current || b.timer || b.waitingConnection !== null) return;
+        if (this.dcsm2.state !== 'available') {
+            b.waitingDCSM2 = true;
+            return;
+        }
         const ms = StagedBuild.resume(b, Date.now());
         b.timer = setTimeout(() => {
             if (this.build === b && b.current) this._abortBuild('timeout waiting for renderer confirmation at stage ' +
@@ -1489,11 +1500,36 @@ class HudApp {
         if (!b || !b.current || b.waitingConnection !== ci) return;
         b.waitingConnection = null;
         this.log.info('layout build: resumed stage ' + (b.index + 1) + ' after connection ' + (ci + 1) + ' recovery');
-        this._armBuildTimeout(b);
+        this._resumeBuildAfterGates();
+    }
+
+    /** Pause stage confirmations while DCSM2 is unknown after a primary connection loss. */
+    _pauseBuildForDCSM2() {
+        const b = this.build;
+        if (!b || !b.current) return;
+        if (b.timer) {
+            StagedBuild.pause(b, Date.now());
+            clearTimeout(b.timer);
+            b.timer = null;
+        }
+        b.waitingDCSM2 = true;
+        this.log.warn('layout build: paused stage ' + (b.index + 1) + ' while DCSM2 availability is checked');
+    }
+
+    /** Resume only when both the renderer connection and DCSM2 health are confirmed. */
+    _resumeBuildAfterGates() {
+        const b = this.build;
+        if (!b || !b.current || b.waitingConnection !== null || !b.current.c.ready ||
+            this.dcsm2.state !== 'available') return;
+        b.waitingDCSM2 = false;
+        const saved = this.layerStates.get(b.current.ci + ':' + b.current.ref);
+        if (saved) this._buildLayerEvent(b.current.ci, b.current.ref, saved.state, saved.reason);
+        if (this.build === b && b.current) this._armBuildTimeout(b);
     }
 
     /** Advance only on renderer layer events; client calls and status text are not treated as acknowledgements. */
     _buildLayerEvent(ci, ref, state, reason) {
+        if (this.dcsm2.state !== 'available') return;
         const b = this.build;
         const action = StagedBuild.transition(b, ci, ref, state, reason);
         if (!action) return;
