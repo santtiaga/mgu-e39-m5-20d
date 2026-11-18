@@ -159,6 +159,7 @@ const createSafetyController = require('./safety_controller');
 const StagedBuild = require('./staged_build');
 const LayoutGeneration = require('./layout_generation');
 const RendererInventory = require('./renderer_inventory');
+const VehicleGate = require('./vehicle_gate');
 const Layouts = require('./layouts');
 const { THEMES, M_STRIPE, LIGHTS, VERDICT, color } = require('./hud_themes');
 const ShiftScore = require('./shift_score');
@@ -1839,31 +1840,10 @@ class HudApp {
     _holeRadius(w) { return isNum(w.holeRadius) ? w.holeRadius : 28; }
 
     /** BMW vehicle-state gate, ported from the newer Redline HUD shutdown fix. */
-    _vehicleGate(data) {
-        const d = data || {};
-        const c = d.condition;
-        const known = d.conditionKnown !== false;
-        const off = known && isNum(c) && (c <= 5 || c === 12);
-        return {
-            condition: c,
-            off: off,
-            hold: d.conditionKnown === false || (isNum(c) && (c <= 5 || c === 8 || c === 12)),
-        };
-    }
+    _vehicleGate(data) { return VehicleGate.evaluate(data); }
 
     /** Release any active panel content whenever vehicle state is not safe to display. */
-    _holdForVehicle(vehicle) {
-        this.deferredRebuild = true;
-        if (vehicle.off) this.vehicleOff = true;
-        const hasLayout = !!(this.build || this.widgets.size || this.sheets.length);
-        if (hasLayout) this._dropLayoutLayers();
-        if (!this.vehicleOffLogged) {
-            this.vehicleOffLogged = true;
-            this.log.info('vehicle state ' + (vehicle.condition === undefined ? 'unknown' : vehicle.condition) +
-                ': cluster layers ' + (hasLayout ? 'dropped' : 'held') + '; waiting for drive-ready');
-            this._status();
-        }
-    }
+    _holdForVehicle(vehicle) { VehicleGate.hold(this, vehicle); }
 
     /** Drop only layout layers; keep the shared renderer connection and cached font assets alive. */
     _dropLayoutLayers() {
