@@ -257,7 +257,7 @@ class HudApp {
         this.socketPath = process.env.HUD_CLUSTER_SOCKET || this.config.socketPath || DEFAULT_PATH;
         this.clients = [];               // the connections to cluster-render: [0] the app's own, more for "conn" widgets
         this.renderStats = { frames: 0, diffChecks: 0, unchangedWidgets: 0, imageFrames: 0,
-            fullFrames: 0, dirtyFrames: 0, dirtyRects: 0, pixels: 0, pixelBytes: 0, wireBytes: 0, replayFrames: 0 };
+            fullFrames: 0, dirtyFrames: 0, dirtyRects: 0, pixels: 0, pixelBytes: 0, fullPixelBytes: 0, wireBytes: 0, backpressureWrites: 0, replayFrames: 0 };
         this.started = false;
         this.stopped = false;
         this.layerStates = new Map();    // "<conn>:<ref>" -> { state, reason } from cluster-render
@@ -475,7 +475,9 @@ class HudApp {
             else { s.dirtyFrames++; s.dirtyRects += ev.rectCount; }
             s.pixels += ev.pixels;
             s.pixelBytes += ev.pixelBytes;
+            s.fullPixelBytes += ev.fullPixelBytes || ev.pixelBytes;
             s.wireBytes += ev.wireBytes;
+            if (ev.backpressure) s.backpressureWrites++;
             if (ev.replay) s.replayFrames++;
         }));
         c.on('diagnostic', guard('diagnostic', (ev) => {
@@ -552,12 +554,15 @@ class HudApp {
         const s = this.renderStats;
         if (!s.frames && !s.imageFrames && !s.diffChecks) return;
         const unchangedPct = s.diffChecks ? (100 * s.unchangedWidgets / s.diffChecks).toFixed(1) : '0.0';
-        this.log.info('[render-stats] 30s panel frames=' + s.frames +
+        const savedPct = s.fullPixelBytes ? (100 * (1 - s.pixelBytes / s.fullPixelBytes)).toFixed(1) : '0.0';
+        this.log.info('[render-stats] 30s panel ticks=' + s.frames +
             ', image diffs=' + s.diffChecks + ', unchanged=' + s.unchangedWidgets + ' (' + unchangedPct + '%)' +
             ', image frames sent=' + s.imageFrames + ' (full=' + s.fullFrames + ', dirty=' + s.dirtyFrames +
             ', rects=' + s.dirtyRects + ')' +
-            ', pixels=' + s.pixels + ', pixel bytes=' + s.pixelBytes +
-            ', wire bytes=' + s.wireBytes + ', renderer replay frames=' + s.replayFrames);
+            ', changed pixels=' + s.pixels + ', pixel bytes=' + s.pixelBytes +
+            ', full-frame baseline=' + s.fullPixelBytes + ', pixel savings=' + savedPct + '%' +
+            ', socket.write bytes=' + s.wireBytes + ', backpressure writes=' + s.backpressureWrites +
+            ', renderer replay frames=' + s.replayFrames);
         Object.keys(s).forEach((key) => { s[key] = 0; });
     }
 
