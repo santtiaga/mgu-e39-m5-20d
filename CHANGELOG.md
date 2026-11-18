@@ -1,5 +1,10 @@
 # Changes
 
+## 1.5.6
+
+- Fix flattened MGU runtime module paths that prevented Apex Dash from loading; correct lazy diagnostic Canvas path.
+
+
 ## 1.5.5
 
 - Fix packaged startup imports and make diagnostic logger initialization lazy so a Canvas failure cannot block the cluster GUI.
