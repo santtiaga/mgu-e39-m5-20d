@@ -619,6 +619,7 @@ class HudApp {
             const { DidReader } = require('./kit/dids');
             const link = new Diag(this.ctx.signals, this.log);
             link.quiet = true;
+            this.dmeLink = link;
             Promise.resolve().then(() => link.init()).catch((e) => this.log.info('engine unit link not available: ' + (e && e.message || e)));
             rd = new DidReader(link, { ecu: dme.ecu || 18 });
         } catch (e) { this.log.info('engine unit boost off: ' + (e && e.message || e)); return; }
@@ -658,6 +659,11 @@ class HudApp {
         clearTimeout(this.offStatusT2);
         this.statusAskT = this.offStatusT1 = this.offStatusT2 = null;
         this.clients.forEach((c) => c.close());
+        if (this.dmeLink && typeof this.dmeLink.stop === 'function') {
+            const shutdown = this.dmeLink.stop();
+            if (shutdown && typeof shutdown.catch === 'function') shutdown.catch((e) => this.log.warn('TASU shutdown: ' + (e && e.message || e)));
+            this.dmeLink = null;
+        }
         if (this.layouts && typeof this.layouts.stop === 'function') this.layouts.stop();
         if (this.car && typeof this.car.stop === 'function') this.car.stop();
         this.atlases.clear();

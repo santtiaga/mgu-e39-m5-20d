@@ -44,13 +44,22 @@ class Diag extends EventEmitter {
         this.busyMs = 1000;           // pause before a retry when the transport is busy (x 1, 2, 3, 4)
         this.busyLog = true;          // log each busy verdict (false: only count them in .busy)
         this.busy = 0;
+        this.stopped = false;
     }
 
     async init() {
+        if (this.stopped) return this;
         try {
-            this.p = await this.signals.proxy(IFACE, INSTANCE);
+            const proxy = await this.signals.proxy(IFACE, INSTANCE);
+            if (this.stopped) {
+                if (proxy && typeof proxy.shutdown === 'function') await proxy.shutdown();
+                return this;
+            }
+            this.p = proxy;
             await this.signals.on(this.p, 'sendTasuResponse', (v) => this._onResponse(v), this.log);
-            await this.signals.onAvailable(this.p, (a) => { this.available = a; this.emit('available', a); });
+            if (this.stopped) return this;
+            await this.signals.onAvailable(this.p, (a) => { if (!this.stopped) { this.available = a; this.emit('available', a); } });
+            if (this.stopped) return this;
             this.log.info('TASU proxy ready (available=' + this.available + ')');
         } catch (e) {
             this.error = String(e);
@@ -59,7 +68,22 @@ class Diag extends EventEmitter {
         return this;
     }
 
+    /** Stop subscriptions and release the native TASU proxy. Safe to call more than once. */
+    async stop() {
+        if (this.stopped) return;
+        this.stopped = true;
+        this.available = false;
+        this.removeAllListeners();
+        const proxy = this.p;
+        this.p = null;
+        if (proxy && typeof proxy.shutdown === 'function') {
+            try { await proxy.shutdown(); }
+            catch (e) { if (this.log) this.log.warn('TASU shutdown: ' + (e && e.message || e)); }
+        }
+    }
+
     _onResponse(v) {
+        if (this.stopped) return;
         const err = v && v.errorCode;
         if (err !== undefined && err !== 'NO_ERROR' && err !== 0) { this.emit('tasError', String(err)); return; }
         const b = toBytes(v && (v.udsResponse !== undefined ? v.udsResponse : v));
@@ -75,6 +99,7 @@ class Diag extends EventEmitter {
      * such a verdict is retried a few times with a growing pause (busyMs x 1, 2, 3, 4: 1, 2, 3, 4 s).
      */
     async send(target, sid, data, opts) {
+        if (this.stopped) throw new Error('diagnostic link stopped');
         if (!this.p) throw new Error(this.error || 'no diagnostic link');
         const d = data || [];
         const maxRetries = opts && opts.maxRetries != null ? opts.maxRetries : 4;
