@@ -192,6 +192,7 @@ const unitName = (map, v) => map[v] || (Object.values(map).indexOf(v) >= 0 ? v :
 const PROGRAMS = { S_MINUS_PROGRAMM: 'S', M_MINUS_PROGRAMM: 'M', 1: 'S', 2: 'M' };
 const MODE_NAME = { comfort: 'Comfort', sport: 'Sport', eco: 'Eco Pro' };
 const FRESH_MS = 3000;
+const BOOST_FRESH_MS = 2000;
 // BMW's speed scale: even steps to 120 mph (180 km/h), then wider ones to 200 mph (320 km/h)
 const SPEED_SCALE = { us: [0, 20, 40, 60, 80, 100, 120, 160, 200], metric: [0, 30, 60, 90, 120, 150, 180, 250, 320] };
 /** speed (display unit) -> 0..1 along a scale of evenly spaced labels */
@@ -318,7 +319,7 @@ class HudApp {
         this.widgets = new Map();        // widget.id -> { w, ref, sheet | null, last, lastPaint }
         this.build = null;              // serial renderer-confirmed layout build transaction
         this.sheets = [];                // the packed image layers: { ref, klass, z, x, y, w, h, members, buf }
-        this.boostFes = null; this.boostFesAt = 0;    // bar, from the sport display signal
+        this.boostFes = null; this.boostFesAt = 0; this.boostFesFirst = null; this.boostFesMoved = false; // verified sport-display boost
         this.boostDme = null; this.boostDmeAt = 0;    // bar, from the engine unit (fallback)
         this.needsBoost = false;         // a shown widget uses boost (the engine unit is only asked then)
         this.driveMode = null;           // 'comfort' | 'sport' | 'eco', once the car has said
@@ -447,8 +448,15 @@ class HudApp {
             'de.bmw.infotainment.drivingexcitement.FES': {
                 statusSwitchDriveDynamicSport2: (v) => {
                     const raw = v && v.displayBoostPressure;
-                    if (typeof raw !== 'number' || raw === BOOST_SCALE.invalid) return;
-                    this.boostFes = raw * BOOST_SCALE.factor + BOOST_SCALE.offset;
+                    if (!isNum(raw) || raw < 0 || raw >= BOOST_SCALE.invalid) return;
+                    // Redline's validation: a static initial value can be an uninitialised
+                    // placeholder. Trust this source only after it has actually moved.
+                    if (this.boostFesFirst === null) this.boostFesFirst = raw;
+                    else if (raw !== this.boostFesFirst) this.boostFesMoved = true;
+                    // BMW sends 0.01 bar (or 0.1 psi) per step, depending on the car's units.
+                    this.boostFes = this.carUnits.press === 'PSI'
+                        ? raw * 0.1 / 14.5038
+                        : raw * BOOST_SCALE.factor + BOOST_SCALE.offset;
                     this.boostFesAt = Date.now();
                 },
                 // the HMI's sport display: power and torque in % of the car's maximum (car_vitals, MIT); 255 = none
@@ -631,38 +639,65 @@ class HudApp {
         Object.keys(s).forEach((key) => { s[key] = 0; });
     }
 
-    /** Boost from the engine unit when the sport display's value isn't there (config.dme, read-only UDS). */
+    /** Boost from the engine unit when the verified sport-display value isn't fresh. */
     _startDme() {
         if (this.stopped) return;
         const dme = this.config.dme;
         if (!dme || !Array.isArray(dme.boost) || !dme.boost.length) return;
         let rd = null, busy = false, baro = 101.3, baroAt = 0;
+        let failures = 0, lastFailureAt = 0;
+        const ecu = dme.ecu || 18;
         try {
-            const { Diag } = require('./kit/diag');
-            const { DidReader } = require('./kit/dids');
-            const link = new Diag(this.ctx.signals, this.log);
-            link.quiet = true;
+            const { ReadOnlyDiag } = require('./kit/readonly-diag');
+            // Use the shared read-only UDS scheduler: it paces TASU traffic,
+            // retries transport-busy responses, and suppresses silent ECUs.
+            const link = new ReadOnlyDiag(this.ctx.signals, this.log);
             this.dmeLink = link;
-            Promise.resolve().then(() => link.init()).catch((e) => this.log.info('engine unit link not available: ' + (e && e.message || e)));
-            rd = new DidReader(link, { ecu: dme.ecu || 18 });
-        } catch (e) { this.log.info('engine unit boost off: ' + (e && e.message || e)); return; }
+            Promise.resolve().then(() => link.init())
+                .catch((e) => this.log.info('engine unit link not available: ' + (e && e.message || e)));
+            rd = new DidReader(link, { ecu });
+        } catch (e) {
+            this.log.info('engine unit boost off: ' + (e && e.message || e));
+            return;
+        }
         this.dmeTimer = setInterval(() => this._guard('engine unit boost', () => {
             const now = Date.now();
-            if (this.stopped || busy || !this.needsBoost || this._data().demo || now - this.boostFesAt < FRESH_MS) return;
+            if (this.stopped || busy || !this.needsBoost || this._data().demo ||
+                this.boostFesMoved && now - this.boostFesAt < BOOST_FRESH_MS) return;
+            // A proxy alone is not proof that the ECU can currently answer.
+            if (!this.dmeLink || !this.dmeLink.ready || !this.dmeLink.available) return;
+            if (failures >= 3) {
+                if (now - lastFailureAt < 60000) return;
+                this.dmeLink.wake(ecu);
+            }
             busy = true;
             (async () => {
                 if (now - baroAt > 60000 && Array.isArray(dme.baro)) {
-                    baroAt = now;
                     const b = await rd.value('baro', dme.baro);
                     if (this.stopped) return;
                     if (isNum(b)) baro = b;
+                    baroAt = Date.now();
                 }
                 if (this.stopped) return;
                 const m = await rd.value('boost', dme.boost);
                 if (this.stopped) return;
-                if (isNum(m)) { this.boostDme = (m - baro) / 100; this.boostDmeAt = Date.now(); }
-            })().catch((e) => this.log.info('engine unit boost: ' + (e && e.message || e))).then(() => { busy = false; });
-        }), 400);
+                if (isNum(m) && m >= 20 && m <= 600) {
+                    this.boostDme = (m - baro) / 100;
+                    this.boostDmeAt = Date.now();
+                    failures = 0;
+                    lastFailureAt = 0;
+                } else {
+                    failures++;
+                    lastFailureAt = Date.now();
+                    if (failures === 3) this.log.info('engine unit boost: no valid pressure response; retrying after 60 s');
+                }
+            })().catch((e) => {
+                failures++;
+                lastFailureAt = Date.now();
+                if (failures === 3) this.log.info('engine unit boost: repeated read failures; retrying after 60 s');
+                else this.log.info('engine unit boost: ' + (e && e.message || e));
+            }).then(() => { busy = false; });
+        }), 1000);
     }
 
     stop() {
@@ -943,7 +978,7 @@ class HudApp {
     /** Boost in bar: the sport display's value while fresh, else the engine unit's, else null. */
     _boost() {
         const now = Date.now();
-        if (isNum(this.boostFes) && now - this.boostFesAt < FRESH_MS) return this.boostFes;
+        if (this.boostFesMoved && isNum(this.boostFes) && now - this.boostFesAt < BOOST_FRESH_MS) return this.boostFes;
         if (isNum(this.boostDme) && now - this.boostDmeAt < FRESH_MS) return this.boostDme;
         return null;
     }
