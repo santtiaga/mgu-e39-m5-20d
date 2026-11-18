@@ -1779,31 +1779,17 @@ void main() {
     // the center hub's matte graphite finish and the stop-pin's finer, harder grain.
     for (int bi = 0; bi < 2; bi++) {
         vec2 bc = vec2(bi == 0 ? 392.0 : 1388.0, 486.0);
-        vec2 bq = p - bc;
-        float br = length(bq);
+        float br = length(p - bc);
         if (br < 30.0) {
-            c = over(vec4(0.0, 0.0, 0.0, cov(length(bq - vec2(0.0, 2.5)) - 24.0)), c);
-            if (bi == 0) {
-                // Same matte display-panel material: vertical tonal falloff
-                // and fine, subtle pixel grain, sampled over the dome surface.
-                float bGy = clamp((bq.y + 21.0) / 42.0, 0.0, 1.0);
-                vec3 b0 = mix(vec3(0.086, 0.094, 0.110), vec3(0.035, 0.027, 0.024), u_night);
-                vec3 b1 = mix(vec3(0.059, 0.063, 0.075), vec3(0.020, 0.016, 0.016), u_night);
-                vec3 bCol = mix(b1, b0, 1.0 - abs(bGy - 0.55) * 1.8);
-                float bGrain = (hash12(floor(bq)) - 0.5) * mix(0.018, 0.008, u_night);
-                bCol = clamp(bCol + vec3(bGrain), 0.0, 1.0);
-                c = over(vec4(bCol, cov(br - 21.0)), c);
-            } else {
-                float bt = clamp(length(bq - vec2(-6.5, -7.0)) / 23.0, 0.0, 1.0);
-                vec3 b0 = mix(vec3(0.290, 0.302, 0.333), vec3(0.165, 0.102, 0.063), u_night);
-                vec3 b1 = mix(vec3(0.110, 0.114, 0.129), vec3(0.047, 0.031, 0.027), u_night);
-                vec3 b2 = mix(vec3(0.024, 0.024, 0.027), vec3(0.008, 0.008, 0.008), u_night);
-                vec3 bCol = bt < 0.5 ? mix(b0, b1, bt * 2.0) : mix(b1, b2, (bt - 0.5) * 2.0);
-                c = over(vec4(bCol, cov(br - 21.0)), c);
-            }
+            c = over(vec4(0.0, 0.0, 0.0, cov(length(p - (bc + vec2(0.0, 2.5))) - 24.0)), c);
+            float bt = clamp(length(p - (bc - vec2(6.5, 7.0))) / 23.0, 0.0, 1.0);
+            vec3 b0 = mix(vec3(0.290, 0.302, 0.333), vec3(0.165, 0.102, 0.063), u_night);
+            vec3 b1 = mix(vec3(0.110, 0.114, 0.129), vec3(0.047, 0.031, 0.027), u_night);
+            vec3 b2 = mix(vec3(0.024, 0.024, 0.027), vec3(0.008, 0.008, 0.008), u_night);
+            vec3 bCol = bt < 0.5 ? mix(b0, b1, bt * 2.0) : mix(b1, b2, (bt - 0.5) * 2.0);
+            c = over(vec4(bCol, cov(br - 21.0)), c);
         }
     }
-
     // 2. Display Strip Windows (y: 548..634, well above BELT y=663)
     vec4 wSvc  = vec4(338.0, 548.0, 226.0, 86.0);
     vec4 wLcd  = vec4(574.0, 548.0, 626.0, 86.0);
