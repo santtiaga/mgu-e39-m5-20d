@@ -542,6 +542,7 @@ class HudApp {
             }
         }));
         c.on('layer', guard('layer', (ref, state, reason) => {
+            this.log.info('cluster-render layer event' + tag + ': ref ' + ref + ' ' + state + (reason ? ' (' + reason + ')' : ''));
             const key = ci + ':' + ref;
             const old = this.layerStates.get(key);
             this.layerStates.set(key, { state, reason });
@@ -1609,7 +1610,10 @@ class HudApp {
         const c = this.clients[ci];
         // During reconnect, layer-state events can arrive before retained pixels
         // have replayed. Never reveal a staged layer until both gates are open.
-        if (!c || !c.ready || this.dcsm2.state !== 'available') return;
+        if (!c || !c.ready || this.dcsm2.state !== 'available') {
+            this.log.warn('layout build: ignored renderer event ref ' + ref + ' ' + state + ' (connection ready=' + !!(c && c.ready) + ', DCSM2=' + this.dcsm2.state + ')');
+            return;
+        }
         const b = this.build;
         const action = StagedBuild.transition(b, ci, ref, state, reason);
         if (!action) return;
