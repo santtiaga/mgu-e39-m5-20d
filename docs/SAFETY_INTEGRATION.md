@@ -54,6 +54,10 @@ The gate is groundwork, not an enabled double-buffer implementation; it does not
 
 A confirmed DCSM2 loss stops Apex Dash updates, requests drops for the tracked panel layers, and defers rebuilding until availability is confirmed again. A disconnect or an unconfirmed status is treated as unknown rather than proof of provider loss; reconnect replay stays hidden until a fresh healthy status arrives. The renderer protocol does not acknowledge individual `drop` operations, and a failed/unresponsive renderer may retain already-composited pixels temporarily. Therefore a drop request is not a guarantee that the old panel image disappears immediately. The app logs the release request and does not claim an atomic clear or a vehicle-verified failover to BMW's native cluster.
 
+## Vehicle-state startup gate
+
+Live vehicle state starts as unknown and remains fail-closed until BMW reports a recognised `VehicleCondition` value. This prevents Apex Dash from creating panel layers during the initial ignition/start-up window before drive-ready is confirmed. An explicit no-value/unknown state closes the gate again. Demo mode uses its own simulated data and is not blocked by the live vehicle-state gate.
+
 ## Deliberate safety behavior
 
 A trip is latched for the lifetime of the app process. Apex Dash does not automatically rebuild the overlay after a safety stop; restart the app after collecting logs and resolving the underlying fault. This avoids an automatic render/restart loop on the instrument cluster.
