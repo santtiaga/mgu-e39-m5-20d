@@ -42,6 +42,10 @@ assert.strictEqual(Car.engineRpm(undefined, 400), undefined);
         'the initial live state must fail closed until BMW reports vehicle condition');
     const transitions = [];
     car.onSample(function (data) { transitions.push({ condition: data.condition, known: data.conditionKnown }); });
+    vehicleStateHandler({ statusConditionVehicle: 15 });
+    assert.strictEqual(car.carPresent(), true,
+        'an explicit no-value response still counts as live data and must suppress demo=auto fallback');
+    assert.strictEqual(car.data().conditionKnown, false);
     vehicleStateHandler({ statusConditionVehicle: 'FAHREN' });
     assert.strictEqual(car.data().condition, 10);
     assert.strictEqual(car.data().conditionKnown, true,
