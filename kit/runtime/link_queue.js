@@ -25,6 +25,15 @@ function linkQueue(log) {
             const index = waiting >= 0 ? waiting : 0;
             const item = queue.splice(index, 1)[0];
             const started = Date.now();
+            let warned = false;
+            const stallTimer = setTimeout(() => {
+                warned = true;
+                stalls++;
+                try {
+                    if (log && log.warn) log.warn('SOME/IP native lane still pending after ' + STALL_MS +
+                        ' ms in ' + item.label + (queue.length ? ' (' + queue.length + ' waiting)' : ''));
+                } catch (ignored) {}
+            }, STALL_MS);
             running = item;
             urgentRun = item.urgent ? urgentRun + 1 : 0;
             try {
@@ -32,8 +41,9 @@ function linkQueue(log) {
             } catch (error) {
                 item.reject(error);
             } finally {
+                clearTimeout(stallTimer);
                 const elapsed = Date.now() - started;
-                if (elapsed > STALL_MS) {
+                if (!warned && elapsed > STALL_MS) {
                     stalls++;
                     try {
                         if (log && log.warn) log.warn('SOME/IP native lane held ' + elapsed +
