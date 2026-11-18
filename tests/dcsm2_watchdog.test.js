@@ -96,4 +96,53 @@ assert.strictEqual(parse(''), null);
     assert.strictEqual(watchdog.state, 'unknown', 'stopped watchdog state is not mutated by late events');
 }
 
-console.log('DCSM2 watchdog status parsing, transitions and retry: OK');
+
+{
+    const originalSetTimeout = global.setTimeout;
+    const originalClearTimeout = global.clearTimeout;
+    const originalNow = Date.now;
+    let queued = null, now = 1000, calls = 0;
+    global.setTimeout = function (fn) { queued = fn; return 789; };
+    global.clearTimeout = function () {};
+    Date.now = function () { return now; };
+    try {
+        const changes = [];
+        const client = { ready: true, blocked: false, status: function () { calls++; } };
+        const watchdog = new DCSM2Watchdog(client, (state, reason, previous) => {
+            changes.push({ state, reason, previous });
+        });
+        watchdog.connected();
+        let poll = queued;
+        queued = null;
+        poll();
+        watchdog.status('dcsm: Dcsm2 available for 3 s; subscription: ok');
+        now += 1500;
+        poll = queued;
+        queued = null;
+        poll();
+        now += 5000;
+        poll = queued;
+        queued = null;
+        poll();
+        now += 5000;
+        poll = queued;
+        queued = null;
+        poll();
+        now += 5000;
+        poll = queued;
+        queued = null;
+        poll();
+        assert.strictEqual(watchdog.state, 'unknown',
+            'a connected renderer with no fresh DCSM2 status must fail closed');
+        assert(changes.some((change) => change.state === 'unknown' && change.previous === 'available' &&
+            /stale/.test(change.reason)), 'stale health is exposed as an availability transition');
+        assert(calls >= 5, 'watchdog continues requesting status while health is stale');
+        watchdog.stop();
+    } finally {
+        global.setTimeout = originalSetTimeout;
+        global.clearTimeout = originalClearTimeout;
+        Date.now = originalNow;
+    }
+}
+
+console.log('DCSM2 watchdog status parsing, stale-response fail-closed, transitions and retry: OK');
