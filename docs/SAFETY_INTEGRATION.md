@@ -77,6 +77,7 @@ Release verification remains limited by the documented protocol: `drop` has no a
 ```sh
 node tests/car.test.js
 node tests/cluster_render_close.test.js
+node tests/cluster_render_deferred_visibility.test.js
 node tests/cluster_render_late_connect.test.js
 node tests/dcsm2_watchdog.test.js
 node tests/diag_lifecycle.test.js
