@@ -1090,13 +1090,47 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
         float w = 0.5 + 0.32 * cos(ang * 2.0) + 0.18 * sin(ang * 3.0 - 0.7);
         vec3 rLight = mix(vec3(0.933, 0.945, 0.961), vec3(0.227, 0.165, 0.118), u_night);
         vec3 rDark  = mix(vec3(0.549, 0.569, 0.612), vec3(0.078, 0.055, 0.039), u_night);
+
+        // The large bezels get a stronger polished-aluminium response; small dials stay unchanged.
+        if (big && u_night < 0.5) {
+            w = 0.5 + 0.29 * cos(ang * 2.0)
+                    + 0.17 * sin(ang * 3.0 - 0.7)
+                    + 0.12 * cos(ang * 5.0 + 0.35);
+            // Neutral satin aluminium: keep the silver grey, not paper-white.
+            rLight = vec3(0.805, 0.825, 0.855);
+            rDark = vec3(0.285, 0.315, 0.365);
+        }
         vec3 rCol = mix(rDark, rLight, clamp(w, 0.0, 1.0));
 
-        // Radial bevel (inner shadow, ridge highlight at 0.55, outer shadow)
+        // Radial bevel (inner shadow, raised ridge, and a crisp outer metal lip).
         float u = clamp((r - R * ringIn) / (R * (1.0 - ringIn)), 0.0, 1.0);
         float inSh = clamp(1.0 - u / 0.22, 0.0, 1.0) * 0.55;
         float outSh = clamp((u - 0.80) / 0.20, 0.0, 1.0) * 0.60;
         float ridge = max(0.0, 1.0 - abs(u - 0.55) / 0.25) * 0.20;
+        if (big && u_night < 0.5) {
+            inSh = clamp(1.0 - u / 0.21, 0.0, 1.0) * 0.58;
+            outSh = clamp((u - 0.83) / 0.17, 0.0, 1.0) * 0.62;
+            ridge = max(0.0, 1.0 - abs(u - 0.52) / 0.23) * 0.23;
+
+            // Fine circumferential brushing and irregular micro-grain restore the aluminium texture.
+            float grain = (hash12(floor(p * 1.35)) - 0.5) * 0.105;
+            float brush = sin(dot(p, normalize(vec2(-q.y, q.x))) * 0.72 + ang * 2.0) * 0.018;
+            float textureMask = smoothstep(0.02, 0.12, u) * (1.0 - smoothstep(0.88, 0.99, u));
+            rCol += vec3(grain + brush) * textureMask;
+
+            // Restrained, warm-grey reflections; avoid clipped white specular streaks.
+            float upperGlint = pow(max(0.0, cos(ang - 0.42)), 15.0);
+            float lowerGlint = pow(max(0.0, cos(ang - 3.05)), 9.0);
+            float ridgeMask = smoothstep(0.22, 0.39, u) * (1.0 - smoothstep(0.65, 0.79, u));
+            rCol += vec3(0.075, 0.080, 0.090) * upperGlint * ridgeMask;
+            rCol += vec3(0.035, 0.040, 0.048) * lowerGlint * ridgeMask;
+
+            // Subtle edge catches retain the machined-metal definition without white outlines.
+            float innerLip = 1.0 - smoothstep(0.035, 0.085, u);
+            float outerLip = smoothstep(0.88, 0.96, u) * (1.0 - smoothstep(0.975, 1.0, u));
+            rCol += vec3(0.055, 0.060, 0.070) * innerLip;
+            rCol += vec3(0.070, 0.075, 0.085) * outerLip;
+        }
         rCol = mix(rCol + vec3(ridge), vec3(0.0), max(inSh, outSh));
 
         float dRing = max(R * ringIn - r, r - R);
