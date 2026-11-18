@@ -1997,7 +1997,8 @@ vec4 drawHub(vec2 q, float capR, vec4 c) {
     float bevelD = r - capR;
     float bevelA = cov(abs(bevelD + capR * 0.045) - max(0.65, capR * 0.035));
     // Bias the bevel reflection diagonally so its falloff runs toward the lower-right.
-    float bevelLight = clamp(0.5 - q.x / max(capR, 1.0) * 0.22 - q.y / max(capR, 1.0) * 0.5, 0.0, 1.0);
+    // Stronger upper-left highlight makes the bevel's shading fall visibly toward the lower-right.
+    float bevelLight = clamp(0.5 - q.x / max(capR, 1.0) * 0.62 - q.y / max(capR, 1.0) * 0.50, 0.0, 1.0);
     vec3 bevelCol = mix(vec3(0.018, 0.020, 0.024), vec3(0.105, 0.112, 0.122), bevelLight);
     c = over(vec4(bevelCol, bevelA * 0.82), c);
 
