@@ -557,7 +557,7 @@ class HudApp {
             ', image frames sent=' + s.imageFrames + ' (full=' + s.fullFrames + ', dirty=' + s.dirtyFrames +
             ', rects=' + s.dirtyRects + ')' +
             ', pixels=' + s.pixels + ', pixel bytes=' + s.pixelBytes +
-            ', wire bytes=' + s.wireBytes + ', reconnect replay frames=' + s.replayFrames);
+            ', wire bytes=' + s.wireBytes + ', renderer replay frames=' + s.replayFrames);
         Object.keys(s).forEach((key) => { s[key] = 0; });
     }
 
