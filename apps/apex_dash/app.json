@@ -8,6 +8,7 @@
   "iconGlyph": "APX",
   "shared": [
     "hud.js",
+    "dirty_rects.js",
     "dcsm2_watchdog.js",
     "safety_controller.js",
     "staged_build.js",
