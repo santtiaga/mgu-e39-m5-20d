@@ -2113,9 +2113,15 @@ void main() {
         float pinShadowFade = mix(1.4, 1.0, smoothstep(0.0, 1.0, pinShadowT));
         float pinShadowA = 0.38 * pinShadowFade * exp(-max(pinShadowD, 0.0) / 2.5);
         c = over(vec4(0.0, 0.0, 0.0, pinShadowA), c);
-        // Stop pin on top of its shadow: 1.5 px lighter inner bevel.
-        float pinD = length(sq - pPin) - mR * 0.022;
-        c = over(vec4(0.027, 0.031, 0.039, cov(pinD)), c);
+        // Stop pin: same matte graphite finish and fine grain as the center hub.
+        vec2 pinQ = sq - pPin;
+        float pinR = length(pinQ);
+        float pinD = pinR - mR * 0.022;
+        float pinLight = clamp(0.5 - pinQ.y / max(mR * 0.022, 1.0) * 0.28, 0.0, 1.0);
+        vec3 pinCol = mix(vec3(0.068, 0.074, 0.082), vec3(0.126, 0.135, 0.147), pinLight);
+        float pinGrain = (hubHash12(floor(pinQ * 0.72)) - 0.5) * mix(0.038, 0.018, u_night);
+        pinCol = clamp(pinCol + vec3(pinGrain), 0.0, 1.0);
+        c = over(vec4(pinCol, cov(pinD)), c);
         float pinInnerShadow = 0.95 * (1.0 - smoothstep(0.0, 1.5, -pinD)) * step(pinD, 0.0) * cov(pinD);
         c = over(vec4(vec3(0.105, 0.109, 0.118), pinInnerShadow), c);
     }
