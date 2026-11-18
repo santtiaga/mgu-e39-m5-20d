@@ -1885,10 +1885,6 @@ class HudApp {
                 this._rebuild();
                 return;
             }
-            if (vehicle.hold && this.widgets.size === 0) {
-                this.deferredRebuild = true;
-                return;
-            }
             this._smoothRpm(now);
             if (!this.client.ready || this.dcsm2.state !== 'available') return;
             this.renderStats.frames++;
