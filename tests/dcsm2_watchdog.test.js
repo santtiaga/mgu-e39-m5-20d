@@ -62,4 +62,15 @@ assert.strictEqual(parse(''), null);
     }
 }
 
+
+{
+    const changes = [];
+    const watchdog = new DCSM2Watchdog({ ready: false, status: function () {} }, (state) => changes.push(state));
+    watchdog.stop();
+    watchdog.status('dcsm: Dcsm2 available for 3 s; subscription: ok');
+    watchdog.disconnected();
+    assert.deepStrictEqual(changes, [], 'late status and disconnect events are ignored after stop');
+    assert.strictEqual(watchdog.state, 'unknown', 'stopped watchdog state is not mutated by late events');
+}
+
 console.log('DCSM2 watchdog status parsing, transitions and retry: OK');
