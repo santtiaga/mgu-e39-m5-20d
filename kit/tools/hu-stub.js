@@ -30,8 +30,9 @@ function headUnit(stage, o) {
     const { Settings } = (() => {
         // reuse the real Settings class without loading the SDK
         const m = src.match(/class Settings[\s\S]*?\n}\n/);
-        const fn = new Function('fs', 'path', 'DATA_DIR', 'log', m[0] + '\nreturn { Settings };');
-        return fn(fs, path, out, live ? log : console);
+        const { writeAtomicFile } = require(path.join(kitDir, 'atomic_file'));
+        const fn = new Function('fs', 'path', 'DATA_DIR', 'log', 'writeAtomicFile', m[0] + '\nreturn { Settings };');
+        return fn(fs, path, out, live ? log : console, writeAtomicFile);
     })();
 
     const hu = new EventEmitter();
@@ -80,6 +81,7 @@ function headUnit(stage, o) {
     const WIDGETS = hu.WIDGETS = [{ spawnId: 1, big: false, size: 1, visible: true }, { spawnId: 2, big: true, size: 2, visible: true }];
     hu.widgetFn = null;
     const ctx = hu.ctx = {
+        app: hu, // app lifecycle EventEmitter used by app.start() shutdown cleanup
         ui, settings, spec, dataDir: out, log, display,
         canvas: (w, h) => display.canvas(w, h),
         onTab(fn) { display.onTab = fn; },
