@@ -256,6 +256,8 @@ class HudApp {
         // HUD_CLUSTER_SOCKET: the Mac bench's fake cluster-render; never set on the car
         this.socketPath = process.env.HUD_CLUSTER_SOCKET || this.config.socketPath || DEFAULT_PATH;
         this.clients = [];               // the connections to cluster-render: [0] the app's own, more for "conn" widgets
+        this.renderStats = { frames: 0, diffChecks: 0, unchangedWidgets: 0, imageFrames: 0,
+            fullFrames: 0, dirtyFrames: 0, dirtyRects: 0, pixels: 0, pixelBytes: 0, wireBytes: 0, replayFrames: 0 };
         this.started = false;
         this.stopped = false;
         this.layerStates = new Map();    // "<conn>:<ref>" -> { state, reason } from cluster-render
@@ -465,6 +467,17 @@ class HudApp {
             if (ci === 0) this.dcsm2.disconnected();
             else this._status();
         }));
+        c.on('pixels-written', guard('pixels-written', (ev) => {
+            if (ev.kind !== 'image') return;
+            const s = this.renderStats;
+            s.imageFrames++;
+            if (ev.full) s.fullFrames++;
+            else { s.dirtyFrames++; s.dirtyRects += ev.rectCount; }
+            s.pixels += ev.pixels;
+            s.pixelBytes += ev.pixelBytes;
+            s.wireBytes += ev.wireBytes;
+            if (ev.replay) s.replayFrames++;
+        }));
         c.on('diagnostic', guard('diagnostic', (ev) => {
             if (ev.ev === 'target' || ev.ev === 'error' || (ev.ev === 'layer' && ev.state !== 'shown')) {
                 let raw;
@@ -529,8 +542,23 @@ class HudApp {
             this._status();
         }), 60000);
         this.statusTimer = setInterval(() => this._guard('status', () => this._status()), 5000);
+        this.renderStatsTimer = setInterval(() => this._guard('render stats', () => this._logRenderStats()), 30000);
         this._status();
         this._startDme();
+    }
+
+    /** Log bounded 30-second rendering counters; byte totals are frames accepted by socket.write. */
+    _logRenderStats() {
+        const s = this.renderStats;
+        if (!s.frames && !s.imageFrames && !s.diffChecks) return;
+        const unchangedPct = s.diffChecks ? (100 * s.unchangedWidgets / s.diffChecks).toFixed(1) : '0.0';
+        this.log.info('[render-stats] 30s panel frames=' + s.frames +
+            ', image diffs=' + s.diffChecks + ', unchanged=' + s.unchangedWidgets + ' (' + unchangedPct + '%)' +
+            ', image frames sent=' + s.imageFrames + ' (full=' + s.fullFrames + ', dirty=' + s.dirtyFrames +
+            ', rects=' + s.dirtyRects + ')' +
+            ', pixels=' + s.pixels + ', pixel bytes=' + s.pixelBytes +
+            ', wire bytes=' + s.wireBytes + ', reconnect replay frames=' + s.replayFrames);
+        Object.keys(s).forEach((key) => { s[key] = 0; });
     }
 
     /** Boost from the engine unit when the sport display's value isn't there (config.dme, read-only UDS). */
@@ -574,6 +602,7 @@ class HudApp {
         clearInterval(this.tickTimer);
         clearInterval(this.themeTimer);
         clearInterval(this.statusTimer);
+        clearInterval(this.renderStatsTimer);
         clearInterval(this.dmeTimer);
         clearTimeout(this.statusAskT);
         clearTimeout(this._statusT);
@@ -1507,8 +1536,10 @@ class HudApp {
         const w = x.w, was = x.px;
         x.px = buf;
         if (!was || (x.sheet && x.sheet.buf)) { this._blit(x, null, buf); return; }
-        const c = changes(was, buf, w.w, w.h);
+        this.renderStats.diffChecks++;
+        const c = changes(was, buf, w.w, h);
         if (c) this._blit(x, c.rects, c.px);
+        else this.renderStats.unchangedWidgets++;
     }
 
     /** "key" is on while that bool setting is on; "!key" while it is off. */
@@ -1789,6 +1820,7 @@ class HudApp {
             }
             this._smoothRpm(now);
             if (!this.client.ready || this.dcsm2.state !== 'available') return;
+            this.renderStats.frames++;
             // shift light: blink the whole bar at 8 Hz once the rpm reaches the redline
             const rpm = this._raw('rpm');
             const flashing = isNum(rpm) && rpm >= this.setting('redline') - 150;
