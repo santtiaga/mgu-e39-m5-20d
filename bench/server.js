@@ -255,6 +255,7 @@ const renderServer = net.createServer((sock) => {
                 layers.set(key, nl);   // its visibility warnings (hood, gear box, belt light, HUD window) ride along in sceneMeta()
                 if (nl.state === 'waiting') writeEv(sock, { ev: 'layer', ref: m.ref, state: 'waiting', reason: nl.reason });
                 else writeEv(sock, { ev: 'layer', ref: m.ref, state: nl.state });
+                log('info', 'renderer: layer ref ' + m.ref + ' created ' + nl.state + ' (visible=' + !!nl.visible + ', kind=' + nl.kind + ')');
                 sceneChanged();
                 return;
             }
