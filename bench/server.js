@@ -37,10 +37,13 @@ const { fork, execFileSync } = require('child_process');
 // one source of truth, shared with the app's layout check. The page gets it in the 'hello' event.
 const visible = require('../shared/visible');
 const DCSM2Mock = require('./dcsm2_mock');
+const VehicleStateMock = require('./vehicle_state');
 
 const PORT = Number(process.env.BENCH_PORT) || 8078;
 // Bench-only provider signal. Default to available so the real watchdog can exercise rendering in a browser.
 let dcsm2State = DCSM2Mock.normalize(process.env.BENCH_DCSM2 || 'available');
+// The real app subscribes to BMW VehicleCondition.VehicleCondition; default to unknown (fail closed).
+let vehicleState = VehicleStateMock.normalize(process.env.BENCH_VEHICLE_STATE || 'unknown');
 // BENCH_LAYER_CAP: the car seems to draw only an app's first 8 layers (photos, Nov 5 2026).
 // 0 = unlimited. Layers past the cap get state 'waiting' and are not drawn. POST /cap sets it live.
 let layerCap = Math.max(0, Number(process.env.BENCH_LAYER_CAP) || 0);
@@ -108,7 +111,7 @@ function sceneMeta() {
     }));
 }
 function helloMsg() {
-    return { t: 'hello', targets: TARGETS, view: appView(), app: APP_ID, cap: layerCap, pixelCap: PIXEL_BYTES, dcsm2: dcsm2State,
+    return { t: 'hello', targets: TARGETS, view: appView(), app: APP_ID, cap: layerCap, pixelCap: PIXEL_BYTES, dcsm2: dcsm2State, vehicleState,
         geometry: { HOOD: visible.HOOD, BLACK_BOX: visible.BLACK_BOX, BELT: visible.BELT, HUD_WINDOW: visible.HUD_WINDOW } };
 }
 let sceneTimer = null;
@@ -404,6 +407,7 @@ function startApp() {
     child = fork(path.join(__dirname, 'run-app.js'), [STAGE, DATA_DIR], opts);
     const c = child;
     if (drive.value !== null) c.send(drive);
+    c.send({ t: 'vehicle', state: vehicleState });
     const pipe = (stream, level) => {
         let rest = '';
         stream.on('data', (d) => {
@@ -504,6 +508,14 @@ const web = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url === '/restart') {
         restartApp('restart button');
+        res.writeHead(204); return res.end();
+    }
+    if (req.method === 'POST' && url === '/vehicle-state') {
+        const b = await body(req);
+        vehicleState = VehicleStateMock.normalize(b.state);
+        send({ t: 'vehicleState', state: vehicleState });
+        if (child) child.send({ t: 'vehicle', state: vehicleState });
+        log('info', 'bench: mocked BMW VehicleCondition = ' + vehicleState + ' (' + VehicleStateMock.condition(vehicleState) + ')');
         res.writeHead(204); return res.end();
     }
     if (req.method === 'POST' && url === '/dcsm2') {
