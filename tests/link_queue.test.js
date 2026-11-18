@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('assert');
 const path = require('path');
-const { linkQueue, URGENT_RUN } = require(path.join(__dirname, '..', 'kit', 'runtime', 'link_queue'));
+const { linkQueue, URGENT_RUN, STALL_MS } = require(path.join(__dirname, '..', 'kit', 'runtime', 'link_queue'));
 
 (async () => {
     const order = [];
@@ -63,5 +63,10 @@ const { linkQueue, URGENT_RUN } = require(path.join(__dirname, '..', 'kit', 'run
     assert(queuedRejected, 'closing must reject queued native operations');
     finish('settled');
     assert.strictEqual(await inFlight, 'settled');
+    const stallWarnings = [];
+    const q4 = linkQueue({ warn: (message) => stallWarnings.push(message) });
+    await q4(() => new Promise((resolve) => setTimeout(resolve, STALL_MS + 50)), false, 'slow-native-call');
+    assert.strictEqual(q4.stalls, 1);
+    assert(stallWarnings.some((message) => /still pending/.test(message)), 'stalled operation must be reported before it settles');
     console.log('link_queue: fairness, FIFO, error recovery and shutdown checks pass');
 })().catch((error) => { console.error(error); process.exit(1); });
