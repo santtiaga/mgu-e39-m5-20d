@@ -45,7 +45,11 @@ mgu.run({
 
         hud.onStatus((s) => { ctx.ui.text('STATUS', s); });
         const onUnhandledRejection = (reason) => {
-            ctx.log.error('[process] unhandledRejection: ' + diagnosticText(reason));
+            const detail = diagnosticText(reason);
+            ctx.log.error('[process] unhandledRejection: ' + detail);
+            // The process-level listener keeps Node 8 alive; also count the fault
+            // so repeated unhandled async failures reach the latched safety stop.
+            hud.safety.record('process unhandledRejection', reason instanceof Error ? reason : new Error(detail));
         };
         process.on('unhandledRejection', onUnhandledRejection);
         hud.start();
