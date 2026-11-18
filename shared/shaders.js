@@ -2013,8 +2013,10 @@ vec4 drawHub(vec2 q, float capR, vec4 c) {
         float grain = (hubHash12(floor(q * 0.72)) - 0.5) * mix(0.038, 0.018, u_night);
         faceCol = clamp(faceCol + vec3(grain), 0.0, 1.0);
         c = over(vec4(faceCol, faceA), c);
-        // Very fine upper-left edge reflection to separate the black face from the dial.
-        float rimA = cov(abs(r - (faceR - 0.45)) - 0.55) * 0.12;
+        // Rotate the rim reflection 45 degrees counter-clockwise: strongest at upper-left,
+        // fading diagonally toward the lower-right, without rotating the hub geometry.
+        float rimDir = clamp(0.5 - dot(q / max(r, 0.001), vec2(0.7071, 0.7071)) * 0.5, 0.0, 1.0);
+        float rimA = cov(abs(r - (faceR - 0.45)) - 0.55) * mix(0.035, 0.20, smoothstep(0.0, 1.0, rimDir));
         vec3 rimCol = mix(vec3(0.32, 0.34, 0.37), vec3(0.62, 0.64, 0.67), 1.0 - u_night);
         c = over(vec4(rimCol, rimA), c);
     }
