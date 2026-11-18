@@ -64,6 +64,29 @@ assert.strictEqual(parse(''), null);
 
 
 {
+    const originalSetTimeout = global.setTimeout;
+    const originalClearTimeout = global.clearTimeout;
+    let queued = null, calls = 0;
+    global.setTimeout = function (fn) { queued = fn; return 456; };
+    global.clearTimeout = function () {};
+    try {
+        const client = { ready: true, blocked: true, status: function () { calls++; } };
+        const watchdog = new DCSM2Watchdog(client, function () {});
+        watchdog.connected();
+        const poll = queued;
+        queued = null;
+        poll();
+        assert.strictEqual(calls, 0, 'status polling must not add writes during socket backpressure');
+        assert.strictEqual(typeof queued, 'function', 'polling resumes after a later drain');
+        watchdog.stop();
+    } finally {
+        global.setTimeout = originalSetTimeout;
+        global.clearTimeout = originalClearTimeout;
+    }
+}
+
+
+{
     const changes = [];
     const watchdog = new DCSM2Watchdog({ ready: false, status: function () {} }, (state) => changes.push(state));
     watchdog.stop();
