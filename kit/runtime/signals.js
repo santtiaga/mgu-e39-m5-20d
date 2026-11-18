@@ -116,7 +116,8 @@ async function watch(iface, instance, handlers, log, opts) {
                 if (log) log.warn('subscribe ' + iface + '.' + f + ': ' + e);
             }
         }
-        if (active && p.isAvailable && p.isAvailable()) { res.available = true; fetchAll(); }
+        const initiallyAvailable = await nativeTick(() => p.isAvailable && p.isAvailable(), true, 'availability check ' + iface);
+        if (active && initiallyAvailable) { res.available = true; fetchAll(); }
         if (opts && opts.pollMs) pollTimer = setInterval(() => { if (active && res.available) setImmediate(() => { if (active) fetchAll(); }); }, opts.pollMs);
     } catch (e) {
         res.error = String(e);
@@ -165,7 +166,8 @@ function on(p, name, fn, log) {
 /** Availability of a proxy's provider; fn(bool) on every change. */
 function onAvailable(p, fn) {
     return nativeTick(() => { try { return p.subscribeToAvailability((a) => fn(!!a)); } catch (e) { return null; } }, true, 'availability subscribe')
-        .then(() => { if (p.isAvailable && p.isAvailable()) fn(true); });
+        .then(() => nativeTick(() => p.isAvailable && p.isAvailable(), true, 'availability check'))
+        .then((available) => { if (available) fn(true); });
 }
 
 module.exports = { watch, proxy, call, set, on, onAvailable, loadConfig, hasNative: () => !!someip };
