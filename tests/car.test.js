@@ -62,4 +62,31 @@ assert.strictEqual(Car.engineRpm(undefined, 400), undefined);
     car.stop();
 }
 
+
+/* Auto-demo must never put simulated driving data on the real instrument panel. */
+{
+    const makeContext = (target, mode) => ({
+        spec: { config: { target: target } },
+        log: { info: function () {}, warn: function () {} },
+        settings: { get: function () { return mode; } },
+        signals: { watch: function () { return Promise.resolve({ available: false, shutdown: function () {} }); } },
+    });
+    const panelAuto = new Car(makeContext('panel', 'auto'), []);
+    panelAuto.t0 = Date.now() - 6000;
+    assert.strictEqual(panelAuto._wantDemo(), false,
+        'missing live signals must not trigger simulated driving on the instrument panel');
+    panelAuto.stop();
+
+    const panelManual = new Car(makeContext('panel', 'on'), []);
+    assert.strictEqual(panelManual._wantDemo(), true,
+        'manual demo mode remains available for deliberate bench testing');
+    panelManual.stop();
+
+    const hudAuto = new Car(makeContext('hud', 'auto'), []);
+    hudAuto.t0 = Date.now() - 6000;
+    assert.strictEqual(hudAuto._wantDemo(), true,
+        'non-panel targets retain the existing automatic demo fallback');
+    hudAuto.stop();
+}
+
 console.log('Car MHEV engine-speed cutoff and vehicle-state startup gate: OK');
