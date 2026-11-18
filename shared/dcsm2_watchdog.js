@@ -34,11 +34,13 @@ class DCSM2Watchdog {
     }
 
     disconnected() {
+        if (this.stopped) return;
         this._cancel();
         this._set('unknown', 'cluster-render disconnected');
     }
 
     status(text) {
+        if (this.stopped) return;
         const state = parseStatus(text);
         if (state === null) return;
         const reason = state === 'available' ? 'cluster-render reports DCSM2 available'
@@ -48,6 +50,7 @@ class DCSM2Watchdog {
     }
 
     _set(state, reason) {
+        if (this.stopped) return;
         const previous = this.state;
         const changed = state !== previous || reason !== this.reason;
         if (!changed) return;
