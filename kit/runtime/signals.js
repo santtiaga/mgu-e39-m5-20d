@@ -28,7 +28,8 @@ const DIRS = [path.join(APP_ROOT, 'someipInterfaces'), path.join(__dirname, '..'
 // init run inline inside the app's promise chains next to the SDK's own SOME/IP
 // traffic. The SDK always calls them from a fresh setImmediate tick, one at a
 // time - do the same.
-const nativeQueue = linkQueue({ warn: (message) => { if (typeof console !== 'undefined' && console.warn) console.warn(message); } });
+let queueLogger = null;
+const nativeQueue = linkQueue({ warn: (message) => { if (queueLogger && queueLogger.warn) queueLogger.warn(message); } });
 function nativeTick(fn, urgent, label) {
     return nativeQueue(() => new Promise((resolve, reject) => {
         setImmediate(() => {
@@ -55,6 +56,7 @@ function loadConfig(iface) {
  * opts.onAvailability(available): called on provider availability changes when the binding supports it.
  */
 async function watch(iface, instance, handlers, log, opts) {
+    if (log) queueLogger = log;
     let pollTimer = null;
     let active = true;
     const fetching = Object.create(null);
