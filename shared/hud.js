@@ -1270,15 +1270,7 @@ class HudApp {
         const name = this._layoutName();
         const vehicle = this._vehicleGate(this.car.data());
         if (name !== 'off' && vehicle.hold) {
-            this.deferredRebuild = true;
-            if (vehicle.off) {
-                this._dropLayoutLayers();
-                this.vehicleOff = true;
-                if (!this.vehicleOffLogged) {
-                    this.vehicleOffLogged = true;
-                    this.log.info('vehicle state ' + vehicle.condition + ': cluster layers dropped; waiting for drive-ready');
-                }
-            }
+            this._holdForVehicle(vehicle);
             return;
         }
         if (name !== 'off' && this.dcsm2.state !== 'available') {
@@ -1859,6 +1851,20 @@ class HudApp {
         };
     }
 
+    /** Release any active panel content whenever vehicle state is not safe to display. */
+    _holdForVehicle(vehicle) {
+        this.deferredRebuild = true;
+        if (vehicle.off) this.vehicleOff = true;
+        const hasLayout = !!(this.build || this.widgets.size || this.sheets.length);
+        if (hasLayout) this._dropLayoutLayers();
+        if (!this.vehicleOffLogged) {
+            this.vehicleOffLogged = true;
+            this.log.info('vehicle state ' + (vehicle.condition === undefined ? 'unknown' : vehicle.condition) +
+                ': cluster layers ' + (hasLayout ? 'dropped' : 'held') + '; waiting for drive-ready');
+            this._status();
+        }
+    }
+
     /** Drop only layout layers; keep the shared renderer connection and cached font assets alive. */
     _dropLayoutLayers() {
         if (this.build && this.build.timer) clearTimeout(this.build.timer);
@@ -1888,17 +1894,8 @@ class HudApp {
         this._frameData = this.car.data();
         try {
             const vehicle = this._vehicleGate(this._frameData);
-            if (vehicle.off) {
-                if (!this.vehicleOff) {
-                    this._dropLayoutLayers();
-                    this.vehicleOff = true;
-                    this.deferredRebuild = true;
-                    if (!this.vehicleOffLogged) {
-                        this.vehicleOffLogged = true;
-                        this.log.info('vehicle state ' + vehicle.condition + ': cluster layers dropped; waiting for drive-ready');
-                    }
-                    this._status();
-                }
+            if (vehicle.hold) {
+                this._holdForVehicle(vehicle);
                 return;
             }
             if (!vehicle.hold && (this.vehicleOff || this.deferredRebuild)) {
