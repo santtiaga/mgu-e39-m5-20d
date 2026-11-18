@@ -2004,9 +2004,9 @@ vec4 drawHub(vec2 q, float capR, vec4 c) {
     if (faceA > 0.0) {
         float light = clamp(0.5 - q.x / max(capR, 1.0) * 0.22 - q.y / max(capR, 1.0) * 0.28, 0.0, 1.0);
         // Lift the end face into visible graphite; keep the cylindrical boss distinctly darker than the dial.
-        vec3 faceCol = mix(vec3(0.052, 0.057, 0.064), vec3(0.105, 0.113, 0.124), light);
-        // Match the dial's fine matte grain amplitude so the texture remains visible at MGU scale.
-        float grain = (hubHash12(floor(q)) - 0.5) * mix(0.055, 0.025, u_night);
+        vec3 faceCol = mix(vec3(0.068, 0.074, 0.082), vec3(0.126, 0.135, 0.147), light);
+        // Softer, finer matte grain: retain visible surface texture without a coarse speckled look.
+        float grain = (hubHash12(floor(q * 0.72)) - 0.5) * mix(0.038, 0.018, u_night);
         faceCol = clamp(faceCol + vec3(grain), 0.0, 1.0);
         c = over(vec4(faceCol, faceA), c);
         // Very fine upper-left edge reflection to separate the black face from the dial.
