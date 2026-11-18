@@ -8,7 +8,7 @@ const path = require('path');
 const util = require('util');
 const mgu = require('./kit/mgu');
 const HudApp = require('./hud');
-const isPanelTarget = require('../../shared/panel_target_guard');
+const isPanelTarget = require('./panel_target_guard');
 const { Canvas } = require('./kit/runtime/canvas');
 
 const LOG_LINES = 16;
