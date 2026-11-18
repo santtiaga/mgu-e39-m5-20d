@@ -1112,36 +1112,34 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
             outSh = clamp((u - 0.83) / 0.17, 0.0, 1.0) * 0.62;
             ridge = max(0.0, 1.0 - abs(u - 0.52) / 0.23) * 0.23;
 
-            // Satin anodised aluminium: restrained fine grain, coating variation and radial brushing.
-            float textureMask = smoothstep(0.025, 0.12, u) * (1.0 - smoothstep(0.88, 0.98, u));
+            // Satin aluminium: material definition comes from directional reflection, not noise.
+            float textureMask = smoothstep(0.018, 0.095, u) * (1.0 - smoothstep(0.91, 0.985, u));
+            float crownMask = smoothstep(0.16, 0.31, u) * (1.0 - smoothstep(0.70, 0.84, u));
 
-            // Fine, non-directional surface grain.
-            float fineGrain = hash12(floor(p * 2.35)) - 0.5;
-
-            // Very low-frequency oxide/coating variation; avoid a dirty or mottled look.
-            float coatingNoise = hash12(floor(vec2(ang * 13.0, u * 24.0))) - 0.5;
-
-            // Fine radial machining lines (concentric around the dial), with slight irregularity.
-            float lineWarp = (hash12(floor(vec2(ang * 31.0, u * 17.0))) - 0.5) * 0.75;
-            float radialBrush = sin(u * 410.0 + lineWarp + 0.35 * sin(ang * 5.0));
-
-            float surfaceTexture = fineGrain * 0.030
-                                 + coatingNoise * 0.018
-                                 + radialBrush * 0.010;
+            // Fine surface grain, subtle anodising variation and dense concentric machining.
+            float fineGrain = hash12(floor(p * 3.1)) - 0.5;
+            float coatingNoise = hash12(floor(vec2(ang * 19.0, u * 31.0))) - 0.5;
+            float lineWarp = (hash12(floor(vec2(ang * 43.0, u * 23.0))) - 0.5) * 0.48;
+            float radialBrush = sin(u * 690.0 + lineWarp + 0.22 * sin(ang * 7.0));
+            float microBrush = sin(u * 1370.0 + lineWarp * 1.7);
+            float surfaceTexture = fineGrain * 0.022 + coatingNoise * 0.012
+                                 + radialBrush * 0.018 + microBrush * 0.004;
             rCol += vec3(surfaceTexture) * textureMask;
 
-            // Restrained, warm-grey reflections; avoid clipped white specular streaks.
-            float upperGlint = pow(max(0.0, cos(ang - 0.42)), 15.0);
-            float lowerGlint = pow(max(0.0, cos(ang - 3.05)), 9.0);
-            float ridgeMask = smoothstep(0.22, 0.39, u) * (1.0 - smoothstep(0.65, 0.79, u));
-            rCol += vec3(0.075, 0.080, 0.090) * upperGlint * ridgeMask;
-            rCol += vec3(0.035, 0.040, 0.048) * lowerGlint * ridgeMask;
+            // Directional metallic environment: narrow bright source, softer fill and dark reflection.
+            float keyReflection = pow(max(cos(ang - 0.48), 0.0), 34.0);
+            float fillReflection = pow(max(cos(ang - 2.62), 0.0), 13.0);
+            float darkReflection = pow(max(cos(ang - 1.72), 0.0), 18.0);
+            float reflection = (0.34 * keyReflection + 0.105 * fillReflection) * crownMask;
+            float reflectedDark = 0.24 * darkReflection * crownMask;
+            rCol += vec3(reflection * 0.96, reflection * 0.98, reflection);
+            rCol = mix(rCol, vec3(0.075, 0.086, 0.105), clamp(reflectedDark, 0.0, 0.42));
 
-            // Subtle edge catches retain the machined-metal definition without white outlines.
-            float innerLip = 1.0 - smoothstep(0.035, 0.085, u);
-            float outerLip = smoothstep(0.88, 0.96, u) * (1.0 - smoothstep(0.975, 1.0, u));
-            rCol += vec3(0.055, 0.060, 0.070) * innerLip;
-            rCol += vec3(0.070, 0.075, 0.085) * outerLip;
+            // Machined inner and outer arrises; crisp, without white outlines.
+            float innerLip = 1.0 - smoothstep(0.025, 0.075, u);
+            float outerLip = smoothstep(0.90, 0.965, u) * (1.0 - smoothstep(0.978, 1.0, u));
+            rCol += vec3(0.085, 0.092, 0.105) * innerLip;
+            rCol += vec3(0.105, 0.112, 0.125) * outerLip;
         }
         rCol = mix(rCol + vec3(ridge), vec3(0.0), max(inSh, outSh));
 
