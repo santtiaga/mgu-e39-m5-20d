@@ -88,12 +88,29 @@ mgu.run({
         };
         const readFullLog = () => {
             let content = '';
+            const readTail = (file) => {
+                let fd = null;
+                try {
+                    fd = fs.openSync(file, 'r');
+                    const size = fs.fstatSync(fd).size;
+                    const length = Math.min(size, LOG_HTTP_MAX_BYTES);
+                    const data = Buffer.alloc(length);
+                    if (length) fs.readSync(fd, data, 0, length, size - length);
+                    let start = 0;
+                    if (size > length) {
+                        // Start at a UTF-8 code-point boundary after slicing the file tail.
+                        while (start < data.length && (data[start] & 0xC0) === 0x80) start++;
+                    }
+                    return data.slice(start).toString('utf8');
+                } finally {
+                    if (fd !== null) fs.closeSync(fd);
+                }
+            };
             const appendFiles = (heading, files) => {
                 content += '\n===== ' + heading + ' =====\n';
                 files.forEach((file) => {
                     try {
-                        const data = fs.readFileSync(file, 'utf8');
-                        content += '\n--- ' + file + ' ---\n' + data + '\n';
+                        content += '\n--- ' + file + ' ---\n' + readTail(file) + '\n';
                     } catch (e) {
                         const code = e && e.code || 'UNKNOWN';
                         const message = e && e.message || String(e);
@@ -109,7 +126,11 @@ mgu.run({
                 '/var/opt/cluster-render/log/cluster-render.log.1',
                 '/var/opt/cluster-render/log/cluster-render.log',
             ]);
-            return content.slice(-LOG_HTTP_MAX_BYTES);
+            const bytes = Buffer.from(content, 'utf8');
+            if (bytes.length <= LOG_HTTP_MAX_BYTES) return content;
+            let start = bytes.length - LOG_HTTP_MAX_BYTES;
+            while (start < bytes.length && (bytes[start] & 0xC0) === 0x80) start++;
+            return bytes.slice(start).toString('utf8');
         };
         const startLogServer = () => {
             logServer = http.createServer((req, res) => {
