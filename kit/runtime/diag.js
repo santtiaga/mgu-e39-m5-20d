@@ -45,6 +45,7 @@ class Diag extends EventEmitter {
         this.busyLog = true;          // log each busy verdict (false: only count them in .busy)
         this.busy = 0;
         this.stopped = false;
+        this.pending = new Set();
     }
 
     async init() {
@@ -81,6 +82,8 @@ class Diag extends EventEmitter {
         this.stopped = true;
         this.available = false;
         this.removeAllListeners();
+        Array.from(this.pending).forEach((cancel) => { try { cancel(); } catch (e) {} });
+        this.pending.clear();
         const proxy = this.p;
         this.p = null;
         if (proxy && typeof proxy.shutdown === 'function') {
@@ -144,7 +147,12 @@ class Diag extends EventEmitter {
             if (!/TEMPORARILY_NOT_ACCEPTED|BUSY/i.test(verdict) || attempt >= maxRetries) return verdict;
             this.busy++;
             if (this.busyLog) this.log.info('transport busy (' + verdict + '), retrying');
-            await new Promise((res) => setTimeout(res, retryBaseMs * (attempt + 1)));
+            await new Promise((resolve, reject) => {
+                let cancel;
+                const timer = setTimeout(() => { this.pending.delete(cancel); resolve(); }, retryBaseMs * (attempt + 1));
+                cancel = () => { clearTimeout(timer); this.pending.delete(cancel); reject(new Error('diagnostic link stopped')); };
+                this.pending.add(cancel);
+            });
         }
     }
 
@@ -159,9 +167,11 @@ class Diag extends EventEmitter {
     async functional(sid, data, opts) {
         const idleMs = (opts && opts.idleMs) || 4000, maxMs = (opts && opts.maxMs) || 25000;
         const replies = new Map();
-        let idle, hard, onFrame, onErr, finish, kick;
+        let idle, hard, onFrame, onErr, finish, kick, cancel, finished = false;
         const done = new Promise((resolve) => {
-            finish = () => { clearTimeout(idle); clearTimeout(hard); this.removeListener('frame', onFrame); this.removeListener('tasError', onErr); resolve(replies); };
+            finish = () => { if (finished) return; finished = true; clearTimeout(idle); clearTimeout(hard); this.pending.delete(cancel); this.removeListener('frame', onFrame); this.removeListener('tasError', onErr); resolve(replies); };
+            cancel = () => finish();
+            this.pending.add(cancel);
             kick = (ms) => { clearTimeout(idle); idle = setTimeout(finish, ms); };
             onFrame = (f) => {
                 // every app gets every frame: only this service's answer (or refusal) is a reply
