@@ -22,6 +22,9 @@ Module._resolveFilename = function (request, parent, isMain) {
     if (request === './kit/car' && parent && parent.filename === hudPath) {
         return path.resolve(__dirname, '../kit/runtime/car.js');
     }
+    if (request === './kit/engine_signals' && parent && parent.filename === hudPath) {
+        return path.resolve(__dirname, '../kit/runtime/engine_signals.js');
+    }
     return originalResolveFilename.call(this, request, parent, isMain);
 };
 const HudApp = require('../shared/hud');
