@@ -159,8 +159,9 @@ function writeEv(sock, obj) {
 
 const renderServer = net.createServer((sock) => {
     const conn = nextConn++;
-    const st = { conn, app: '?', hello: false, buf: Buffer.alloc(0) };
-    const bad = (why) => { log('error', 'protocol [' + st.app + ']: ' + why); };
+    const st = { conn, app: '?', hello: false, buf: Buffer.alloc(0), acceptedAt: Date.now() };
+    log('info', 'renderer: TCP client connected #' + conn + ' from ' + (sock.remoteAddress || 'local'));
+    const bad = (why) => { log('error', 'protocol [' + st.app + ', connection ' + conn + ']: ' + why); };
     const refuse = (op, ref, reason) => { bad(op + ' ref ' + ref + ': ' + reason); writeEv(sock, { ev: 'error', op, ref, reason }); };
 
     sock.on('data', (d) => {
@@ -177,11 +178,11 @@ const renderServer = net.createServer((sock) => {
         }
         st.buf = st.buf.slice(off);
     });
-    sock.on('error', () => {});
+    sock.on('error', (e) => { log('error', 'renderer: socket #' + conn + ' error: ' + (e && e.message || e)); });
     sock.on('close', () => {
         let n = 0;
         layers.forEach((l, k) => { if (l.conn === conn) { layers.delete(k); n++; } });
-        log('info', 'renderer: ' + st.app + ' disconnected, dropped its ' + n + ' layer(s)');
+        log('info', 'renderer: ' + (st.hello ? st.app : 'unidentified client') + ' connection #' + conn + ' closed after ' + (Date.now() - st.acceptedAt) + ' ms, dropped ' + n + ' layer(s)' + (st.hello ? '' : ' before hello'));
         sceneChanged();
     });
 
@@ -200,7 +201,7 @@ const renderServer = net.createServer((sock) => {
             st.hello = true;
             st.app = m.app || '?';
             if (m.proto !== 1) bad('hello proto ' + m.proto + ', service speaks 1');
-            log('info', 'renderer: hello from ' + st.app + ' (proto ' + m.proto + ')');
+            log('info', 'renderer: hello from ' + st.app + ' on connection #' + conn + ' (proto ' + m.proto + ', ' + (Date.now() - st.acceptedAt) + ' ms after accept)');
             writeEv(sock, { ev: 'hello', backend: 'bench', targets: Object.keys(TARGETS).join(',') });
             return;
         }
