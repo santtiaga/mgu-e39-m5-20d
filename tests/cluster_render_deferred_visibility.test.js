@@ -34,8 +34,12 @@ function collect(socket, messages) {
 }
 
 const messages = [];
+const connections = [];
 const server = net.createServer((socket) => {
-    collect(socket, messages);
+    connections.push(socket);
+    const received = [];
+    messages.push(received);
+    collect(socket, received);
     setTimeout(() => {
         if (!socket.destroyed) socket.write(jsonPacket({ ev: 'hello', backend: 'test', targets: 'panel' }));
     }, 10);
@@ -59,21 +63,32 @@ function cleanup(error) {
             console.error(error && error.stack || error);
             process.exitCode = 1;
         } else {
-            console.log('cluster_render_deferred_visibility: visibility waits for health gate');
+            console.log('cluster_render_deferred_visibility: reconnect visibility waits for health gate');
         }
     });
 }
 
+let readyCount = 0;
 client.on('ready', () => {
+    readyCount++;
     try {
-        assert.strictEqual(client.replayVisibilityPending, true, 'replay must leave visibility pending');
-        assert(!messages.some((m) => m.op === 'set' && m.ref === image && m.visible === 1),
+        assert.strictEqual(client.replayVisibilityPending, true, 'each replay must leave visibility pending');
+        const received = messages[readyCount - 1] || [];
+        assert(!received.some((m) => m.op === 'set' && m.ref === image && m.visible === 1),
             'no visible=true command may be sent before the app health check');
         assert.strictEqual(client.restoreVisibility(), true, 'health gate can restore pending visibility');
+        if (readyCount === 1) {
+            // First connection: make the image visible, then simulate renderer restart.
+            setTimeout(() => {
+                if (connections[0] && !connections[0].destroyed) connections[0].destroy();
+            }, 40);
+            return;
+        }
         setTimeout(() => {
             try {
-                assert(messages.some((m) => m.op === 'set' && m.ref === image && m.visible === 1),
-                    'requested visibility is restored after the health gate');
+                assert.strictEqual(readyCount, 2, 'renderer should have reconnected exactly once');
+                assert(received.some((m) => m.op === 'set' && m.ref === image && m.visible === 1),
+                    'requested visibility is restored after the health gate on reconnect');
                 assert.strictEqual(client.replayVisibilityPending, false, 'pending visibility is cleared');
                 assert.strictEqual(client.restoreVisibility(), false, 'visibility restoration is one-shot');
                 cleanup();
@@ -82,5 +97,5 @@ client.on('ready', () => {
     } catch (e) { cleanup(e); }
 });
 
-watchdog = setTimeout(() => cleanup(new Error('timed out waiting for deferred replay')), 3000);
+watchdog = setTimeout(() => cleanup(new Error('timed out waiting for deferred replay and reconnect')), 3000);
 server.listen(path, () => client.connect());
