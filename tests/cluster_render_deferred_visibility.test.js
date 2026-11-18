@@ -85,11 +85,15 @@ client.on('ready', () => {
             assert.strictEqual(client.layers.get(image).opts.visible, true,
                 'suspension must not overwrite the caller requested visibility');
             client.set(image, { visible: true });
-            assert.strictEqual(messages[0].filter((m) => m.op === 'set' && m.ref === image).slice(-1)[0].visible, 0,
-                'ordinary updates cannot reveal a layer while visibility is suspended');
             setTimeout(() => {
-                if (connections[0] && !connections[0].destroyed) connections[0].destroy();
-            }, 40);
+                try {
+                    assert.strictEqual(messages[0].filter((m) => m.op === 'set' && m.ref === image).slice(-1)[0].visible, 0,
+                        'ordinary updates cannot reveal a layer while visibility is suspended');
+                    setTimeout(() => {
+                        if (connections[0] && !connections[0].destroyed) connections[0].destroy();
+                    }, 30);
+                } catch (e) { cleanup(e); }
+            }, 10);
             return;
         }
         setTimeout(() => {
