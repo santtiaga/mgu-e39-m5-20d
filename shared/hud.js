@@ -1573,7 +1573,7 @@ class HudApp {
         x.px = buf;
         if (!was || (x.sheet && x.sheet.buf)) { this._blit(x, null, buf); return; }
         const c = changes(was, buf, w.w, w.h);
-        if (c) this._blit(x, [c.rect], c.px);
+        if (c) this._blit(x, c.rects, c.px);
     }
 
     /** "key" is on while that bool setting is on; "!key" while it is off. */
