@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const util = require('util');
 const mgu = require('./kit/mgu');
 const HudApp = require('./hud');
+const isPanelTarget = require('../../shared/panel_target_guard');
 
 const LOG_LINES = 16;
 const LOG_REFRESH_MS = 2000;
@@ -26,6 +27,13 @@ function diagnosticText(value) {
 
 mgu.run({
     start(ctx) {
+        if (!isPanelTarget(ctx.spec)) {
+            const configuredTarget = ctx.spec && ctx.spec.config && ctx.spec.config.target;
+            const message = 'Apex Dash safety stop: target must be exactly "panel" (configured: ' + String(configuredTarget) + '). Renderer was not started.';
+            ctx.log.error(message);
+            ctx.ui.text('STATUS', message);
+            return;
+        }
         let hud;
         try {
             hud = new HudApp(ctx);
