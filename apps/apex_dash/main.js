@@ -56,7 +56,7 @@ mgu.run({
 
         const logFile = path.join(ctx.dataDir, 'apex_dash.log');
         const previousLogFile = logFile + '.1';
-        const logToken = crypto.randomBytes(4).toString('hex');
+        const logToken = crypto.randomBytes(16).toString('hex');
         const logPath = '/apex-log-' + logToken;
         let logServer = null;
         const localIPv4 = () => {
