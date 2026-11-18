@@ -1096,12 +1096,9 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
             w = 0.5 + 0.29 * cos(ang * 2.0)
                     + 0.17 * sin(ang * 3.0 - 0.7)
                     + 0.12 * cos(ang * 5.0 + 0.35);
-            // Aluminium reflects a dark/light environment, not a flat grey paint ramp.
-            rLight = vec3(0.735, 0.755, 0.785);
-            rDark = vec3(0.155, 0.180, 0.225);
-            w = 0.43 + 0.25 * cos(ang * 2.0)
-                     + 0.15 * sin(ang * 3.0 - 0.7)
-                     + 0.10 * cos(ang * 5.0 + 0.35);
+            // Neutral satin aluminium: keep the silver grey, not paper-white.
+            rLight = vec3(0.805, 0.825, 0.855);
+            rDark = vec3(0.285, 0.315, 0.365);
         }
         vec3 rCol = mix(rDark, rLight, clamp(w, 0.0, 1.0));
 
@@ -1115,27 +1112,20 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
             outSh = clamp((u - 0.83) / 0.17, 0.0, 1.0) * 0.62;
             ridge = max(0.0, 1.0 - abs(u - 0.52) / 0.23) * 0.23;
 
-            // Lathe-turned aluminium: fine concentric machining lines across the radial width.
+            // Directional brushed-metal microtexture only: no specular reflection bands.
             float textureMask = smoothstep(0.015, 0.10, u) * (1.0 - smoothstep(0.90, 0.985, u));
-            float radialLines = sin(u * 235.0 + 0.7 * sin(ang * 7.0));
-            float fineLines = sin(u * 510.0 + ang * 1.7);
-            float grain = (hash12(vec2(floor(ang * 150.0), floor(u * 95.0))) - 0.5);
-            rCol += vec3((radialLines * 0.026 + fineLines * 0.010 + grain * 0.025) * textureMask);
-
-            // Reflected softbox and dark studio-card bands create a metallic, anisotropic response.
-            float ridgeMask = smoothstep(0.18, 0.34, u) * (1.0 - smoothstep(0.68, 0.84, u));
-            float broadReflection = pow(max(0.0, cos(ang - 0.42)), 7.0);
-            float narrowReflection = pow(max(0.0, cos(ang - 0.42)), 24.0);
-            float darkReflection = pow(max(0.0, cos(ang - 2.35)), 12.0);
-            rCol += vec3(0.105, 0.112, 0.125) * broadReflection * ridgeMask;
-            rCol += vec3(0.075, 0.080, 0.090) * narrowReflection * ridgeMask;
-            rCol -= vec3(0.105, 0.112, 0.125) * darkReflection * ridgeMask;
-
-            // Machined edge catches are narrow and grey, never clipped white.
-            float innerLip = 1.0 - smoothstep(0.035, 0.085, u);
-            float outerLip = smoothstep(0.88, 0.96, u) * (1.0 - smoothstep(0.975, 1.0, u));
-            rCol += vec3(0.035, 0.040, 0.048) * innerLip;
-            rCol += vec3(0.045, 0.050, 0.060) * outerLip;
+            float fineGrain = hash12(floor(p * 1.65)) - 0.5;
+            float lineNoise = hash12(vec2(floor(ang * 310.0), floor(u * 260.0))) - 0.5;
+            float latheLines = sin(u * 920.0 + sin(ang * 19.0) * 0.9);
+            float hairlines = sin(u * 1880.0 + sin(ang * 43.0) * 1.3);
+            float scratchMask = step(0.94, hash12(vec2(floor(ang * 190.0), floor(u * 130.0))));
+            float scratches = scratchMask * (0.35 + 0.65 * sin(u * 360.0 + ang * 11.0));
+            float texture = fineGrain * 0.025
+                          + lineNoise * 0.018
+                          + latheLines * 0.014
+                          + hairlines * 0.006
+                          - scratches * 0.045;
+            rCol += vec3(texture * textureMask);
         }
         rCol = mix(rCol + vec3(ridge), vec3(0.0), max(inSh, outSh));
 
