@@ -2014,7 +2014,9 @@ vec4 drawHub(vec2 q, float capR, vec4 c) {
         faceCol = clamp(faceCol + vec3(grain), 0.0, 1.0);
         c = over(vec4(faceCol, faceA), c);
         // Very fine upper-left edge reflection to separate the black face from the dial.
-        float rimA = cov(abs(r - (faceR - 0.45)) - 0.55) * 0.12;
+        // Directional rim highlight: strongest at upper-left, fading toward lower-right.
+        float rimDirection = clamp(0.5 - dot(q / max(r, 1.0), normalize(vec2(-0.72, -0.69))) * 0.5, 0.0, 1.0);
+        float rimA = cov(abs(r - (faceR - 0.45)) - 0.55) * mix(0.035, 0.34, rimDirection);
         vec3 rimCol = mix(vec3(0.32, 0.34, 0.37), vec3(0.62, 0.64, 0.67), 1.0 - u_night);
         c = over(vec4(rimCol, rimA), c);
     }
