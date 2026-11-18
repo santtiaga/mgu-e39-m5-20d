@@ -160,6 +160,7 @@ const StagedBuild = require('./staged_build');
 const LayoutGeneration = require('./layout_generation');
 const RendererInventory = require('./renderer_inventory');
 const VehicleGate = require('./vehicle_gate');
+const EngineSignals = require('../kit/runtime/engine_signals');
 const Layouts = require('./layouts');
 const { THEMES, M_STRIPE, LIGHTS, VERDICT, color } = require('./hud_themes');
 const ShiftScore = require('./shift_score');
@@ -170,7 +171,7 @@ const shaders = require('./shaders');
 const calibration = require('./calibration');
 const Car = require('./kit/car');
 
-const BOOST_SCALE = { factor: 0.01, offset: 0, invalid: 255 }; // see header comment
+const BOOST_SCALE = { factor: 0.01, offset: 0 }; // metric fallback; validation/conversion lives in engine_signals.js
 // the widget types drawn as pixels (image layers, packed into sheets unless "own": true); the rest are shaders
 const IMAGE_TYPES = { text: true, scale: true, stripe: true, badge: true, gridlabels: true, icon: true, swatchimg: true };
 const STATUS_ASK_MS = 2000;      // after a rebuild: ask cluster-render for its own status text
@@ -192,7 +193,7 @@ const unitName = (map, v) => map[v] || (Object.values(map).indexOf(v) >= 0 ? v :
 const PROGRAMS = { S_MINUS_PROGRAMM: 'S', M_MINUS_PROGRAMM: 'M', 1: 'S', 2: 'M' };
 const MODE_NAME = { comfort: 'Comfort', sport: 'Sport', eco: 'Eco Pro' };
 const FRESH_MS = 3000;
-const BOOST_FRESH_MS = 2000;
+const BOOST_FRESH_MS = EngineSignals.BOOST_FRESH_MS;
 // BMW's speed scale: even steps to 120 mph (180 km/h), then wider ones to 200 mph (320 km/h)
 const SPEED_SCALE = { us: [0, 20, 40, 60, 80, 100, 120, 160, 200], metric: [0, 30, 60, 90, 120, 150, 180, 250, 320] };
 /** speed (display unit) -> 0..1 along a scale of evenly spaced labels */
@@ -448,15 +449,13 @@ class HudApp {
             'de.bmw.infotainment.drivingexcitement.FES': {
                 statusSwitchDriveDynamicSport2: (v) => {
                     const raw = v && v.displayBoostPressure;
-                    if (!isNum(raw) || raw < 0 || raw >= BOOST_SCALE.invalid) return;
+                    const pressure = EngineSignals.boostBar(raw, this.carUnits.press);
+                    if (pressure === null) return;
                     // Redline's validation: a static initial value can be an uninitialised
                     // placeholder. Trust this source only after it has actually moved.
                     if (this.boostFesFirst === null) this.boostFesFirst = raw;
                     else if (raw !== this.boostFesFirst) this.boostFesMoved = true;
-                    // BMW sends 0.01 bar (or 0.1 psi) per step, depending on the car's units.
-                    this.boostFes = this.carUnits.press === 'PSI'
-                        ? raw * 0.1 / 14.5038
-                        : raw * BOOST_SCALE.factor + BOOST_SCALE.offset;
+                    this.boostFes = pressure;
                     this.boostFesAt = Date.now();
                 },
                 // the HMI's sport display: power and torque in % of the car's maximum (car_vitals, MIT); 255 = none
@@ -663,7 +662,7 @@ class HudApp {
         this.dmeTimer = setInterval(() => this._guard('engine unit boost', () => {
             const now = Date.now();
             if (this.stopped || busy || !this.needsBoost || this._data().demo ||
-                this.boostFesMoved && now - this.boostFesAt < BOOST_FRESH_MS) return;
+                EngineSignals.boostFresh(this.boostFesMoved, this.boostFesAt, now)) return;
             // A proxy alone is not proof that the ECU can currently answer.
             if (!this.dmeLink || !this.dmeLink.ready || !this.dmeLink.available) return;
             if (failures >= 3) {
@@ -978,7 +977,7 @@ class HudApp {
     /** Boost in bar: the sport display's value while fresh, else the engine unit's, else null. */
     _boost() {
         const now = Date.now();
-        if (this.boostFesMoved && isNum(this.boostFes) && now - this.boostFesAt < BOOST_FRESH_MS) return this.boostFes;
+        if (EngineSignals.boostFresh(this.boostFesMoved, this.boostFesAt, now) && isNum(this.boostFes)) return this.boostFes;
         if (isNum(this.boostDme) && now - this.boostDmeAt < FRESH_MS) return this.boostDme;
         return null;
     }
