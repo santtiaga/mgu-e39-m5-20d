@@ -440,11 +440,6 @@ uniform float u_segSlant; // px each segment leans
 const float PI = 3.14159265;
 
 float cov(float d) { return clamp(0.5 - d, 0.0, 1.0); }
-float hubHash12(vec2 p) {
-    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
-}
 vec4 over(vec4 top, vec4 under) {
     float a = top.a + under.a * (1.0 - top.a);
     if (a <= 0.0) return vec4(0.0);
@@ -1965,6 +1960,11 @@ float rpmAngle(float rpm) {
 
 
 float cov(float d) { return clamp(0.5 - d, 0.0, 1.0); }
+float hubHash12(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
 vec4 over(vec4 top, vec4 under) {
     float a = top.a + under.a * (1.0 - top.a);
     if (a <= 0.0) return vec4(0.0);
