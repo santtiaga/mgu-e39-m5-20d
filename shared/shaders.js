@@ -1035,6 +1035,25 @@ float dotDist(vec2 q, float angDeg, float r, float rad) {
     return length(q - pt) - rad;
 }
 
+// Anisotropic GGX for a brushed metal surface. T follows the circumferential grain;
+// B crosses the grooves through the bezel profile. GLSL ES 1.00 compatible.
+float bezelGGX(vec3 n, vec3 t, vec3 b, vec3 l, vec3 v, float ax, float ay) {
+    float nl = max(dot(n, l), 0.0);
+    float nv = max(dot(n, v), 0.001);
+    if (nl <= 0.0) return 0.0;
+    vec3 h = normalize(l + v);
+    float nh = max(dot(n, h), 0.001);
+    float ht = dot(h, t) / ax;
+    float hb = dot(h, b) / ay;
+    float d = ht * ht + hb * hb + nh * nh;
+    float D = 1.0 / (PI * ax * ay * d * d);
+    float vt = dot(v, t), vb = dot(v, b);
+    float lt = dot(l, t), lb = dot(l, b);
+    float gv = 2.0 * nv / (nv + sqrt(nv * nv + ax * ax * vt * vt + ay * ay * vb * vb));
+    float gl = 2.0 * nl / (nl + sqrt(nl * nl + ax * ax * lt * lt + ay * ay * lb * lb));
+    return D * gv * gl / (4.0 * nv);
+}
+
 // 1:1 E39 M5 Bezel Ring + Dark Inner Collar + Slate-Blue/Warm-Amber Matte Face with Grain Noise
 vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
     vec2 q = p - center;
@@ -1100,38 +1119,51 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
 
         // Keep the original finish for the small dials and night mode.
         if (big && u_night < 0.5) {
-            // A curved, rough-metal cross-section: the surface normal rolls across the
-            // bezel instead of painting a brightness gradient around the circumference.
-            float profile = cos(PI * u);
-            float normalTilt = 0.62 * profile;
-            float ca = cos(ang - 0.62);
-            float diffuseN = max(0.0, 0.835 * cos(normalTilt) + 0.55 * ca * sin(normalTilt));
-            float diffuse = 0.30 + 0.70 * diffuseN;
+            // Turned-metal cross-section: the normal rolls across the bezel profile.
+            // Reflections are evaluated against broad studio sources in a local tangent frame.
+            float theta = ang;
+            vec3 radial = vec3(cos(theta), sin(theta), 0.0);
+            vec3 tangent = vec3(-sin(theta), cos(theta), 0.0); // circumferential grain direction
+            float brushGroove = sin(u * 38.0 + 0.035 * sin(theta * 3.0));
+            float profileTilt = 0.48 * cos(PI * u) + 0.008 * brushGroove;
+            vec3 N = normalize(radial * sin(profileTilt) + vec3(0.0, 0.0, cos(profileTilt)));
+            vec3 T = tangent;
+            vec3 B = normalize(cross(N, T));
+            vec3 V = vec3(0.0, 0.0, 1.0);
 
-            // Broad, low-energy specular return. High roughness keeps it satin, not chrome.
-            float halfN = 0.914 * cos(normalTilt) + 0.406 * ca * sin(normalTilt);
-            float specular = pow(max(halfN, 0.0), 9.0) * 0.17;
-            float edgeOcclusion = 0.90 + 0.10 * sin(PI * u);
+            // Three broad studio sources create reflected light bands, not a painted angular gradient.
+            vec3 L0 = normalize(vec3(-0.56, 0.34, 0.76));
+            vec3 L1 = normalize(vec3(0.58, 0.18, 0.80));
+            vec3 L2 = normalize(vec3(0.02, -0.82, 0.57));
+            float ax = 0.28; // along the circumferential brushing
+            float ay = 0.46; // across the grooves: broader satin response
+            float s0 = bezelGGX(N, T, B, L0, V, ax, ay);
+            float s1 = bezelGGX(N, T, B, L1, V, ax, ay);
+            float s2 = bezelGGX(N, T, B, L2, V, ax, ay);
 
-            vec3 aluminium = vec3(0.405, 0.420, 0.445) * diffuse;
-            vec3 metalTint = vec3(0.70, 0.72, 0.75);
-            rCol = (aluminium + metalTint * specular) * edgeOcclusion;
+            // Aluminium is metallic: subdued room reflection plus anisotropic specular return.
+            vec3 env = vec3(0.155, 0.166, 0.184)
+                     + vec3(0.115, 0.121, 0.132) * max(N.z, 0.0)
+                     + vec3(0.035, 0.039, 0.046) * max(dot(N, normalize(vec3(-0.3, 0.2, 0.93))), 0.0);
+            vec3 F0 = vec3(0.78, 0.80, 0.84);
+            vec3 specular = F0 * (0.14 * s0 + 0.13 * s1 + 0.10 * s2);
+            rCol = env + specular;
 
-            // Fine circumferential machining: shallow grooves across the radial profile.
-            float textureMask = smoothstep(0.025, 0.13, u) * (1.0 - smoothstep(0.87, 0.975, u));
-            float brushWave = sin(u * 46.0 + 0.10 * sin(ang * 5.0) + 0.035 * sin(ang * 13.0));
-            float secondaryBrush = sin(u * 19.0 + 0.08 * sin(ang * 7.0));
-            float grain = (hash12(floor(gl_FragCoord.xy)) - 0.5) * 0.012;
-            float coating = sin(ang * 37.0 + u * 29.0) * 0.0035;
-            rCol += vec3((brushWave * 0.009 + secondaryBrush * 0.0035 + grain + coating) * textureMask);
+            // Turned finish: lines vary across u, so each fine groove follows the circumference.
+            // Low-frequency grooves remain legible on the ~10 px bezel; grain is unsmoothed pixel noise.
+            float textureMask = smoothstep(0.025, 0.12, u) * (1.0 - smoothstep(0.88, 0.975, u));
+            float brush = sin(u * 38.0 + 0.035 * sin(theta * 3.0));
+            float secondary = sin(u * 17.0 + 0.025 * sin(theta * 5.0));
+            float grain = (hash12(floor(gl_FragCoord.xy)) - 0.5) * 0.008;
+            rCol += vec3((brush * 0.014 + secondary * 0.003 + grain) * textureMask);
 
-            // Softly rolled edges, with no bright outline.
+            // Machined edge breaks, without a bright chrome outline.
             float innerLip = 1.0 - smoothstep(0.015, 0.10, u);
             float outerLip = smoothstep(0.90, 0.985, u);
-            rCol -= vec3(0.018, 0.019, 0.021) * innerLip;
-            rCol -= vec3(0.021, 0.022, 0.024) * outerLip;
-            inSh = clamp(1.0 - u / 0.30, 0.0, 1.0) * 0.16;
-            outSh = clamp((u - 0.90) / 0.10, 0.0, 1.0) * 0.17;
+            rCol -= vec3(0.020, 0.021, 0.023) * innerLip;
+            rCol -= vec3(0.023, 0.024, 0.026) * outerLip;
+            inSh = clamp(1.0 - u / 0.30, 0.0, 1.0) * 0.12;
+            outSh = clamp((u - 0.90) / 0.10, 0.0, 1.0) * 0.13;
             ridge = 0.0;
         }
         rCol = mix(rCol + vec3(ridge), vec3(0.0), max(inSh, outSh));
