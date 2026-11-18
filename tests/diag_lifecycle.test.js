@@ -43,7 +43,7 @@ async function run() {
     await initializing;
     assert.strictEqual(lateShutdowns, 1, 'a proxy resolving after stop is immediately released');
     assert.strictEqual(pending.p, null);
-    process.stdout.write('diag_lifecycle: TASU proxy shutdown and init race passed\\n');
+    process.stdout.write('diag_lifecycle: TASU proxy shutdown and init race passed\n');
 }
 
 run().catch(function (error) {

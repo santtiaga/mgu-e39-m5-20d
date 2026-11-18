@@ -64,6 +64,13 @@ class Diag extends EventEmitter {
         } catch (e) {
             this.error = String(e);
             this.log.warn('TASU: ' + e);
+            const proxy = this.p;
+            this.p = null;
+            if (proxy && typeof proxy.shutdown === 'function') {
+                try { await proxy.shutdown(); } catch (shutdownError) {
+                    if (this.log) this.log.warn('TASU shutdown after init failure: ' + (shutdownError && shutdownError.message || shutdownError));
+                }
+            }
         }
         return this;
     }
