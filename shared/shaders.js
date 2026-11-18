@@ -1971,9 +1971,13 @@ vec4 over(vec4 top, vec4 under) {
     return vec4((top.rgb * top.a + under.rgb * under.a * (1.0 - top.a)) / a, a);
 }
 
-vec4 drawHub(vec2 q, float capR, vec4 c) {
-    // Black cylindrical needle boss: cast shadow, visible lower side wall, bevel and inset end face.
+vec4 drawHub(vec2 q, float capR, float needleDeg, vec4 c) {
+    // The cylindrical boss stays fixed; its end-face material rotates with the needle.
     float r = length(q);
+    float hubRad = needleDeg * D2R;
+    vec2 hubDir = vec2(sin(hubRad), -cos(hubRad));
+    vec2 hubNrm = vec2(-hubDir.y, hubDir.x);
+    vec2 faceQ = vec2(dot(q, hubNrm), dot(q, hubDir));
     if (r > capR + 7.0) return c;
 
     // Soft contact shadow behind the boss.
@@ -1998,19 +2002,19 @@ vec4 drawHub(vec2 q, float capR, vec4 c) {
     float bevelA = cov(abs(bevelD + capR * 0.045) - max(0.65, capR * 0.035));
     // Bias the bevel reflection diagonally so its falloff runs toward the lower-right.
     // Stronger upper-left highlight makes the bevel's shading fall visibly toward the lower-right.
-    float bevelLight = clamp(0.5 - q.x / max(capR, 1.0) * 0.62 - q.y / max(capR, 1.0) * 0.50, 0.0, 1.0);
+    float bevelLight = clamp(0.5 - faceQ.x / max(capR, 1.0) * 0.62 - faceQ.y / max(capR, 1.0) * 0.50, 0.0, 1.0);
     vec3 bevelCol = mix(vec3(0.018, 0.020, 0.024), vec3(0.105, 0.112, 0.122), bevelLight);
     c = over(vec4(bevelCol, bevelA * 0.82), c);
 
     // Matte near-black top surface; restrained directional reflection, not a glossy plastic gradient.
     float faceA = cov(r - faceR);
     if (faceA > 0.0) {
-        // Keep the hub shading vertical; remove the horizontal component that made it read as down-right.
-        float light = clamp(0.5 - q.y / max(capR, 1.0) * 0.28, 0.0, 1.0);
+        // Directional face shading follows the needle, making the cap read as mechanically linked.
+        float light = clamp(0.5 - faceQ.y / max(capR, 1.0) * 0.28, 0.0, 1.0);
         // Lift the end face into visible graphite; keep the cylindrical boss distinctly darker than the dial.
         vec3 faceCol = mix(vec3(0.068, 0.074, 0.082), vec3(0.126, 0.135, 0.147), light);
         // Softer, finer matte grain: retain visible surface texture without a coarse speckled look.
-        float grain = (hubHash12(floor(q * 0.72)) - 0.5) * mix(0.038, 0.018, u_night);
+        float grain = (hubHash12(floor(faceQ * 0.72)) - 0.5) * mix(0.038, 0.018, u_night);
         faceCol = clamp(faceCol + vec3(grain), 0.0, 1.0);
         c = over(vec4(faceCol, faceA), c);
         // Very fine upper-left edge reflection to separate the black face from the dial.
@@ -2074,8 +2078,8 @@ void main() {
     float fR = 118.0;
     if (dot(p - fC, p - fC) <= (fR * 0.913 + 0.5) * (fR * 0.913 + 0.5)) {
         vec2 fpq = p - (fC + vec2(0.0, fR * 0.44));
-        c = drawHub(fpq, fR * 0.235, c);
         float fAng = -54.0 + clamp(u_fuel, 0.0, 1.0) * 108.0;
+        c = drawHub(fpq, fR * 0.235, fAng, c);
         c = drawE39Needle(fpq, fAng, fR * 0.90, fR * 0.20, fR * 0.068, fR * 0.040, 0.0, c);
     }
 
@@ -2083,8 +2087,8 @@ void main() {
     vec2 cC = vec2(1735.0, 398.0);
     if (dot(p - cC, p - cC) <= (fR * 0.913 + 0.5) * (fR * 0.913 + 0.5)) {
         vec2 cpq = p - (cC + vec2(0.0, fR * 0.44));
-        c = drawHub(cpq, fR * 0.235, c);
         float cAng = -54.0 + clamp(u_coolant, 0.0, 1.0) * 108.0;
+        c = drawHub(cpq, fR * 0.235, cAng, c);
         c = drawE39Needle(cpq, cAng, fR * 0.90, fR * 0.20, fR * 0.068, fR * 0.040, 0.0, c);
     }
 
@@ -2093,9 +2097,9 @@ void main() {
     float mR = 214.0;
     vec2 sq = p - sC;
     if (dot(sq, sq) <= (mR * 0.92) * (mR * 0.92)) {
-        c = drawHub(sq, mR * 0.162, c);
         float spdKmh = clamp(u_speed, 0.0, 1.0) * 240.0;
         float sAng = -128.0 + spdKmh * (261.0 / 240.0);
+        c = drawHub(sq, mR * 0.162, sAng, c);
         c = drawE39Needle(sq, sAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, c);
         // Stop-pin shadow: same offset, exponential spread and intensity as the speed-needle shadow.
         float aPin = -131.0 * D2R;
@@ -2120,11 +2124,11 @@ void main() {
     vec2 tq = p - tC;
     if (dot(tq, tq) <= (mR * 0.92) * (mR * 0.92)) {
         vec2 oq = p - (tC + vec2(0.0, mR * 0.40));
-        c = drawHub(tq, mR * 0.162, c);
-        c = drawHub(oq, mR * 0.122, c);
         float oilAng = 237.0 - clamp(u_oil, 0.0, 1.0) * 114.0;
-        c = drawE39Needle(oq, oilAng, mR * 0.555, -mR * 0.105, mR * 0.034, mR * 0.020, mR * 0.19, c);
         float taAng = rpmAngle(clamp(u_rpm, 0.0, 1.2) * 5000.0);
+        c = drawHub(tq, mR * 0.162, taAng, c);
+        c = drawHub(oq, mR * 0.122, oilAng, c);
+        c = drawE39Needle(oq, oilAng, mR * 0.555, -mR * 0.105, mR * 0.034, mR * 0.020, mR * 0.19, c);
         c = drawE39Needle(tq, taAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, c);
     }
 
