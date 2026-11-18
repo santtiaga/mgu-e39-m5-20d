@@ -21,6 +21,7 @@ try {
     const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
     atomic.writeImageResource(image, png, log);
     assert.deepStrictEqual(fs.readFileSync(image), png);
+    assert.strictEqual(fs.statSync(image).mode & 0o777, 0o644);
     assert(fs.readdirSync(dir).indexOf('frame.png') >= 0);
     assert(!fs.readdirSync(dir).some((name) => name.indexOf('.tmp.') >= 0));
     console.log('atomic_file: durable settings, failed-write preservation and complete image publication pass');
