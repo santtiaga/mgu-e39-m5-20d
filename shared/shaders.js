@@ -1508,7 +1508,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                 ? dotDist(q, aMark, R * 0.768, R * 0.018)
                 : tickDistInnerRound(q, aMark, R * 0.768, R * 0.875, R * 0.0155);
             if (ti == 1) c = addScaleMark(dMark, R * 0.031 / 8.56, c);
-            else c = addMark(dMark, c);
+            else c = addScaleMark(dMark, R * 0.031 / 8.56, c);
         }
 
         // 3. Oil Temp Sub-Dial (pivot at center + (0, 0.40 R), sweeping downwards 237 deg -> 123 deg)
@@ -1525,7 +1525,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                                  dotDist(oq, 151.5, R * 0.425, R * 0.0185));
             float dOilIcons = min(sdOilCan(p, oilC + vec2(-R * 0.085, R * 0.205), R * 0.17),
                                   sdThermo(p, oilC + vec2(R * 0.118, R * 0.205), R * 0.085, false));
-            c = addMark(dOilTicks, c);
+            c = addScaleMark(dOilTicks, R * 0.026 / 8.56, c);
             c = addScaleMark(dOilDots, R * 0.026 / 8.56, c);
             c = addMark(dOilIcons, c);
 
@@ -1611,7 +1611,7 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
         float dDots = min(dotDist(pq, -18.0, R * 0.895, R * 0.033),
                           dotDist(pq,  18.0, R * 0.895, R * 0.033));
         float dThermo = sdThermo(p, center + vec2(-R * 0.02, -R * 0.065), R * 0.20, true);
-        c = addMark(dTicks, c);
+        c = addScaleMark(dTicks, R * 0.028 / 8.56, c);
         c = addScaleMark(dDots, R * 0.028 / 8.56, c);
         c = addMark(dThermo, c);
     } else {
@@ -1626,7 +1626,7 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
         float dDots = min(dotDist(pq, -27.0, R * 0.88, R * 0.033),
                           dotDist(pq,  27.0, R * 0.88, R * 0.033));
         float dPump = sdPump(p, center + vec2(R * 0.02, -R * 0.16), R * 0.26);
-        c = addMark(dTicks, c);
+        c = addScaleMark(dTicks, R * 0.030 / 8.56, c);
         c = addScaleMark(dDots, R * 0.030 / 8.56, c);
         c = addMark(dPump, c);
 
