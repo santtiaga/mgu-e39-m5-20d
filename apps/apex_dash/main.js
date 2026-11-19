@@ -10,8 +10,8 @@ const mgu = require('./kit/mgu');
 const HudApp = require('./hud');
 const isPanelTarget = require('./panel_target_guard');
 
-const LOG_LINES = 16;
-const LOG_TAIL_BYTES = 96 * 1024;
+const LOG_LINES = 48;
+const LOG_TAIL_BYTES = 512 * 1024;
 
 function diagnosticText(value) {
     if (value instanceof Error) return value.stack || (value.name + ': ' + value.message);
@@ -78,8 +78,8 @@ mgu.run({
             { source: 'CR', file: '/var/opt/cluster-render/log/cluster-render.log' },
         ];
         const LOG_W = 1920, LOG_H = 720;
-        const LOG_FONT = 15;
-        const LOG_LINE_HEIGHT = 34;
+        const LOG_FONT = 11;
+        const LOG_LINE_HEIGHT = 12;
 
         const readTailLines = (file) => {
             let fd = null;
@@ -133,12 +133,12 @@ mgu.run({
                 const lines = readLogLines();
                 const canvas = new Canvas(LOG_W, LOG_H);
                 canvas.clear('#101318');
-                canvas.text('APEX DASH  /  DIAGNOSTIC LOG', 48, 48, 25, '#f2f4f7', { literal: true });
-                canvas.text('Latest 16 lines  |  Font 15 px', 48, 78, 15, '#8d98a8', { literal: true });
-                canvas.fillRect(48, 96, LOG_W - 96, 1, '#3b4654');
+                canvas.text('APEX DASH  /  DCSM2 + RAMSES DIAGNOSTICS', 48, 24, 19, '#f2f4f7', { literal: true });
+                canvas.text('Latest 48 lines  |  Apex Dash + cluster-render logs. Use collect-renderer-diagnostics.sh for system journal / RAMSES.', 48, 44, 11, '#8d98a8', { literal: true });
+                canvas.fillRect(48, 58, LOG_W - 96, 1, '#3b4654');
                 const shown = lines.length ? lines : ['Waiting for Apex Dash / cluster-render log entries...'];
                 shown.forEach((line, i) => {
-                    const y = 126 + i * LOG_LINE_HEIGHT;
+                    const y = 76 + i * LOG_LINE_HEIGHT;
                     const color = /\b(FATAL|ERROR|INCIDENT)\b/i.test(line) ? '#ff7777' :
                         /\b(WARN|WARNING)\b|stalled fetch|no answer after a fetch/i.test(line) ? '#f0c36a' : '#d8dee8';
                     canvas.text(line, 48, y, LOG_FONT, color, { literal: true });
