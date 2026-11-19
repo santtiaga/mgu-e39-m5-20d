@@ -124,17 +124,20 @@ function tint(m, boxW, boxH, opts) {
         const radius = Math.max(1, Math.min(3, outline.radius || 1));
         for (let y = 0; y < boxH; y++) {
             for (let x = 0; x < boxW; x++) {
-                let maxA = 0;
+                let maxA = 0, minA = 255;
                 for (let oy = -radius; oy <= radius; oy++) {
                     const yy = y + oy;
-                    if (yy < 0 || yy >= boxH) continue;
+                    if (yy < 0 || yy >= boxH) { minA = 0; continue; }
                     for (let ox = -radius; ox <= radius; ox++) {
                         const xx = x + ox;
-                        if (xx < 0 || xx >= boxW) continue;
-                        maxA = Math.max(maxA, m[yy * boxW + xx]);
+                        if (xx < 0 || xx >= boxW) { minA = 0; continue; }
+                        const sample = m[yy * boxW + xx];
+                        maxA = Math.max(maxA, sample);
+                        minA = Math.min(minA, sample);
                     }
                 }
-                outlineMask[y * boxW + x] = maxA;
+                // A narrow edge band, composited above the glyph rather than underneath it.
+                outlineMask[y * boxW + x] = Math.max(0, maxA - minA);
             }
         }
     }
@@ -149,13 +152,25 @@ function tint(m, boxW, boxH, opts) {
             const y = Math.floor(i / boxW);
             if (y !== row) { row = y; const f = boxH > 1 ? y / (boxH - 1) : 0; rowC = [0, 1, 2].map((j) => Math.round(color[j] + (c2[j] - color[j]) * f)); }
         }
-        const oa = outline ? (outlineMask[i] / 255) * outlineAlpha : 0;
         const fa = a * ca;
-        const outA = fa + oa * (1 - fa);
-        if (outA <= 0) continue;
         const o = i * 4;
-        for (let j = 0; j < 3; j++) out[o + j] = Math.round((rowC[j] * fa + outlineColor[j] * oa * (1 - fa)) / outA);
-        out[o + 3] = Math.round(outA * 255);
+        if (fa > 0) {
+            out[o] = rowC[0];
+            out[o + 1] = rowC[1];
+            out[o + 2] = rowC[2];
+            out[o + 3] = Math.round(fa * 255);
+        }
+        // Paint the contour as the final/top layer, limited to its edge band.
+        const oa = outline ? (outlineMask[i] / 255) * outlineAlpha : 0;
+        if (oa > 0) {
+            const underA = out[o + 3] / 255;
+            const outA = oa + underA * (1 - oa);
+            for (let j = 0; j < 3; j++) {
+                const underC = underA > 0 ? out[o + j] : 0;
+                out[o + j] = Math.round((outlineColor[j] * oa + underC * underA * (1 - oa)) / outA);
+            }
+            out[o + 3] = Math.round(outA * 255);
+        }
     }
     return out;
 }
