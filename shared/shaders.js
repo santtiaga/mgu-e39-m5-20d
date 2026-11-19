@@ -1188,7 +1188,7 @@ vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1,
         float t = clamp((al + tail) / (len + tail), 0.0, 1.0);
         float hw = mix(w0, w1, t) * 0.5;
         float d = max(sd - hw, max(-al - tail, al - len));
-        if (u_night > 0.5 && d < 6.0) {
+        if (u_night > 0.5 && d < 6.0 && (stem <= 0.0 || al >= -tail)) {
             c = over(vec4(1.0, 0.478, 0.094, 0.42 * exp(-max(d, 0.0) / 3.2)), c);
         }
         if (d < 1.0) {
