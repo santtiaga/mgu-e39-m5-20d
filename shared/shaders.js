@@ -2047,7 +2047,10 @@ vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1,
         }
         // Fine contrasting outline, restricted to the speedometer needle.
         if (softGlow > 0.5) {
-            float outlineA = (1.0 - smoothstep(0.15, 1.25, d)) * step(0.0, d) * 0.88;
+            // Derivative-aware coverage keeps the thin outline visually stable as the needle rotates.
+            float outlineAA = max(fwidth(d), 0.65);
+            float outlineA = smoothstep(-outlineAA, outlineAA, d)
+                * (1.0 - smoothstep(1.25 - outlineAA, 1.25 + outlineAA, d)) * 0.88;
             vec3 outlineCol = mix(vec3(0.24, 0.075, 0.035), vec3(0.30, 0.105, 0.045), u_night);
             c = over(vec4(outlineCol, outlineA), c);
         }
