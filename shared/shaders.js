@@ -2035,8 +2035,15 @@ vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1,
         float t = clamp((al + tail) / (len + tail), 0.0, 1.0);
         float hw = mix(w0, w1, t) * 0.5;
         float d = max(sd - hw, max(-al - tail, al - len));
-        if (u_night > 0.5 && d < 6.0 && (stem <= 0.0 || al >= stem)) {
-            c = over(vec4(1.0, 0.478, 0.094, 0.42 * exp(-max(d, 0.0) / 3.2)), c);
+        if (u_night > 0.5 && (stem > 0.0 ? (d < 6.0 && al >= stem) : d < 6.0)) {
+            float glowAlong = clamp(al, -tail, len);
+            float glowT = clamp((glowAlong + tail) / (len + tail), 0.0, 1.0);
+            float glowHalfWidth = mix(w0, w1, glowT) * 0.5;
+            float glowD = length(vec2(max(sd - glowHalfWidth, 0.0), al - glowAlong));
+            float glowA = stem > 0.0
+                ? 0.42 * exp(-max(d, 0.0) / 3.2)
+                : 0.42 * exp(-glowD / 3.8);
+            c = over(vec4(1.0, 0.478, 0.094, glowA), c);
         }
         if (d < 1.0) {
             vec3 c0 = mix(vec3(1.0, 0.541, 0.259), vec3(1.0, 0.886, 0.659), u_night);
