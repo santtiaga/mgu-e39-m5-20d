@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "name": "Panel effect 1px probe (No Startup)",
+  "_about": "Diagnostic probe for target=panel: exactly one 1x1 GLSL effect layer using the built-in grid shader. No image pixels, textures, atlases, fonts, telemetry, or additional layers. The 1x1 pixel should render opaque green. Duplicate diagnostic layout. Contains the same single 1x1 GLSL effect layer; no e39dash/e39needles widgets or startup animation.",
+  "widgets": [
+    {
+      "id": "panel_effect_probe_pixel",
+      "type": "grid",
+      "class": "overlay",
+      "z": 0,
+      "x": 0,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "step": 1,
+      "major": 1
+    }
+  ]
+}
