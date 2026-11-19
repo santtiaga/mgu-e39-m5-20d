@@ -1167,7 +1167,7 @@ vec4 drawHub(vec2 q, float capR, vec4 c) {
 }
 
 // Authentic E39 M5 light-guide needle (drawn OVER hub cap in the real E39, with optional black stem on Oil needle)
-vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1, float stem, float softGlow, vec4 c) {
+vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1, float stem, vec4 c) {
     float rad = deg * D2R;
     vec2 dir = vec2(sin(rad), -cos(rad));
     vec2 nrm = vec2(-dir.y, dir.x);
