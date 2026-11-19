@@ -1013,7 +1013,7 @@ vec4 addScaleMark(float d, float effectScale, vec4 c) {
     if (d > 14.0 * effectScale) return c;
     if (u_night > 0.5) {
         float glowD = max(d, 0.0);
-        float glowA = 0.42 * exp(-glowD / (4.8 * effectScale))
+        float glowA = 0.28 * exp(-glowD / (4.8 * effectScale))
                     * (1.0 - smoothstep(8.0 * effectScale, 14.0 * effectScale, glowD));
         c = over(vec4(1.0, 0.478, 0.094, glowA), c);
         float outlineA = (1.0 - smoothstep(0.0, 3.0 * effectScale, d))
