@@ -2120,8 +2120,7 @@ class HudApp {
                 const target = w.id.slice(w.id.lastIndexOf('_') + 1);
                 if (this._token('gearCell:' + target) === target) role = 'ink';
             }
-            const speedOutline = w.font === 'e39_spd' && this.theme.name && this.theme.name.indexOf('Night') !== -1;
-            const key = s + '|' + role + (svcActive ? '|1' : '') + (speedOutline ? '|outline' : '');
+            const key = s + '|' + role + (svcActive ? '|1' : '');
             if (!force && key === x.last) return;
             x.last = key; x.lastPaint = now;
             const rasterStarted = process.hrtime();
@@ -2129,7 +2128,6 @@ class HudApp {
                 font: w.font, color: svcActive ? [255, 214, 150, 255] : color(this.theme, role), align: w.align, spacing: w.spacing,
                 color2: svcActive ? color(this.theme, 'accent') : (w.color2 && role !== 'hot' ? color(this.theme, w.color2) : null),
                 glow: svcActive ? (this.theme.glow || 0.65) : (w.glow ? this.theme.glow : 0),
-                outline: speedOutline ? { color: [77, 27, 11], alpha: 0.62, radius: 1 } : null,
             });
             this._recordRasterTime('text', rasterStarted);
             this._blitDiff(x, buf);
