@@ -2141,7 +2141,7 @@ void main() {
         float oilAng = 237.0 - clamp(u_oil, 0.0, 1.0) * 114.0;
         c = drawE39Needle(oq, oilAng, mR * 0.555, -mR * 0.105, mR * 0.034, mR * 0.020, mR * 0.19, 0.0, c);
         float taAng = rpmAngle(clamp(u_rpm, 0.0, 1.2) * 5000.0);
-        c = drawE39Needle(tq, taAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, 0.0, c);
+        c = drawE39Needle(tq, taAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, 1.0, c);
     }
 
     gl_FragColor = c;
