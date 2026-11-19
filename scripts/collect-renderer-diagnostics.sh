@@ -44,7 +44,7 @@ printf 'start_epoch=%s\nstart_time=%s\nduration_seconds=%s\n' "$START_EPOCH" "$S
     echo "=== memory ==="; cat /proc/meminfo 2>/dev/null || true
 } > "$WORK/system/host.txt" 2>&1
 
-ps waux 2>&1 > "$WORK/process/ps-before.txt" || ps 2>&1 > "$WORK/process/ps-before.txt" || true
+ps w 2>&1 > "$WORK/process/ps-before.txt" || true
 {
     echo "=== matching processes ==="
     ps w 2>/dev/null | grep -iE 'ramses|dcsm|cluster.?render|renderer|display|compositor' | grep -v grep || true
@@ -90,8 +90,11 @@ dmesg -T > "$WORK/system/dmesg.txt" 2>&1 || dmesg > "$WORK/system/dmesg.txt" 2>&
 # assuming a single RAMSES/DCSM2 path. Binary journal files are not copied.
 for DIR in /var/opt/cluster-render/log /var/log/cluster-render /var/log; do
     if [ -d "$DIR" ]; then
-        find "$DIR" -maxdepth 3 -type f \( -iname '*ramses*' -o -iname '*dcsm*' -o -iname '*cluster*render*' -o -iname '*renderer*' -o -iname '*display*' \) \
-            -exec cp -p --parents '{}' "$WORK/files" \; 2>/dev/null || true
+        while IFS= read -r FILE; do
+            [ -f "$FILE" ] || continue
+            SAFE="$(printf '%s' "$FILE" | sed 's#^/##; s#/#_#g')"
+            cp -p "$FILE" "$WORK/files/$SAFE" 2>/dev/null || true
+        done < <(find "$DIR" -maxdepth 3 -type f \( -iname '*ramses*' -o -iname '*dcsm*' -o -iname '*cluster*render*' -o -iname '*renderer*' -o -iname '*display*' \) 2>/dev/null)
     fi
 done
 # Preserve the renderer's complete text logs even if their filenames do not match discovery.
