@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 2,
+  "name": "Panel 1px probe",
+  "_about": "Diagnostic probe for target=panel: exactly one 1x1 transparent image layer, created as its own layer. No shaders, atlases, fonts beyond the empty text raster path, telemetry, or additional layers.",
+  "widgets": [
+    {
+      "id": "panel_probe_pixel",
+      "type": "text",
+      "class": "content",
+      "z": 0,
+      "own": true,
+      "x": 0,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "text": "",
+      "font": "head",
+      "color": [255, 255, 255, 0]
+    }
+  ]
+}
