@@ -1663,8 +1663,8 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
 vec4 drawWin(vec2 p, vec4 rect, bool isLamp, vec4 c) {
     // The four lower information displays use a fourth-power superellipse (squircle) cutout.
     float d = sdSquircleBox(p, rect, 15.0);
-    float glowA = exp(-max(d, 0.0) / 9.0)
-                * (1.0 - smoothstep(0.0, 18.0, d))
+    float glowA = exp(-max(d, 0.0) / 14.0)
+                * (1.0 - smoothstep(0.0, 28.0, d))
                 * u_night * 0.085;
     c = over(vec4(vec3(1.0, 0.34, 0.16), glowA), c);
     if (d > 2.0) return c;
@@ -1672,7 +1672,7 @@ vec4 drawWin(vec2 p, vec4 rect, bool isLamp, vec4 c) {
                      : mix(vec3(0.039, 0.031, 0.031), vec3(0.031, 0.016, 0.012), u_night);
     c = over(vec4(bg, cov(d)), c);
     // Uniform warm ambient glow across the entire recessed window surface.
-    float interiorGlowA = u_night * 0.045 * cov(d);
+    float interiorGlowA = u_night * 0.0225 * cov(d);
     c = over(vec4(vec3(1.0, 0.29, 0.12), interiorGlowA), c);
     float bAl = mix(0.05, 0.018, u_night);
     c = over(vec4(1.0, 1.0, 1.0, bAl * cov(abs(d) - 0.6)), c);
