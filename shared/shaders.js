@@ -1344,7 +1344,8 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
     if (!isTach) {
         // ---- SPEEDOMETER (0..240 km/h, -128 deg at 0, +133 deg at 240) ----
         // 10-km/h minor marks and 20-km/h major ticks across the same full sweep.
-        if (r > R * 0.74 && r < R * 0.90) {
+        // Extend the inner draw guard so the full inward half of minor-dot halos is not clipped.
+        if (r > R * 0.715 && r < R * 0.90) {
             float vApprox = (ang - (-128.0)) * (240.0 / 261.0);
             float idx = clamp(floor(vApprox / 10.0 + 0.5), 0.0, 24.0);
             float aTick = -128.0 + idx * 10.0 * (261.0 / 240.0);
