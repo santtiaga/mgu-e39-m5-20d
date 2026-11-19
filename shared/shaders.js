@@ -1690,6 +1690,13 @@ void main() {
         c = over(vec4(0.0, 0.0, 0.0, 0.70 * cov(abs(dPan) - 1.2)), c);
     }
 
+    // Soft night-time halo around the wide lower information display strip.
+    float dDisplayStrip = sdRoundBox(p, vec4(960.0, 586.0, 850.0, 48.0), 14.0);
+    float displayStripGlow = exp(-max(dDisplayStrip, 0.0) / 18.0)
+                           * (1.0 - smoothstep(-1.0, 5.0, dDisplayStrip))
+                           * u_night * 0.045;
+    c = over(vec4(vec3(1.0, 0.30, 0.12), displayStripGlow), c);
+
     // Horizontal display strip divider line (y = 538)
     if (p.x >= 110.0 && p.x <= 1810.0 && abs(p.y - 538.0) < 1.5) {
         c = over(vec4(mix(vec3(0.051, 0.055, 0.067), vec3(0.020, 0.016, 0.016), u_night), cov(abs(p.y - 538.0) - 0.8)), c);
