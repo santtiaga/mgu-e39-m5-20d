@@ -2040,15 +2040,16 @@ vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1,
             float glowT = clamp((glowAlong + tail) / (len + tail), 0.0, 1.0);
             float glowHalfWidth = mix(w0, w1, glowT) * 0.5;
             float glowD = length(vec2(max(sd - glowHalfWidth, 0.0), al - glowAlong));
+            float effectScale = max(w0, 1.0) / 8.56;
             float glowA = softGlow > 0.5
-                ? 0.42 * exp(-glowD / 4.8) * (1.0 - smoothstep(8.0, 14.0, glowD))
+                ? 0.42 * exp(-glowD / (4.8 * effectScale)) * (1.0 - smoothstep(8.0 * effectScale, 14.0 * effectScale, glowD))
                 : 0.42 * exp(-max(d, 0.0) / 3.2);
             c = over(vec4(1.0, 0.478, 0.094, glowA), c);
         }
         // Fine contrasting outline, restricted to the speedometer needle.
         if (softGlow > 0.5) {
             // Broader, lower-opacity outline reduces visible pixel stepping during rotation.
-            float outlineA = (1.0 - smoothstep(0.0, 3.0, d)) * step(0.0, d) * 0.62;
+            float outlineA = (1.0 - smoothstep(0.0, 3.0 * effectScale, d)) * step(0.0, d) * 0.62;
             vec3 outlineCol = mix(vec3(0.24, 0.075, 0.035), vec3(0.30, 0.105, 0.045), u_night);
             c = over(vec4(outlineCol, outlineA), c);
         }
@@ -2086,7 +2087,7 @@ void main() {
         vec2 fpq = p - (fC + vec2(0.0, fR * 0.44));
         c = drawHub(fpq, fR * 0.235, c);
         float fAng = -54.0 + clamp(u_fuel, 0.0, 1.0) * 108.0;
-        c = drawE39Needle(fpq, fAng, fR * 0.90, fR * 0.20, fR * 0.068, fR * 0.040, 0.0, 0.0, c);
+        c = drawE39Needle(fpq, fAng, fR * 0.90, fR * 0.20, fR * 0.068, fR * 0.040, 0.0, 1.0, c);
     }
 
     // 2. Right Coolant Dial Needle (center 1735, 398, R = 118, lowered pivot y + 0.44 R)
@@ -2095,7 +2096,7 @@ void main() {
         vec2 cpq = p - (cC + vec2(0.0, fR * 0.44));
         c = drawHub(cpq, fR * 0.235, c);
         float cAng = -54.0 + clamp(u_coolant, 0.0, 1.0) * 108.0;
-        c = drawE39Needle(cpq, cAng, fR * 0.90, fR * 0.20, fR * 0.068, fR * 0.040, 0.0, 0.0, c);
+        c = drawE39Needle(cpq, cAng, fR * 0.90, fR * 0.20, fR * 0.068, fR * 0.040, 0.0, 1.0, c);
     }
 
     // 3. Main Speedometer Needle (center 625, 295, R = 214)
@@ -2139,7 +2140,7 @@ void main() {
         c = drawHub(tq, mR * 0.162, c);
         c = drawHub(oq, mR * 0.122, c);
         float oilAng = 237.0 - clamp(u_oil, 0.0, 1.0) * 114.0;
-        c = drawE39Needle(oq, oilAng, mR * 0.555, -mR * 0.105, mR * 0.034, mR * 0.020, mR * 0.19, 0.0, c);
+        c = drawE39Needle(oq, oilAng, mR * 0.555, -mR * 0.105, mR * 0.034, mR * 0.020, mR * 0.19, 1.0, c);
         float taAng = rpmAngle(clamp(u_rpm, 0.0, 1.2) * 5000.0);
         c = drawE39Needle(tq, taAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, 1.0, c);
     }
