@@ -25,3 +25,16 @@ Supports modern 7-speed and 8-speed BMW gearboxes (ZF 8HP / 7-Gang DKG) with a c
 ## Support the Creator
 If you enjoy this custom design, you can support future development and updates:  
 👉 **[Buy Me A Coffee: buymeacoffee.com/makiidrajf0](https://buymeacoffee.com/makiidrajf0)**
+
+
+## Renderer / DCSM2 / RAMSES diagnostics
+
+The on-device **View diagnostic logs** screen now shows the latest 48 Apex Dash and cluster-render log lines, including DCSM2 status transitions and renderer events.
+
+For a deeper capture that includes the MGU system journal, kernel messages, service/process snapshots, cluster-render logs, and any discoverable RAMSES/DCSM2 log files, run this from the repository on your Mac before reproducing the issue:
+
+```sh
+./scripts/collect-renderer-diagnostics.sh root@<MGU-IP> 600
+```
+
+The script waits for the 600-second capture window, then saves a timestamped archive in `~/Downloads`. It is read-only on the MGU: it does not restart services or change configuration. Root SSH access is required for the fullest journal and service diagnostics.
