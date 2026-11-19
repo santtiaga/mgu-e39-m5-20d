@@ -1665,7 +1665,7 @@ vec4 drawWin(vec2 p, vec4 rect, bool isLamp, vec4 c) {
     float d = sdSquircleBox(p, rect, 15.0);
     float glowA = exp(-max(d, 0.0) / 14.0)
                 * (1.0 - smoothstep(0.0, 28.0, d))
-                * u_night * 0.085;
+                * u_night * 0.055;
     c = over(vec4(vec3(1.0, 0.34, 0.16), glowA), c);
     if (d > 2.0) return c;
     vec3 bg = isLamp ? mix(vec3(0.047, 0.051, 0.059), vec3(0.020, 0.016, 0.016), u_night)
