@@ -145,7 +145,10 @@ function tint(m, boxW, boxH, opts) {
     const outlineAlpha = outline && outline.alpha !== undefined ? outline.alpha : 0.62;
     let rowC = color, row = -1;
     for (let i = 0; i < m.length; i++) {
-        let a = m[i] / 255;
+        let glyphA = m[i] / 255;
+        const sharpen = opts.sharpen || 0;
+        if (sharpen > 0) glyphA = Math.max(0, Math.min(1, (glyphA - 0.5) * (1 + sharpen) + 0.5));
+        let a = glyphA;
         if (halo) a = a + (1 - a) * (halo[i] / 255) * glow; // glyph over its own halo
         if (a <= 0 && !outline) continue;
         if (c2) {
