@@ -1007,6 +1007,27 @@ vec4 addMark(float d, vec4 c) {
     return c;
 }
 
+// Scale marks inherit the needle's warm glow and fine contrasting outer contour.
+// effectScale follows the physical mark width so small auxiliary dials stay proportional.
+vec4 addScaleMark(float d, float effectScale, vec4 c) {
+    if (d > 14.0 * effectScale) return c;
+    if (u_night > 0.5) {
+        float glowD = max(d, 0.0);
+        float glowA = 0.42 * exp(-glowD / (4.8 * effectScale))
+                    * (1.0 - smoothstep(8.0 * effectScale, 14.0 * effectScale, glowD));
+        c = over(vec4(1.0, 0.478, 0.094, glowA), c);
+        float outlineA = (1.0 - smoothstep(0.0, 3.0 * effectScale, d))
+                       * step(0.0, d) * 0.62;
+        vec3 outlineCol = mix(vec3(0.24, 0.075, 0.035), vec3(0.30, 0.105, 0.045), u_night);
+        c = over(vec4(outlineCol, outlineA), c);
+        c = over(vec4(MARK_COL, cov(d)), c);
+    } else {
+        c = over(vec4(0.0, 0.0, 0.0, 0.35 * exp(-max(d - 0.4, 0.0) / 1.4)), c);
+        c = over(vec4(MARK_COL, cov(d)), c);
+    }
+    return c;
+}
+
 float tickDist(vec2 q, float angDeg, float r0, float r1, float hw) {
     float a = angDeg * D2R;
     vec2 dir = vec2(sin(a), -cos(a));
@@ -1357,7 +1378,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                 } else {
                     dM = dotDist(q, aTick, R * 0.77, R * 0.0185);
                 }
-                c = addMark(dM, c);
+                c = addScaleMark(dM, R * 0.031 / 8.56, c);
             }
         }
         // Stop pin is rendered in the needle overlay so the needle cannot hide its inner edge.
@@ -1387,7 +1408,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                 }
             }
             // 4000–5000 rpm marks are drawn once, after the warning bands, in the overlay pass below.
-            if (rpmTick < 4000.0) c = addMark(dM, c);
+            if (rpmTick < 4000.0) c = addScaleMark(dM, R * 0.031 / 8.56, c);
         }
 
         // 2. Fixed 500-rpm warning bands: amber 4000-4500, red 4500-5000.
@@ -1486,7 +1507,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             float dMark = ti == 1
                 ? dotDist(q, aMark, R * 0.768, R * 0.018)
                 : tickDistInnerRound(q, aMark, R * 0.768, R * 0.875, R * 0.0155);
-            c = addMark(dMark, c);
+            c = addScaleMark(dMark, R * 0.031 / 8.56, c);
         }
 
         // 3. Oil Temp Sub-Dial (pivot at center + (0, 0.40 R), sweeping downwards 237 deg -> 123 deg)
@@ -1494,16 +1515,17 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         vec2 oq = p - oilC;
         float orad = length(oq);
         if (orad < R * 0.62) {
-            float dOil = min(
+            float dOilTicks = min(
                 min(tickDist(oq, 237.0, R * 0.455, R * 0.555, R * 0.013),
                     tickDist(oq, 123.0, R * 0.455, R * 0.555, R * 0.013)),
                 tickDist(oq, 180.0, R * 0.405, R * 0.500, R * 0.013)
             );
-            dOil = min(dOil, min(dotDist(oq, 208.5, R * 0.425, R * 0.0185),
-                                 dotDist(oq, 151.5, R * 0.425, R * 0.0185)));
-            dOil = min(dOil, sdOilCan(p, oilC + vec2(-R * 0.085, R * 0.205), R * 0.17));
-            dOil = min(dOil, sdThermo(p, oilC + vec2(R * 0.118, R * 0.205), R * 0.085, false));
-            c = addMark(dOil, c);
+            dOilTicks = min(dOilTicks, min(dotDist(oq, 208.5, R * 0.425, R * 0.0185),
+                                           dotDist(oq, 151.5, R * 0.425, R * 0.0185)));
+            float dOilIcons = min(sdOilCan(p, oilC + vec2(-R * 0.085, R * 0.205), R * 0.17),
+                                  sdThermo(p, oilC + vec2(R * 0.118, R * 0.205), R * 0.085, false));
+            c = addScaleMark(dOilTicks, R * 0.026 / 8.56, c);
+            c = addMark(dOilIcons, c);
 
             // Oil stop pin at 244 deg, 0.36 R
             float aOPin = 244.0 * D2R;
@@ -1581,26 +1603,28 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
                 c = over(vec4(pCol, cov(dPatch)), c);
             }
         }
-        // Ticks, dots & Thermometer with waves
-        float dM = min(tickDist(pq, -54.5, R * 0.74, R * 0.88, R * 0.014),
-                       tickDist(pq,  54.5, R * 0.74, R * 0.88, R * 0.014));
-        dM = min(dM, min(dotDist(pq, -18.0, R * 0.895, R * 0.033),
-                         dotDist(pq,  18.0, R * 0.895, R * 0.033)));
-        dM = min(dM, sdThermo(p, center + vec2(-R * 0.02, -R * 0.065), R * 0.20, true));
-        c = addMark(dM, c);
+        // Scale ticks and dots, separated from the thermometer icon.
+        float dTicks = min(tickDist(pq, -54.5, R * 0.74, R * 0.88, R * 0.014),
+                           tickDist(pq,  54.5, R * 0.74, R * 0.88, R * 0.014));
+        dTicks = min(dTicks, min(dotDist(pq, -18.0, R * 0.895, R * 0.033),
+                                 dotDist(pq,  18.0, R * 0.895, R * 0.033)));
+        float dThermo = sdThermo(p, center + vec2(-R * 0.02, -R * 0.065), R * 0.20, true);
+        c = addScaleMark(dTicks, R * 0.028 / 8.56, c);
+        c = addMark(dThermo, c);
     } else {
-        // Fuel ticks, dots & Fuel Pump icon
-        float dM = min(
+        // Fuel ticks and dots, separated from the fuel-pump icon.
+        float dTicks = min(
             min(tickDist(pq, -54.0, R * 0.74, R * 0.88, R * 0.015),
                 tickDist(pq,  54.0, R * 0.74, R * 0.88, R * 0.015)),
             tickDist(pq, 0.0, R * 0.80, R * 0.95, R * 0.015)
         );
-        dM = min(dM, sdPump(p, center + vec2(R * 0.02, -R * 0.16), R * 0.26));
 
         // Place each marker halfway between adjacent fuel ticks, on the arc through their outer tips.
-        dM = min(dM, min(dotDist(pq, -27.0, R * 0.88, R * 0.033),
-                         dotDist(pq,  27.0, R * 0.88, R * 0.033)));
-        c = addMark(dM, c);
+        dTicks = min(dTicks, min(dotDist(pq, -27.0, R * 0.88, R * 0.033),
+                                 dotDist(pq,  27.0, R * 0.88, R * 0.033)));
+        float dPump = sdPump(p, center + vec2(R * 0.02, -R * 0.16), R * 0.26);
+        c = addScaleMark(dTicks, R * 0.030 / 8.56, c);
+        c = addMark(dPump, c);
 
         // Fuel reserve warning lamp (bottom-left of fuel dial: center + (-0.63 R, +0.17 R), radius 0.095 R)
         float dRes = length(q - vec2(-R * 0.63, R * 0.17)) - R * 0.095;
