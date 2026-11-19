@@ -1167,7 +1167,7 @@ vec4 drawHub(vec2 q, float capR, vec4 c) {
 }
 
 // Authentic E39 M5 light-guide needle (drawn OVER hub cap in the real E39, with optional black stem on Oil needle)
-vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1, float stem, vec4 c) {
+vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1, float stem, float softGlow, vec4 c) {
     float rad = deg * D2R;
     vec2 dir = vec2(sin(rad), -cos(rad));
     vec2 nrm = vec2(-dir.y, dir.x);
@@ -2035,14 +2035,14 @@ vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1,
         float t = clamp((al + tail) / (len + tail), 0.0, 1.0);
         float hw = mix(w0, w1, t) * 0.5;
         float d = max(sd - hw, max(-al - tail, al - len));
-        if (u_night > 0.5 && (stem > 0.0 ? (d < 6.0 && al >= stem) : d < 6.0)) {
+        if (u_night > 0.5 && d < 6.0 && (stem <= 0.0 || al >= stem)) {
             float glowAlong = clamp(al, -tail, len);
             float glowT = clamp((glowAlong + tail) / (len + tail), 0.0, 1.0);
             float glowHalfWidth = mix(w0, w1, glowT) * 0.5;
             float glowD = length(vec2(max(sd - glowHalfWidth, 0.0), al - glowAlong));
-            float glowA = stem > 0.0
-                ? 0.42 * exp(-max(d, 0.0) / 3.2)
-                : 0.42 * exp(-glowD / 3.8);
+            float glowA = softGlow > 0.5
+                ? 0.42 * exp(-glowD / 3.8)
+                : 0.42 * exp(-max(d, 0.0) / 3.2);
             c = over(vec4(1.0, 0.478, 0.094, glowA), c);
         }
         if (d < 1.0) {
@@ -2079,7 +2079,7 @@ void main() {
         vec2 fpq = p - (fC + vec2(0.0, fR * 0.44));
         c = drawHub(fpq, fR * 0.235, c);
         float fAng = -54.0 + clamp(u_fuel, 0.0, 1.0) * 108.0;
-        c = drawE39Needle(fpq, fAng, fR * 0.90, fR * 0.20, fR * 0.068, fR * 0.040, 0.0, c);
+        c = drawE39Needle(fpq, fAng, fR * 0.90, fR * 0.20, fR * 0.068, fR * 0.040, 0.0, 0.0, c);
     }
 
     // 2. Right Coolant Dial Needle (center 1735, 398, R = 118, lowered pivot y + 0.44 R)
@@ -2088,7 +2088,7 @@ void main() {
         vec2 cpq = p - (cC + vec2(0.0, fR * 0.44));
         c = drawHub(cpq, fR * 0.235, c);
         float cAng = -54.0 + clamp(u_coolant, 0.0, 1.0) * 108.0;
-        c = drawE39Needle(cpq, cAng, fR * 0.90, fR * 0.20, fR * 0.068, fR * 0.040, 0.0, c);
+        c = drawE39Needle(cpq, cAng, fR * 0.90, fR * 0.20, fR * 0.068, fR * 0.040, 0.0, 0.0, c);
     }
 
     // 3. Main Speedometer Needle (center 625, 295, R = 214)
@@ -2099,7 +2099,7 @@ void main() {
         c = drawHub(sq, mR * 0.162, c);
         float spdKmh = clamp(u_speed, 0.0, 1.0) * 240.0;
         float sAng = -128.0 + spdKmh * (261.0 / 240.0);
-        c = drawE39Needle(sq, sAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, c);
+        c = drawE39Needle(sq, sAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, 1.0, c);
         // Stop-pin shadow: same offset, exponential spread and intensity as the speed-needle shadow.
         float aPin = -131.0 * D2R;
         vec2 pPin = vec2(sin(aPin), -cos(aPin)) * (mR * 0.62);
@@ -2132,9 +2132,9 @@ void main() {
         c = drawHub(tq, mR * 0.162, c);
         c = drawHub(oq, mR * 0.122, c);
         float oilAng = 237.0 - clamp(u_oil, 0.0, 1.0) * 114.0;
-        c = drawE39Needle(oq, oilAng, mR * 0.555, -mR * 0.105, mR * 0.034, mR * 0.020, mR * 0.19, c);
+        c = drawE39Needle(oq, oilAng, mR * 0.555, -mR * 0.105, mR * 0.034, mR * 0.020, mR * 0.19, 0.0, c);
         float taAng = rpmAngle(clamp(u_rpm, 0.0, 1.2) * 5000.0);
-        c = drawE39Needle(tq, taAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, c);
+        c = drawE39Needle(tq, taAng, mR * 0.865, mR * 0.205, mR * 0.04, mR * 0.021, 0.0, 0.0, c);
     }
 
     gl_FragColor = c;
