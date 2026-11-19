@@ -2035,18 +2035,18 @@ vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1,
         float t = clamp((al + tail) / (len + tail), 0.0, 1.0);
         float hw = mix(w0, w1, t) * 0.5;
         float d = max(sd - hw, max(-al - tail, al - len));
+        float effectScale = max(w0, 1.0) / 8.56;
         if (u_night > 0.5 && (softGlow > 0.5 || d < 6.0) && (stem <= 0.0 || al >= stem)) {
             float glowAlong = clamp(al, -tail, len);
             float glowT = clamp((glowAlong + tail) / (len + tail), 0.0, 1.0);
             float glowHalfWidth = mix(w0, w1, glowT) * 0.5;
             float glowD = length(vec2(max(sd - glowHalfWidth, 0.0), al - glowAlong));
-            float effectScale = max(w0, 1.0) / 8.56;
             float glowA = softGlow > 0.5
                 ? 0.42 * exp(-glowD / (4.8 * effectScale)) * (1.0 - smoothstep(8.0 * effectScale, 14.0 * effectScale, glowD))
                 : 0.42 * exp(-max(d, 0.0) / 3.2);
             c = over(vec4(1.0, 0.478, 0.094, glowA), c);
         }
-        // Fine contrasting outline, restricted to the speedometer needle.
+        // Fine contrasting outline, enabled for needles with softGlow.
         if (softGlow > 0.5) {
             // Broader, lower-opacity outline reduces visible pixel stepping during rotation.
             float outlineA = (1.0 - smoothstep(0.0, 3.0 * effectScale, d)) * step(0.0, d) * 0.62;
