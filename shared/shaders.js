@@ -1665,12 +1665,15 @@ vec4 drawWin(vec2 p, vec4 rect, bool isLamp, vec4 c) {
     float d = sdSquircleBox(p, rect, 15.0);
     float glowA = exp(-max(d, 0.0) / 9.0)
                 * (1.0 - smoothstep(0.0, 18.0, d))
-                * u_night * 0.055;
+                * u_night * 0.085;
     c = over(vec4(vec3(1.0, 0.34, 0.16), glowA), c);
     if (d > 2.0) return c;
     vec3 bg = isLamp ? mix(vec3(0.047, 0.051, 0.059), vec3(0.020, 0.016, 0.016), u_night)
                      : mix(vec3(0.039, 0.031, 0.031), vec3(0.031, 0.016, 0.012), u_night);
     c = over(vec4(bg, cov(d)), c);
+    // Uniform warm ambient glow across the entire recessed window surface.
+    float interiorGlowA = u_night * 0.045 * cov(d);
+    c = over(vec4(vec3(1.0, 0.29, 0.12), interiorGlowA), c);
     float bAl = mix(0.05, 0.018, u_night);
     c = over(vec4(1.0, 1.0, 1.0, bAl * cov(abs(d) - 0.6)), c);
     return c;
