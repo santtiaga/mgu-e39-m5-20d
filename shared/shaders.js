@@ -2047,8 +2047,10 @@ vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1,
         }
         // Fine contrasting outline, restricted to the speedometer needle.
         if (softGlow > 0.5) {
-            // Broader, lower-opacity outline reduces visible pixel stepping during rotation.
-            float outlineA = (1.0 - smoothstep(0.0, 3.0, d)) * step(0.0, d) * 0.62;
+            // Five-pixel outline with a narrow, fixed-width antialias transition.
+            float outlineInner = smoothstep(-0.35, 0.35, d);
+            float outlineOuter = 1.0 - smoothstep(4.65, 5.35, d);
+            float outlineA = outlineInner * outlineOuter * 0.62;
             vec3 outlineCol = mix(vec3(0.24, 0.075, 0.035), vec3(0.30, 0.105, 0.045), u_night);
             c = over(vec4(outlineCol, outlineA), c);
         }
