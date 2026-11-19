@@ -158,6 +158,10 @@
         [
           "panel_probe",
           "Panel probe (1 transparent pixel)"
+        ],
+        [
+          "panel_effect_probe",
+          "Panel effect probe (1 GLSL pixel)"
         ]
       ]
     },
