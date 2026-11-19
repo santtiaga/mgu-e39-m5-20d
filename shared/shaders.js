@@ -2049,8 +2049,10 @@ vec4 drawE39Needle(vec2 q, float deg, float len, float tail, float w0, float w1,
         }
         // Fine contrasting outline, enabled for needles with softGlow.
         if (softGlow > 0.5) {
+            // On the oil needle, outline only the illuminated blade beyond the grey base.
+            float outlineD = stem > 0.0 ? max(sd - hw, max(stem - al, al - len)) : d;
             // Broader, lower-opacity outline reduces visible pixel stepping during rotation.
-            float outlineA = (1.0 - smoothstep(0.0, 3.0 * effectScale, d)) * step(0.0, d) * 0.62;
+            float outlineA = (1.0 - smoothstep(0.0, 3.0 * effectScale, outlineD)) * step(0.0, outlineD) * 0.62;
             vec3 outlineCol = mix(vec3(0.24, 0.075, 0.035), vec3(0.30, 0.105, 0.045), u_night);
             c = over(vec4(outlineCol, outlineA), c);
         }
