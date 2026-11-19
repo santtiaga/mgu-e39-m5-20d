@@ -118,18 +118,44 @@ function tint(m, boxW, boxH, opts) {
     const out = Buffer.alloc(boxW * boxH * 4, 0);
     const ca = color[3] / 255;
     const c2 = opts.color2;          // optional: the colour at the bottom of the box (a top-to-bottom gradient)
+    const outline = opts.outline || null;
+    const outlineMask = outline ? Buffer.alloc(m.length, 0) : null;
+    if (outline) {
+        const radius = Math.max(1, Math.min(3, outline.radius || 1));
+        for (let y = 0; y < boxH; y++) {
+            for (let x = 0; x < boxW; x++) {
+                let maxA = 0;
+                for (let oy = -radius; oy <= radius; oy++) {
+                    const yy = y + oy;
+                    if (yy < 0 || yy >= boxH) continue;
+                    for (let ox = -radius; ox <= radius; ox++) {
+                        const xx = x + ox;
+                        if (xx < 0 || xx >= boxW) continue;
+                        maxA = Math.max(maxA, m[yy * boxW + xx]);
+                    }
+                }
+                outlineMask[y * boxW + x] = maxA;
+            }
+        }
+    }
+    const outlineColor = outline && outline.color || [77, 27, 11];
+    const outlineAlpha = outline && outline.alpha !== undefined ? outline.alpha : 0.62;
     let rowC = color, row = -1;
     for (let i = 0; i < m.length; i++) {
         let a = m[i] / 255;
         if (halo) a = a + (1 - a) * (halo[i] / 255) * glow; // glyph over its own halo
-        if (a <= 0) continue;
+        if (a <= 0 && !outline) continue;
         if (c2) {
             const y = Math.floor(i / boxW);
             if (y !== row) { row = y; const f = boxH > 1 ? y / (boxH - 1) : 0; rowC = [0, 1, 2].map((j) => Math.round(color[j] + (c2[j] - color[j]) * f)); }
         }
+        const oa = outline ? (outlineMask[i] / 255) * outlineAlpha : 0;
+        const fa = a * ca;
+        const outA = fa + oa * (1 - fa);
+        if (outA <= 0) continue;
         const o = i * 4;
-        out[o] = rowC[0]; out[o + 1] = rowC[1]; out[o + 2] = rowC[2];
-        out[o + 3] = Math.round(a * ca * 255);
+        for (let j = 0; j < 3; j++) out[o + j] = Math.round((rowC[j] * fa + outlineColor[j] * oa * (1 - fa)) / outA);
+        out[o + 3] = Math.round(outA * 255);
     }
     return out;
 }
