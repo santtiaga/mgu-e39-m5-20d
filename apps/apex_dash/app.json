@@ -162,6 +162,18 @@
         [
           "panel_effect_probe",
           "Panel effect probe (1 GLSL pixel)"
+        ],
+        [
+          "e39_m5_v2_no_startup",
+          "E39 M5 V2 (No Startup)"
+        ],
+        [
+          "panel_probe_no_startup",
+          "Panel probe (1 transparent pixel, no startup)"
+        ],
+        [
+          "panel_effect_probe_no_startup",
+          "Panel effect probe (1 GLSL pixel, no startup)"
         ]
       ]
     },
