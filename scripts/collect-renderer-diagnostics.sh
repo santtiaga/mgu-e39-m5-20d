@@ -88,13 +88,15 @@ dmesg -T > "$WORK/system/dmesg.txt" 2>&1 || dmesg > "$WORK/system/dmesg.txt" 2>&
 
 # Copy known cluster-render log directory, then discover other named log files without
 # assuming a single RAMSES/DCSM2 path. Binary journal files are not copied.
-for DIR in /var/opt/cluster-render/log /var/log/cluster-render /var/log; do
+for DIR in /var/opt/cluster-render/log /var/log/cluster-render /var/log /var/opt; do
     if [ -d "$DIR" ]; then
+        DEPTH=3
+        [ "$DIR" = /var/opt ] && DEPTH=5
         while IFS= read -r FILE; do
             [ -f "$FILE" ] || continue
             SAFE="$(printf '%s' "$FILE" | sed 's#^/##; s#/#_#g')"
             cp -p "$FILE" "$WORK/files/$SAFE" 2>/dev/null || true
-        done < <(find "$DIR" -maxdepth 3 -type f \( -iname '*ramses*' -o -iname '*dcsm*' -o -iname '*cluster*render*' -o -iname '*renderer*' -o -iname '*display*' \) 2>/dev/null)
+        done < <(find "$DIR" -maxdepth "$DEPTH" -type f \( -iname '*ramses*' -o -iname '*dcsm*' -o -iname '*cluster*render*' -o -iname '*renderer*' -o -iname '*display*' \) 2>/dev/null)
     fi
 done
 # Preserve the renderer's complete text logs even if their filenames do not match discovery.
