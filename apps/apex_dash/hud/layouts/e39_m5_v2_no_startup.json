@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
-  "name": "E39 M5 V2 (No Startup)",
-  "theme": "e39v2",
-  "_about": "1:1 BMW E39 M5 instrument cluster (Day & Night) ported from e39_demo/index.html. Diagnostic copy. Select E39 Start-Animation & Nadeltest = Deaktiviert (off) to suppress the global startup animation.",
+  "name": "E39 M5 (No Startup)",
+  "theme": "e39",
+  "_about": "Standard E39 M5 Classic layout. No-startup diagnostic copy; select E39 Start-Animation & Nadeltest = Deaktiviert (off) to suppress the global startup animation.",
   "widgets": [
     {
       "id": "e39_bg",
@@ -482,29 +482,27 @@
       "id": "v2_svc_1",
       "type": "text",
       "z": 6,
-      "x": 389,
-      "y": 581,
-      "w": 164,
+      "x": 392,
+      "y": 582,
+      "w": 160,
       "h": 19,
       "text": "OILSERVICE",
       "font": "e39_dotXS",
       "color": "ghost",
-      "spacing": 4,
-      "align": "center"
+      "align": "left"
     },
     {
       "id": "v2_svc_2",
       "type": "text",
       "z": 6,
-      "x": 389,
+      "x": 392,
       "y": 606,
-      "w": 164,
+      "w": 160,
       "h": 19,
       "text": "INSPECTION",
       "font": "e39_dotXS",
       "color": "ghost",
-      "spacing": 4,
-      "align": "center"
+      "align": "left"
     },
     {
       "id": "v2_lcd_odo",
