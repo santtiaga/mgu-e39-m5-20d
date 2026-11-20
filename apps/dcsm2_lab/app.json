@@ -8,7 +8,8 @@
   "iconGlyph": "LAB",
   "shared": [
     "cluster_render_client.js",
-    "shaders.js"
+    "shaders.js",
+    "dcsm2_lab_benchmark.js"
   ],
   "config": {
     "target": "panel"
@@ -20,13 +21,41 @@
       "title": "DCSM2 Lab",
       "settings": false,
       "items": [
-        ["text", "STATUS", "Waiting for cluster-render"],
-        ["button", "RUN_FULL", "Run full benchmark (~8 min)"],
-        ["button", "RUN_SOAK", "Run 30-minute stability test"],
-        ["button", "RUN_BASE", "Run basic renderer tests"],
-        ["button", "STOP", "Stop test and release all layers"],
-        ["button", "RECONNECT", "Reconnect renderer client"],
-        ["button", "SHOW_LOG", "Show log file path"]
+        [
+          "text",
+          "STATUS",
+          "Waiting for cluster-render"
+        ],
+        [
+          "button",
+          "RUN_FULL",
+          "Run full benchmark (~8 min)"
+        ],
+        [
+          "button",
+          "RUN_SOAK",
+          "Run 30-minute stability test"
+        ],
+        [
+          "button",
+          "RUN_BASE",
+          "Run basic renderer tests"
+        ],
+        [
+          "button",
+          "STOP",
+          "Stop test and release all layers"
+        ],
+        [
+          "button",
+          "RECONNECT",
+          "Reconnect renderer client"
+        ],
+        [
+          "button",
+          "SHOW_LOG",
+          "Show log file path"
+        ]
       ]
     }
   ]
