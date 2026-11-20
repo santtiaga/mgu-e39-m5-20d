@@ -1977,18 +1977,6 @@ for (int si = 0; si < 7; si++) {
         c = over(vec4(cellCol, cellA * cov(dTCells)), c);
     }
 
-    // 3. Four E39 M5 Analog Dials (100% clear of BMW's BLACK_BOX at x:1406..1597, y:342..419)
-    c = sideDial(p, vec2(245.0, 398.0), 118.0, u_fuel, false, c);
-    c = sideDial(p, vec2(1735.0, 398.0), 118.0, u_coolant, true, c);
-    c = mainDial(p, vec2(625.0, 295.0), 214.0, u_speed, false, 0.0, c);
-    c = mainDial(p, vec2(1155.0, 295.0), 214.0, u_rpm, true, u_oil, c);
-
-    // 4. Subtle cover glass diagonal reflection
-    float gLine = (p.x - 250.0) * 0.65 + (p.y - 80.0);
-    if (gLine > 0.0 && gLine < 420.0 && dPan < 0.0) {
-        float gAl = sin(gLine / 420.0 * PI) * mix(0.032, 0.010, u_night);
-        c = over(vec4(mix(vec3(0.78, 0.84, 1.0), vec3(1.0, 0.78, 0.62), u_night), gAl), c);
-    }
     return c;
 }
 
@@ -2005,6 +1993,22 @@ void main() {
     float sR = 118.0 * 0.913 - 0.75, bR = 214.0 * 0.941 - 0.75;
     bool deepFace = dot(f0, f0) < sR * sR || dot(f1, f1) < sR * sR || dot(f2, f2) < bR * bR || dot(f3, f3) < bR * bR;
     if (!deepFace) c = drawBackground(p, dPan, c);
+
+    // 3. Four E39 M5 Analog Dials (100% clear of BMW's BLACK_BOX at x:1406..1597, y:342..419)
+    c = sideDial(p, vec2(245.0, 398.0), 118.0, u_fuel, false, c);
+    c = sideDial(p, vec2(1735.0, 398.0), 118.0, u_coolant, true, c);
+    c = mainDial(p, vec2(625.0, 295.0), 214.0, u_speed, false, 0.0, c);
+    c = mainDial(p, vec2(1155.0, 295.0), 214.0, u_rpm, true, u_oil, c);
+
+    // 4. Subtle cover glass diagonal reflection
+    float gLine = (p.x - 250.0) * 0.65 + (p.y - 80.0);
+    if (gLine > 0.0 && gLine < 420.0 && dPan < 0.0) {
+        float gAl = sin(gLine / 420.0 * PI) * mix(0.032, 0.010, u_night);
+        c = over(vec4(mix(vec3(0.78, 0.84, 1.0), vec3(1.0, 0.78, 0.62), u_night), gAl), c);
+    }
+
+    gl_FragColor = c;
+}
 `;
 
 // E39NEEDLES: Overlay effect layer (z: 10, class: 'overlay') rendering all 5 E39 M5 needles,
