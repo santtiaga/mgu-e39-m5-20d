@@ -1829,7 +1829,7 @@ class HudApp {
                         'E39_MASK_LOOP_904', 'E39_MASK_LOOP_936'
                     ];
                     const defines = names.filter((name, bit) => (mask & (1 << bit)) !== 0)
-                        .map((name) => '#define ' + name).join('\\n');
+                        .map((name) => '#define ' + name).join('\n');
                     fs = fs.replace('// E39_MASK_DEFINES (expanded per widget before shader compilation)', defines);
                 }
                 ref = c.effect(Object.assign({ fs }, base));
