@@ -85,7 +85,7 @@ mgu.run({
         ctx.app.on('shutdown', shutdown);
         process.on('exit', shutdown);
 
-        bench.write('START app=dcsm2_lab target=panel socket=' + client.path);
+        bench.write('START app=dcsm2_lab target=panel socket=' + client.path + ' pid=' + process.pid + ' node=' + process.version);
         bench.write('NOTE independent of Apex Dash HUD/layout/watchdog; tests cluster-render effect API.');
         client.connect();
         ctx.ui.text('STATUS', 'Connecting to cluster-render...');
