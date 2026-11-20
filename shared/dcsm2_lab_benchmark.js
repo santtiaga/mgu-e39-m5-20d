@@ -129,13 +129,18 @@ class Benchmark {
         await this._wait(durationMs);
         const state = this.layerStates.get(ref);
         this.testCount++;
-        if (state && (state.state === 'error' || state.state === 'stalled' || state.state === 'hidden')) {
+        if (state && state.state === 'shown') {
+            this.passed++;
+            this.write('RESULT PASS label=' + label + ' ref=' + ref + ' state=shown rendererReady=' + this.client.ready);
+        } else if (state && (state.state === 'error' || state.state === 'stalled')) {
             this.failures++;
             this.write('RESULT FAIL label=' + label + ' ref=' + ref + ' state=' + state.state + ' reason=' + state.reason);
         } else {
-            this.write('RESULT OBSERVED label=' + label + ' ref=' + ref +
+            this.inconclusive++;
+            this.write('RESULT INCONCLUSIVE label=' + label + ' ref=' + ref +
                 ' state=' + (state ? state.state : 'no-layer-event') +
-                ' rendererReady=' + this.client.ready);
+                ' rendererReady=' + this.client.ready +
+                ' note="layer shown is not proof of physical pixel visibility"');
         }
     }
 
@@ -340,6 +345,8 @@ class Benchmark {
         this.stopRequested = false;
         this.testCount = 0;
         this.failures = 0;
+        this.passed = 0;
+        this.inconclusive = 0;
         this.startedAt = Date.now();
         this.write('========== FULL BENCHMARK START ==========');
         try {
@@ -349,9 +356,9 @@ class Benchmark {
             await this._runE39Masks();
             await this._runLifecycle();
             await this._runSoak(5 * 60 * 1000);
-            this.status('Full benchmark finished: tests=' + this.testCount + ' failures=' + this.failures);
+            this.status('Full benchmark finished: tests=' + this.testCount + ' shown=' + this.passed + ' failures=' + this.failures + ' inconclusive=' + this.inconclusive);
             this.write('========== FULL BENCHMARK END elapsed_ms=' +
-                (Date.now() - this.startedAt) + ' tests=' + this.testCount + ' failures=' + this.failures + ' ==========');
+                (Date.now() - this.startedAt) + ' tests=' + this.testCount + ' shown=' + this.passed + ' failures=' + this.failures + ' inconclusive=' + this.inconclusive + ' ==========');
         } catch (error) {
             this.write('BENCHMARK_ABORT ' + (error && error.stack || error));
             throw error;
