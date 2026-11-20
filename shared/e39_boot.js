@@ -43,7 +43,7 @@ class E39Boot {
         if (!this.statePath) return;
         try {
             const dir = path.dirname(this.statePath);
-            fs.mkdirSync(dir, { recursive: true });
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir);
             const tmp = this.statePath + '.tmp';
             fs.writeFileSync(tmp, JSON.stringify({
                 version: 1, ignitionKnown: this.ignitionKnown, ignitionOn: this.ignitionOn,
