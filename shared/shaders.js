@@ -959,8 +959,8 @@ float rpmZoneAngle(float rpm) {
 float rpmFromAngle(float degrees) {
     return clamp((degrees + 124.6) / 246.0, 0.0, 1.0) * 5000.0;
 }
-#define MARK_COL mix(vec3(0.937, 0.863, 0.761), vec3(1.0, 0.749, 0.388), u_night)
-#define GLOW_COL vec3(1.0, 0.478, 0.063)
+const vec3 GLOW_COL = vec3(1.0, 0.478, 0.063);
+vec3 markCol() { return mix(vec3(0.937, 0.863, 0.761), vec3(1.0, 0.749, 0.388), u_night); }
 
 float cov(float d) { return clamp(0.5 - d, 0.0, 1.0); }
 vec4 over(vec4 top, vec4 under) {
@@ -983,7 +983,8 @@ float sdSquircleBox(vec2 p, vec4 b, float r) {
     vec2 q = abs(p - (b.xy + hs)) - (hs - vec2(r));
     vec2 outside = max(q, 0.0);
     // Fourth-power superellipse: squircle corners instead of circular rounded-rectangle corners.
-    float corner = pow(pow(outside.x, 4.0) + pow(outside.y, 4.0), 0.25);
+    vec2 o2 = outside * outside;
+    float corner = sqrt(sqrt(o2.x * o2.x + o2.y * o2.y));
     return corner + min(max(q.x, q.y), 0.0) - r;
 }
 float hash12(vec2 p) {
@@ -1000,10 +1001,10 @@ vec4 addMark(float d, vec4 c) {
     if (d > 6.5) return c;
     if (u_night > 0.5) {
         c = over(vec4(GLOW_COL, 0.42 * exp(-max(d, 0.0) / 2.6)), c);
-        c = over(vec4(MARK_COL, cov(d)), c);
+        c = over(vec4(markCol(), cov(d)), c);
     } else {
         c = over(vec4(0.0, 0.0, 0.0, 0.35 * exp(-max(d - 0.4, 0.0) / 1.4)), c);
-        c = over(vec4(MARK_COL, cov(d)), c);
+        c = over(vec4(markCol(), cov(d)), c);
     }
     return c;
 }
@@ -1021,10 +1022,10 @@ vec4 addScaleMark(float d, float effectScale, vec4 c) {
                        * step(0.0, d) * 0.62;
         vec3 outlineCol = mix(vec3(0.24, 0.075, 0.035), vec3(0.30, 0.105, 0.045), u_night);
         c = over(vec4(outlineCol, outlineA), c);
-        c = over(vec4(MARK_COL, cov(d)), c);
+        c = over(vec4(markCol(), cov(d)), c);
     } else {
         c = over(vec4(0.0, 0.0, 0.0, 0.35 * exp(-max(d - 0.4, 0.0) / 1.4)), c);
-        c = over(vec4(MARK_COL, cov(d)), c);
+        c = over(vec4(markCol(), cov(d)), c);
     }
     return c;
 }
@@ -1063,15 +1064,16 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
     float r = length(q);
     if (r > R + 18.0) return c;
 
-    // 1. Deep outer cast shadow on the cluster panel
-    float rs = length(q - vec2(0.0, 5.0));
-    if (rs < R * 1.012 + 14.0) {
-        c = over(vec4(0.0, 0.0, 0.0, 0.82 * exp(-max(rs - R * 1.005, 0.0) / 5.5)), c);
-    }
-    if (r > R + 1.0) return c;
-
     float ringIn = big ? 0.953 : 0.925;
     float rf = R * (ringIn - 0.012);
+    // 1. Deep outer cast shadow on the cluster panel (fully hidden under the opaque face for r < rf - 0.5)
+    if (r >= rf - 0.5) {
+        float rs = length(q - vec2(0.0, 5.0));
+        if (rs < R * 1.012 + 14.0) {
+            c = over(vec4(0.0, 0.0, 0.0, 0.82 * exp(-max(rs - R * 1.005, 0.0) / 5.5)), c);
+        }
+        if (r > R + 1.0) return c;
+    }
 
     // 2. Dial Face inside rf
     if (r <= rf + 1.0) {
@@ -1141,8 +1143,12 @@ vec4 drawRingAndFace(vec2 p, vec2 center, float R, bool big, vec4 c) {
             rCol += vec3(grain + brush) * textureMask;
 
             // Restrained, warm-grey reflections; avoid clipped white specular streaks.
-            float upperGlint = pow(max(0.0, cos(ang - 0.42)), 15.0);
-            float lowerGlint = pow(max(0.0, cos(ang - 3.05)), 9.0);
+            float ugc = max(0.0, cos(ang - 0.42));
+            float ug2 = ugc * ugc, ug4 = ug2 * ug2, ug8 = ug4 * ug4;
+            float upperGlint = ug8 * ug4 * ug2 * ugc;
+            float lgc = max(0.0, cos(ang - 3.05));
+            float lg2 = lgc * lgc, lg4 = lg2 * lg2, lg8 = lg4 * lg4;
+            float lowerGlint = lg8 * lgc;
             float ridgeMask = smoothstep(0.22, 0.39, u) * (1.0 - smoothstep(0.65, 0.79, u));
             rCol += vec3(0.075, 0.080, 0.090) * upperGlint * ridgeMask;
             rCol += vec3(0.035, 0.040, 0.048) * lowerGlint * ridgeMask;
@@ -1422,6 +1428,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float a45 = rpmAngle(4500.0);
         float a5 = rpmAngle(5000.0);
         #ifdef E39_MASK_LOOP_508
+        if (abs(r - (R * 0.875 - R * 0.088 * 0.5 - 2.0)) <= R * 0.088 * 0.5 + 14.0) {
 for (int zi = 0; zi < 2; zi++) {
             bool redZone = zi == 1;
             float a0 = redZone ? a45 : a4;
@@ -1468,6 +1475,7 @@ for (int zi = 0; zi < 2; zi++) {
                 if (redZone) c = over(vec4(coreCol, 0.29 * coreProfile), c);
             }
         }
+        }
 #endif // E39_MASK_LOOP_508
         // Keep the original nine LED positions across 4100-5000 rpm and append two more at the same pitch.
         // The eleven segments activate at 4101, 4201 ... 5101 and 5201 rpm.
@@ -1488,6 +1496,7 @@ for (int zi = 0; zi < 2; zi++) {
         float ledWidth = (ledSpan - ledGapAngle * (BASE_SHIFT_LEDS - 1.0)) / BASE_SHIFT_LEDS;
         float ledStep = ledWidth + ledGapAngle;
         float ledExtendedEnd = ledArcEnd + ledStep * (SHIFT_LEDS - BASE_SHIFT_LEDS);
+        if (r > ledR - ledTh - 15.0 && r < ledR + ledTh + R * 0.004) {
         float ledIdx = floor(clamp((ang - ledArcStart) / ledStep, 0.0, SHIFT_LEDS - 0.0001));
         float ledStart = ledArcStart + ledIdx * ledStep;
         float ledEnd = ledStart + ledWidth;
@@ -1499,16 +1508,18 @@ for (int zi = 0; zi < 2; zi++) {
         float ledMaskPad = 12.0 / (ledR * D2R);
         bool ledGlowOn = ledRpm >= ledThreshold;
         bool ledOn = ang >= ledArcStart && ang <= ledExtendedEnd && ledGlowOn;
-        if (ang >= ledArcStart - ledMaskPad && ang <= ledExtendedEnd + ledMaskPad && r > ledR - ledTh - 15.0 && r < ledR + ledTh + R * 0.004) {
+        if (ang >= ledArcStart - ledMaskPad && ang <= ledExtendedEnd + ledMaskPad) {
             bool ledRed = ledIdx >= SHIFT_LEDS * 0.5;
             vec3 ledCol = ledRed ? vec3(1.0, 0.16, 0.10) : vec3(1.0, 0.72, 0.12);
             float ledAlpha = ledOn ? 0.98 : 0.12;
             if (ledGlowOn) c = over(vec4(ledCol, 0.42 * exp(-max(ledD, 0.0) / 2.6)), c);
             c = over(vec4(ledCol, ledAlpha * cov(ledD)), c);
         }
+        }
 
         // Redraw 4000, 4500 and 5000 rpm marks on top of the coloured bands.
         #ifdef E39_MASK_LOOP_593
+        if (r > R * 0.75 - 11.5 && r < R * 0.875 + 30.0) {
 for (int ti = 0; ti < 3; ti++) {
             float rpmMark = 4000.0 + float(ti) * 500.0;
             float aMark = rpmAngle(rpmMark);
@@ -1517,6 +1528,7 @@ for (int ti = 0; ti < 3; ti++) {
                 : tickDistInnerRound(q, aMark, R * 0.768, R * 0.875, R * 0.0155);
             if (ti == 1) c = addScaleMark(dMark, R * 0.031 / 8.56, c);
             else c = addScaleMark(dMark, R * 0.031 / 8.56, c);
+        }
         }
 #endif // E39_MASK_LOOP_593
 
@@ -1566,9 +1578,10 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
     if (isTemp) {
         // Slanted Blue (-45.5 deg) and Red (+45.5 deg) zone blocks around piv at 0.80 R
         #ifdef E39_MASK_LOOP_648
-for (int s = -1; s <= 1; s += 2) {
+for (int si = 0; si < 2; si++) {
+            float sf = si == 0 ? -1.0 : 1.0;
             // Keep the original marker position and angle.
-            float a = float(s) * 45.5 * D2R;
+            float a = sf * 45.5 * D2R;
             vec2 dir = vec2(sin(a), -cos(a));
             vec2 nrm = vec2(-dir.y, dir.x);
             vec2 pt = piv + dir * (R * 0.80);
@@ -1576,7 +1589,7 @@ for (int s = -1; s <= 1; s += 2) {
             // The red hot-zone marker is a broad, tapered OEM-style block rather than
             // the narrow rounded dash used by the first pass. Keep the blue marker unchanged.
             float dPatch;
-            if (s > 0) {
+            if (si == 1) {
                 // Red zone: inner edge moved inward by 2 px; outer edge remains fixed.
                 // Rotate the complete arc 1 degree counter-clockwise around the dial center.
                 float radius = length(pq);
@@ -1610,7 +1623,7 @@ for (int s = -1; s <= 1; s += 2) {
                 dPatch = max(dArc, radius - R * 0.90);
             }
             if (dPatch < 1.0) {
-                vec3 pCol = s < 0 ? vec3(0.145098, 0.588235, 0.854902)
+                vec3 pCol = si == 0 ? vec3(0.145098, 0.588235, 0.854902)
                                   : vec3(0.812, 0.239, 0.200);
                 c = over(vec4(pCol, cov(dPatch)), c);
             }
@@ -1673,31 +1686,32 @@ for (int s = -1; s <= 1; s += 2) {
 // Recessed Display Window
 vec4 drawWin(vec2 p, vec4 rect, bool isLamp, vec4 c) {
     // The four lower information displays use a fourth-power superellipse (squircle) cutout.
+    // Cheap lower bound of the squircle distance (L4 norm >= max norm): beyond 28 px neither glow nor body exist.
+    vec2 hsw = rect.zw * 0.5;
+    vec2 qw = abs(p - (rect.xy + hsw)) - (hsw - vec2(15.0));
+    if (max(qw.x, qw.y) - 15.0 > 28.0) return c;
     float d = sdSquircleBox(p, rect, 15.0);
-    float glowA = exp(-max(d, 0.0) / 14.0)
-                * (1.0 - smoothstep(0.0, 28.0, d))
-                * u_night * 0.055;
-    c = over(vec4(vec3(1.0, 0.34, 0.16), glowA), c);
+    if (u_night > 0.0) {
+        float glowA = exp(-max(d, 0.0) / 14.0)
+                    * (1.0 - smoothstep(0.0, 28.0, d))
+                    * u_night * 0.055;
+        c = over(vec4(vec3(1.0, 0.34, 0.16), glowA), c);
+    }
     if (d > 2.0) return c;
     vec3 bg = isLamp ? mix(vec3(0.047, 0.051, 0.059), vec3(0.020, 0.016, 0.016), u_night)
                      : mix(vec3(0.039, 0.031, 0.031), vec3(0.031, 0.016, 0.012), u_night);
     c = over(vec4(bg, cov(d)), c);
     // Uniform warm ambient glow across the entire recessed window surface.
-    float interiorGlowA = u_night * 0.0225 * cov(d);
-    c = over(vec4(vec3(1.0, 0.29, 0.12), interiorGlowA), c);
+    if (u_night > 0.0) {
+        float interiorGlowA = u_night * 0.0225 * cov(d);
+        c = over(vec4(vec3(1.0, 0.29, 0.12), interiorGlowA), c);
+    }
     float bAl = mix(0.05, 0.018, u_night);
     c = over(vec4(1.0, 1.0, 1.0, bAl * cov(abs(d) - 0.6)), c);
     return c;
 }
 
-void main() {
-    vec2 p = v_uv * u_size;
-    // 1. Page background & inner matte panel
-    vec3 pageCol = mix(vec3(0.039, 0.043, 0.051), vec3(0.012, 0.012, 0.012), u_night);
-    vec4 c = vec4(pageCol, 1.0);
-
-    // Inner matte panel now fills the complete 1920x720 screen.
-    float dPan = max(abs(p.x - 960.0) - 960.0, abs(p.y - 360.0) - 360.0);
+vec4 drawBackground(vec2 p, float dPan, vec4 c) {
     if (dPan < 2.0) {
         float gy = clamp((p.y - 43.0) / 620.0, 0.0, 1.0);
         vec3 p0 = mix(vec3(0.086, 0.094, 0.110), vec3(0.035, 0.027, 0.024), u_night);
@@ -1975,9 +1989,22 @@ for (int si = 0; si < 7; si++) {
         float gAl = sin(gLine / 420.0 * PI) * mix(0.032, 0.010, u_night);
         c = over(vec4(mix(vec3(0.78, 0.84, 1.0), vec3(1.0, 0.78, 0.62), u_night), gAl), c);
     }
-
-    gl_FragColor = c;
+    return c;
 }
+
+void main() {
+    vec2 p = v_uv * u_size;
+    // 1. Page background & inner matte panel
+    vec3 pageCol = mix(vec3(0.039, 0.043, 0.051), vec3(0.012, 0.012, 0.012), u_night);
+    vec4 c = vec4(pageCol, 1.0);
+
+    // Inner matte panel now fills the complete 1920x720 screen.
+    float dPan = max(abs(p.x - 960.0) - 960.0, abs(p.y - 360.0) - 360.0);
+    vec2 f0 = p - vec2(245.0, 398.0), f1 = p - vec2(1735.0, 398.0);
+    vec2 f2 = p - vec2(625.0, 295.0), f3 = p - vec2(1155.0, 295.0);
+    float sR = 118.0 * 0.913 - 0.75, bR = 214.0 * 0.941 - 0.75;
+    bool deepFace = dot(f0, f0) < sR * sR || dot(f1, f1) < sR * sR || dot(f2, f2) < bR * bR || dot(f3, f3) < bR * bR;
+    if (!deepFace) c = drawBackground(p, dPan, c);
 `;
 
 // E39NEEDLES: Overlay effect layer (z: 10, class: 'overlay') rendering all 5 E39 M5 needles,
