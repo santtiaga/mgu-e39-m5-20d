@@ -909,15 +909,7 @@ void main() {
 }
 `;
 
-const E39DASH = `// Compile-time diagnostic mask: bits 0..7 independently retain the corresponding loop.
-#define E39_MASK_LOOP_408
-#define E39_MASK_LOOP_427
-#define E39_MASK_LOOP_508
-#define E39_MASK_LOOP_593
-#define E39_MASK_LOOP_648
-#define E39_MASK_LOOP_801
-#define E39_MASK_LOOP_904
-#define E39_MASK_LOOP_936
+const E39DASH = `// E39_MASK_DEFINES (expanded per widget before shader compilation)
 // Classic analog BMW E39 M5 (1998-2003) instrument cluster in one cluster-render "effect" layer (GLSL ES 1.00):
 // Matte anthracite-grey E39 M5 gauge faces with concentric vinyl grain, 3D brushed aluminum/chrome Edition rings,
 // crisp white/ivory scale markings with subtle warm backlight, the iconic E39 M5 two-zone pre-warning LED field
