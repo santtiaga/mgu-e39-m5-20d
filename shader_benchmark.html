@@ -224,7 +224,7 @@ input[type=range]{padding:0;width:130px}
     if (!r.ok) throw new Error('HTTP ' + r.status + ' loading shared/shaders.js');
     return r.text();
   }).then(function(js) {
-    var match = js.match(/const\\s+E39DASH\\s*=\\s*`([\\s\\S]*?)`;/);
+    var match = js.match(/const\s+E39DASH\s*=\s*`([\s\S]*?)`;/);
     if (!match) throw new Error('Could not extract const E39DASH template string from shared/shaders.js');
     var shader = match[1];
     var defines = [
