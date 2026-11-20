@@ -54,7 +54,9 @@ class Benchmark {
         this.layerStates = new Map();
         this.startedAt = 0;
         this.testCount = 0;
+        this.passed = 0;
         this.failures = 0;
+        this.inconclusive = 0;
         this.lastStatusAt = 0;
         this.write('BENCHMARK_ENGINE initialized');
     }
@@ -330,6 +332,10 @@ class Benchmark {
         if (this.running) return this.status('A benchmark is already running');
         this.running = true;
         this.stopRequested = false;
+        this.testCount = 0;
+        this.passed = 0;
+        this.failures = 0;
+        this.inconclusive = 0;
         try {
             await this._runBasic();
             this.status('Basic tests completed');
