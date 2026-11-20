@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 2,
+  "name": "DIAG 1 — e39_bg small (480x180)",
+  "theme": "e39v2",
+  "_about": "Diagnostic: only the original e39_bg shader, unchanged, rendered into a 480x180 rectangle at the top-left. No image sheets or other effects.",
+  "widgets": [
+    {
+      "id": "e39_bg",
+      "type": "e39dash",
+      "class": "ambient",
+      "z": -10,
+      "x": 0,
+      "y": 0,
+      "w": 480,
+      "h": 180,
+      "speedMax": 240,
+      "rpmMax": 5000,
+      "v2": true,
+      "night": false
+    }
+  ]
+}
