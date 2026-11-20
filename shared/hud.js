@@ -1816,7 +1816,24 @@ class HudApp {
             c = this._clientAt(this._connOf(w));
             const base = { target: this.target, klass: w.class || 'content', z: w.z || 0, x: w.x, y: w.y, w: w.w, h: w.h, visible: false };
             if (IMAGE_TYPES[w.type]) ref = c.image(Object.assign({ iw: w.w, ih: w.h }, base));
-            else ref = c.effect(Object.assign({ fs: w.type === 'swatch' ? calibration.SWATCH : shaders[w.type] }, base));
+            else {
+                let fs = w.type === 'swatch' ? calibration.SWATCH : shaders[w.type];
+                if (w.type === 'e39dash') {
+                    // The mask is compiled into the shader source, not evaluated per fragment.
+                    // Missing mask preserves the complete original E39 dash (all eight sections).
+                    const mask = Number.isInteger(w.mask) ? w.mask : 255;
+                    const names = [
+                        'E39_MASK_LOOP_408', 'E39_MASK_LOOP_427',
+                        'E39_MASK_LOOP_508', 'E39_MASK_LOOP_593',
+                        'E39_MASK_LOOP_648', 'E39_MASK_LOOP_801',
+                        'E39_MASK_LOOP_904', 'E39_MASK_LOOP_936'
+                    ];
+                    const defines = names.filter((name, bit) => (mask & (1 << bit)) !== 0)
+                        .map((name) => '#define ' + name).join('\\n');
+                    fs = fs.replace('// E39_MASK_DEFINES (expanded per widget before shader compilation)', defines);
+                }
+                ref = c.effect(Object.assign({ fs }, base));
+            }
             if (!ref) { this.log.warn('widget "' + w.id + '": layer refused'); return; }
         }
         const x = { w, ref, c, ci: sheet ? sheet.ci : this._connOf(w), sheet: sheet || null, last: null, lastPaint: 0, px: null };
