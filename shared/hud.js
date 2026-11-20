@@ -1956,6 +1956,10 @@ class HudApp {
         const now = Date.now();
         this._frameData = this.car.data();
         this.e39Boot.setMode(this.setting('e39Startup') || 'boot');
+        const bootRefs = this._layerRefs();
+        const bootLayoutReady = !this.build && !!this.activeName && this.activeName !== 'off' && bootRefs.length > 0 &&
+            bootRefs.every((ref) => !!(ref.c && ref.c.ready)) && this.dcsm2.state === 'available';
+        this.e39Boot.setLayoutReady(bootLayoutReady);
         if (!this._frameData.demo && Number.isInteger(this._frameData.condition)) this.e39Boot.onCondition(this._frameData.condition);
         try {
             const vehicle = this._vehicleGate(this._frameData);
@@ -2081,7 +2085,7 @@ class HudApp {
         return { green: bars, due: 0, kind: 'oil' };
     }
 
-    _e39Sweep(now, data) {
+    _e39Sweep(now) {
         return this.e39Boot.tick(now);
     }
 
@@ -2164,7 +2168,7 @@ class HudApp {
             x.c.uniform(x.ref, 'u_value', [q]);
         } else if (w.type === 'e39dash') {
             const d = this._data();
-            const sweep = this._e39Sweep(now, d);
+            const sweep = this._e39Sweep(now);
             const isSweepCheck = sweep > 0.6;
             const sp = d.demo ? null : this._raw('speed'), rpm = d.demo ? null : this._raw('rpm'), fuel = d.demo ? null : this._raw('fuel'), oil = d.demo ? null : this._raw('oil'), cool = d.demo ? null : this._raw('coolant');
             const stg = d.stage === 'P' ? 0 : d.stage === 'R' ? 1 : d.stage === 'N' ? 2 : (this._program(d) === 'S' ? 5 : this._program(d) === 'M' ? 6 : 3);
