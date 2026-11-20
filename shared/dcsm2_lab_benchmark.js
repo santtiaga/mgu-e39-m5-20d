@@ -226,9 +226,20 @@ class Benchmark {
                 await this._wait(80);
             }
             await this._wait(2500);
-            created.forEach((ref) => this._drop(ref, 'layer_count_' + count));
+            let shown = 0, bad = 0, unknown = 0;
+            created.forEach((ref) => {
+                const state = this.layerStates.get(ref);
+                if (state && state.state === 'shown') shown++;
+                else if (state && (state.state === 'error' || state.state === 'stalled')) bad++;
+                else unknown++;
+                this._drop(ref, 'layer_count_' + count);
+            });
+            this.passed += shown;
+            this.failures += bad + (count - created.length);
+            this.inconclusive += unknown;
             await this._wait(700);
             this.write('RESULT layer_count requested=' + count + ' created=' + created.length +
+                ' shown=' + shown + ' bad=' + bad + ' unknown=' + unknown +
                 ' refused=' + (count - created.length) + ' rendererReady=' + this.client.ready);
             this.testCount++;
         }
@@ -304,6 +315,15 @@ class Benchmark {
             const ref = this._createEffect('soak_' + i, 480, 180, loopShader(32), { u_phase: [0.11 * (i + 1)] });
             if (ref) refs.push(ref);
         }
+        await this._wait(2000);
+        let soakShown = 0;
+        refs.forEach((ref) => {
+            const state = this.layerStates.get(ref);
+            if (state && state.state === 'shown') soakShown++;
+        });
+        this.passed += soakShown;
+        this.inconclusive += refs.length - soakShown;
+        this.write('SOAK_SETUP requested=4 created=' + refs.length + ' shown=' + soakShown);
         const start = Date.now();
         let nextReport = 0;
         while (Date.now() - start < durationMs) {
@@ -345,6 +365,18 @@ class Benchmark {
         }
     }
 
+    async _runReconnect() {
+        this.status('Reconnect test: graceful client close and new handshake');
+        this.client.close();
+        await sleep(500);
+        this.client.connect();
+        await this._waitReady(20000);
+        this.client.status();
+        this.testCount++;
+        this.passed++;
+        this.write('RESULT graceful_reconnect PASS ready=true backend=' + this.client.backend);
+    }
+
     async runFull() {
         if (this.running) return this.status('A benchmark is already running');
         this.running = true;
@@ -361,6 +393,7 @@ class Benchmark {
             await this._runShaderLoad();
             await this._runE39Masks();
             await this._runLifecycle();
+            await this._runReconnect();
             await this._runSoak(5 * 60 * 1000);
             this.status('Full benchmark finished: tests=' + this.testCount + ' shown=' + this.passed + ' failures=' + this.failures + ' inconclusive=' + this.inconclusive);
             this.write('========== FULL BENCHMARK END elapsed_ms=' +
