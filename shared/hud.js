@@ -1954,6 +1954,8 @@ class HudApp {
         if (this.stopped || this.safetyTripped || (this.safety && this.safety.tripped())) return;
         const now = Date.now();
         this._frameData = this.car.data();
+        this.e39Boot.setMode(this.setting('e39Startup') || 'boot');
+        if (!this._frameData.demo && Number.isInteger(this._frameData.condition)) this.e39Boot.onCondition(this._frameData.condition);
         try {
             const vehicle = this._vehicleGate(this._frameData);
             if (this._layoutName() !== 'off' && vehicle.hold) {
@@ -2079,9 +2081,6 @@ class HudApp {
     }
 
     _e39Sweep(now, data) {
-        const d = data || this._data();
-        this.e39Boot.setMode(this.setting('e39Startup') || 'boot');
-        if (!d.demo && Number.isInteger(d.condition)) this.e39Boot.onCondition(d.condition);
         return this.e39Boot.tick(now);
     }
 
