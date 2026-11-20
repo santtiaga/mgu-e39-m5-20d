@@ -2,7 +2,7 @@
   "id": "apex_dash",
   "title": "E39 M5 Cluster (Marko DEV)",
   "description": "Authentic BMW E39 M5 digital cluster for iDrive 7 and 8 (MGU) by Marko DEV. Features 5-needle startup sweep self-test, Check Control OBC display, dynamic LED warm-up arch, 7/8-speed Steptronic/DKG selector, and Service-Interval indicator, with a latched renderer safety stop.",
-  "version": "1.5.10",
+  "version": "1.5.11",
   "vendor": "custom",
   "loggingId": "OAD1",
   "iconGlyph": "APX",
@@ -175,6 +175,34 @@
         [
           "panel_effect_probe_no_startup",
           "Panel effect probe (1 GLSL pixel, no startup)"
+        ],
+        [
+          "diag_e39_bg_small",
+          "DIAG 1 — e39_bg small (480×180)"
+        ],
+        [
+          "diag_sheet_1",
+          "DIAG 2 — image sheet 1/5"
+        ],
+        [
+          "diag_sheet_2",
+          "DIAG 3 — image sheet 2/5"
+        ],
+        [
+          "diag_sheet_3",
+          "DIAG 4 — image sheet 3/5"
+        ],
+        [
+          "diag_sheet_4",
+          "DIAG 5 — image sheet 4/5"
+        ],
+        [
+          "diag_sheet_5",
+          "DIAG 6 — image sheet 5/5"
+        ],
+        [
+          "diag_effects_only",
+          "DIAG 7 — effects only"
         ]
       ]
     },
