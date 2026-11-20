@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 2,
+  "name": "DIAG 3 — image sheet 2/5",
+  "theme": "e39v2",
+  "_about": "Diagnostic: only image sheet 2/5 from e39_m5_v2, with original widget positions and properties. The normal planner packs these 5 widgets into one image layer.",
+  "widgets": [
+    {
+      "id": "e39_spd_120",
+      "type": "text",
+      "z": 5,
+      "x": 603,
+      "y": 150,
+      "w": 56,
+      "h": 25,
+      "text": "120",
+      "font": "e39_spd",
+      "color": "fg",
+      "align": "center",
+      "glow": false
+    },
+    {
+      "id": "e39_rpm_unit2",
+      "type": "text",
+      "z": 5,
+      "x": 1110,
+      "y": 214,
+      "w": 90,
+      "h": 21,
+      "text": "x 1000",
+      "font": "e39_sub",
+      "color": "fg",
+      "align": "center",
+      "glow": false
+    },
+    {
+      "id": "e39_fuel_0",
+      "type": "text",
+      "z": 5,
+      "x": 134,
+      "y": 370,
+      "w": 48,
+      "h": 21,
+      "text": "0",
+      "font": "e39_sub",
+      "color": "fg",
+      "align": "center",
+      "glow": false
+    },
+    {
+      "type": "text",
+      "z": 5,
+      "x": 221,
+      "y": 309,
+      "w": 48,
+      "h": 31,
+      "font": "e39_sub",
+      "color": "fg",
+      "align": "center",
+      "glow": false,
+      "id": "e39_fuel_half_slash",
+      "text": "/"
+    },
+    {
+      "type": "text",
+      "z": 5,
+      "w": 48,
+      "h": 31,
+      "font": "e39_sub",
+      "color": "fg",
+      "align": "center",
+      "glow": false,
+      "id": "e39_fuel_full_slash",
+      "x": 309,
+      "y": 366,
+      "text": "/"
+    }
+  ]
+}
