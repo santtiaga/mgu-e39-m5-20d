@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "name": "E39 M5 (No Startup)",
   "theme": "e39",
-  "_about": "Standard E39 M5 Classic layout. No-startup diagnostic copy; select E39 Start-Animation & Nadeltest = Deaktiviert (off) to suppress the global startup animation.",
+  "_about": "Standard E39 M5 Classic layout. No-startup diagnostic copy; select E39 Start-Animation & Nadeltest = Deaktiviert (off) to suppress the global startup animation. E39 shader diagnostic mask: 255 enables all eight guarded loops; change e39_bg.mask (0..255) to isolate sections.",
   "widgets": [
     {
       "id": "e39_bg",
@@ -16,7 +16,8 @@
       "speedMax": 240,
       "rpmMax": 5000,
       "v2": true,
-      "night": false
+      "night": false,
+      "mask": 255
     },
     {
       "id": "wm_spd",
