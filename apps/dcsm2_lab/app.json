@@ -27,6 +27,11 @@
           "Waiting for cluster-render"
         ],
         [
+          "text",
+          "SAFETY",
+          "Park only. May obscure cluster. Stop Apex Dash before testing."
+        ],
+        [
           "button",
           "RUN_FULL",
           "Run full benchmark (~8 min)"
