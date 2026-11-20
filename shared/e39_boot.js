@@ -111,6 +111,11 @@ class E39Boot {
         this._save();
     }
 
+    elapsed(now) {
+        if (this.state !== 'playing' && this.state !== 'completed') return null;
+        return Math.max(0, now - this.startedAt);
+    }
+
     tick(now) {
         if (this.state === 'pending') this._startIfReady();
         if (this.state !== 'playing') return 0;
