@@ -103,7 +103,7 @@ class Benchmark {
     _createEffect(label, width, height, fsSource, uniforms) {
         const ref = this.client.effect({
             target: 'panel',
-            klass: 'overlay',
+            klass: 'content',
             z: 90,
             x: 0,
             y: 0,
@@ -164,6 +164,46 @@ class Benchmark {
         await this._singleEffect('solid_1x1', 1, 1, SOLID_FS, null, 1500);
         await this._singleEffect('solid_480x180', 480, 180, SOLID_FS, null, 2000);
         await this._singleEffect('solid_1920x720', 1920, 720, SOLID_FS, null, 2500);
+        await this._singleImage('image_1x1', 1, 1, 1500);
+        await this._singleImage('image_480x180', 480, 180, 2000);
+        await this._singleImage('image_960x360', 960, 360, 2500);
+    }
+
+
+    async _singleImage(label, width, height, durationMs) {
+        this._assertRunning();
+        const ref = this.client.image({
+            target: 'panel',
+            klass: 'content',
+            z: 90,
+            x: 0,
+            y: 0,
+            w: width,
+            h: height,
+            iw: width,
+            ih: height,
+            visible: true
+        });
+        if (!ref) {
+            this.failures++;
+            this.write('IMAGE_CREATE_REFUSED label=' + label + ' size=' + width + 'x' + height);
+            return;
+        }
+        this.refs.add(ref);
+        const pixels = Buffer.alloc(width * height * 4);
+        for (let i = 0; i < width * height; i++) {
+            const off = i * 4;
+            pixels[off] = 32;
+            pixels[off + 1] = 180;
+            pixels[off + 2] = 72;
+            pixels[off + 3] = 24;
+        }
+        const accepted = this.client.pixels(ref, null, pixels);
+        this.write('IMAGE_CREATE label=' + label + ' ref=' + ref + ' size=' + width + 'x' + height +
+            ' uploadAccepted=' + accepted + ' bytes=' + pixels.length);
+        await this._observe(ref, label, durationMs || 1800);
+        this._drop(ref, label);
+        await this._wait(350);
     }
 
     async _runLayerScaling() {
