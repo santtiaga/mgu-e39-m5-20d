@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 2,
+  "name": "DIAG 4 — image sheet 3/5",
+  "theme": "e39v2",
+  "_about": "Diagnostic: only image sheet 3/5 from e39_m5_v2, with original widget positions and properties. The normal planner packs these 3 widgets into one image layer.",
+  "widgets": [
+    {
+      "id": "e39_spd_140",
+      "type": "text",
+      "z": 5,
+      "x": 651,
+      "y": 162,
+      "w": 56,
+      "h": 25,
+      "text": "140",
+      "font": "e39_spd",
+      "color": "fg",
+      "align": "center",
+      "glow": false
+    },
+    {
+      "type": "text",
+      "z": 5,
+      "x": 228,
+      "y": 312,
+      "w": 48,
+      "h": 21,
+      "font": "e39_sub",
+      "color": "fg",
+      "align": "center",
+      "glow": false,
+      "id": "e39_fuel_half_2",
+      "text": "2"
+    },
+    {
+      "type": "text",
+      "z": 5,
+      "w": 48,
+      "h": 21,
+      "font": "e39_sub",
+      "color": "fg",
+      "align": "center",
+      "glow": false,
+      "id": "e39_fuel_full_2",
+      "x": 315,
+      "y": 369,
+      "text": "1"
+    }
+  ]
+}
