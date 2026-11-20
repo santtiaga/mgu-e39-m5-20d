@@ -65,8 +65,43 @@ ps w 2>&1 > "$WORK/process/ps-before.txt" || true
     ss -xlpn 2>&1 | grep -iE 'cluster-render|ramses|dcsm' || true
 } > "$WORK/process/renderer-before.txt" 2>&1
 
+# Sample display-provider processes, matching systemd units and the renderer socket
+# throughout the capture. A before/after snapshot alone can miss a short service restart.
+DISPLAY_MONITOR_PID=""
+(
+    while :; do
+        {
+            printf '\n===== %s =====\n' "$(date -Iseconds 2>/dev/null || date)"
+            echo "--- display-related processes ---"
+            ps w 2>/dev/null | grep -iE 'ramses|dcsm|cluster.?render|renderer|display|compositor' | grep -v grep || true
+            if command -v systemctl >/dev/null 2>&1; then
+                echo "--- matching systemd service state ---"
+                systemctl list-units --all --type=service --no-legend --no-pager 2>/dev/null |
+                    awk '{print $1}' | grep -iE 'ramses|dcsm|cluster.?render|renderer|display|compositor|kombi' |
+                    while IFS= read -r UNIT; do
+                        [ -n "$UNIT" ] || continue
+                        echo "UNIT $UNIT"
+                        systemctl show "$UNIT" --no-pager \
+                            -p ActiveState -p SubState -p MainPID -p NRestarts -p Result \
+                            -p ExecMainStartTimestamp -p ActiveEnterTimestamp -p InactiveEnterTimestamp \
+                            -p ExecMainCode -p ExecMainStatus 2>/dev/null || true
+                    done
+            fi
+            echo "--- renderer socket ---"
+            ls -ln /dev/shm/cluster-render /dev/shm/cluster-render/render.sock 2>&1 || true
+            ss -xlpn 2>/dev/null | grep -iE 'cluster-render|ramses|dcsm|display' || true
+        } >> "$WORK/process/display-service-timeline.log" 2>&1
+        sleep 1
+    done
+) &
+DISPLAY_MONITOR_PID=$!
+
 echo "Collecting for $DURATION seconds..."
 sleep "$DURATION"
+if [ -n "$DISPLAY_MONITOR_PID" ]; then
+    kill "$DISPLAY_MONITOR_PID" 2>/dev/null || true
+    wait "$DISPLAY_MONITOR_PID" 2>/dev/null || true
+fi
 
 END_EPOCH="$(date +%s)"
 printf 'end_epoch=%s\nend_time=%s\n' "$END_EPOCH" "$(date -Iseconds 2>/dev/null || date)" >> "$WORK/metadata.txt"
