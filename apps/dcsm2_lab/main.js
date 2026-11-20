@@ -1,6 +1,5 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const mgu = require('./kit/mgu');
 const { ClusterRender } = require('./cluster_render_client');
@@ -38,6 +37,8 @@ mgu.run({
             ctx.ui.text('STATUS', 'Socket error: ' + (error && error.message || error));
         });
         client.on('diagnostic', (event) => bench.onDiagnostic(event));
+        client.on('pixels-written', (event) => bench.write('PIXELS_WRITTEN ' + JSON.stringify(event)));
+        client.on('status', (text) => bench.write('RENDERER_STATUS ' + text));
         client.on('layer', (ref, state, reason) => bench.onLayer(ref, state, reason));
         client.on('target', (name, state, holder, reason, guideDisabled, rendering, retryInMs, disabled) => {
             bench.write('TARGET ' + JSON.stringify({
