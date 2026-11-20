@@ -1,6 +1,8 @@
 'use strict';
 
 // Synthetic DCSM2 provider state for the browser bench only. Never import from an app.
+const DCSM2Recovery = require('../shared/dcsm2_recovery');
+
 function normalize(state) {
     return state === 'unavailable' || state === 'unknown' ? state : 'available';
 }
@@ -12,4 +14,8 @@ function statusLine(state) {
     return 'dcsm: Dcsm2 not available yet; subscription: no answer yet';
 }
 
-module.exports = { normalize, statusLine };
+function createRecovery(statePath, log, now) {
+    return new DCSM2Recovery(statePath, log, now);
+}
+
+module.exports = { normalize, statusLine, createRecovery };

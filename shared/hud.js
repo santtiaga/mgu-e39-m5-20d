@@ -155,6 +155,7 @@ const fs = require('fs');
 const changes = require('./dirty_rects');
 const { ClusterRender, DEFAULT_PATH } = require('./cluster_render_client.js');
 const DCSM2Watchdog = require('./dcsm2_watchdog');
+const DCSM2Recovery = require('./dcsm2_recovery');
 const createSafetyController = require('./safety_controller');
 const StagedBuild = require('./staged_build');
 const LayoutGeneration = require('./layout_generation');
@@ -273,6 +274,10 @@ class HudApp {
             errorWindowMs: 10000,
             onTrip: (incident) => this._onSafetyTrip(incident),
         });
+        // DCSM2 recovery has its own short-window strike policy; generic app errors remain separate.
+        this.dcsm2Recovery = new DCSM2Recovery(require('path').join(ctx.dataDir, 'dcsm2_quarantine.json'), this.log);
+        this.dcsm2RetryDelayMs = 0;
+        this.dcsm2RetryTimer = null;
         // Remember confirmed provider availability across temporary socket outages.
         this.dcsm2WasAvailable = false;
         this.layerStates = new Map();    // "<conn>:<ref>" -> { state, reason } from cluster-render
@@ -285,7 +290,8 @@ class HudApp {
                 this.log.info('DCSM2 available; display rendering may proceed');
                 this.clients.forEach((c) => c.restoreVisibility());
                 this._resumeBuildAfterGates();
-                if (this.deferredRebuild || this.activeName === null || this.widgets.size === 0) this._rebuild();
+                if (this.deferredRebuild) this._scheduleDCSM2Rebuild();
+                else if (this.activeName === null || this.widgets.size === 0) this._rebuild();
                 else this._status();
             } else {
                 // Unknown health is not proof of provider loss, but an overlay
@@ -300,9 +306,27 @@ class HudApp {
                 // are not intentionally left as Apex Dash's active display.
                 if (state === 'unavailable' && this.dcsm2WasAvailable) {
                     this.dcsm2WasAvailable = false;
-                    const hadLayout = !!(this.build || this.widgets.size || this.sheets.length);
-                    if (hadLayout) {
-                        this.log.error('DCSM2 became unavailable; releasing the active panel layout until the provider recovers');
+                    if (this.dcsm2RetryTimer) {
+                        clearTimeout(this.dcsm2RetryTimer);
+                        this.dcsm2RetryTimer = null;
+                    }
+                    const lostLayout = this.activeName;
+                    const recovery = this.dcsm2Recovery.onLoss(lostLayout, Date.now());
+                    if (recovery.rapid) {
+                        const incident = new Error('DCSM2 lost ' + (recovery.layout || 'active layout') +
+                            ' within ' + DCSM2Recovery.RAPID_LOSS_MS + ' ms of display (' +
+                            recovery.strikes + '/' + DCSM2Recovery.STRIKE_LIMIT + ' strikes in 60 s)');
+                        this.log.error(incident.message);
+                        this.safety.record('DCSM2 rapid layout loss', incident);
+                    }
+                    this.dcsm2RetryDelayMs = recovery.delayMs;
+                    const hadLayout = !!(this.build || this.widgets.size || this.sheets.length ||
+                        (this.activeName && this.activeName !== 'off'));
+                    if (recovery.quarantined) {
+                        this._quarantineDCSM2Layout(recovery.layout, this.dcsm2Recovery.getQuarantine(recovery.layout));
+                    } else if (hadLayout) {
+                        this.log.error('DCSM2 became unavailable; releasing the active panel layout; retry in ' +
+                            Math.round(recovery.delayMs / 1000) + ' s');
                         this.deferredRebuild = true;
                         this.activeName = null;
                         this.problem = 'DCSM2 unavailable; waiting to rebuild the panel';
@@ -701,6 +725,8 @@ class HudApp {
         this.stopped = true;
         this.started = false;
         this.dcsm2.stop();
+        clearTimeout(this.dcsm2RetryTimer);
+        this.dcsm2RetryTimer = null;
         clearInterval(this.tickTimer);
         clearInterval(this.themeTimer);
         clearInterval(this.statusTimer);
@@ -910,6 +936,7 @@ class HudApp {
 
     statusText() {
         if (this.safetyTripped || (this.safety && this.safety.tripped())) return this.label + ': ' + (this.problem || 'SAFETY STOP; restart app to resume');
+        if (this.problem) return this.label + ': ' + this.problem;
         if (!this.client.ready) {
             let there = false;
             try { there = fs.existsSync(this.socketPath); } catch (e) { /* treat as missing */ }
@@ -919,7 +946,6 @@ class HudApp {
             return this.label + ': ' + (this.dcsm2.state === 'unavailable'
                 ? 'waiting for DCSM2 recovery' : 'checking DCSM2 availability');
         }
-        if (this.problem) return this.label + ': ' + this.problem;
         const byMode = this.setting('byMode') === true;
         const mode = byMode ? (this.driveMode ? ' (' + MODE_NAME[this.driveMode] + ')' : ' (drive mode not seen yet)') : '';
         const what = this.target === 'panel' ? 'cluster' : 'HUD';
@@ -1340,10 +1366,57 @@ class HudApp {
         this._status();
     }
 
+    /** Keep a provider recovery from immediately rebuilding a layout that just lost DCSM2. */
+    _scheduleDCSM2Rebuild() {
+        if (this.stopped || !this.deferredRebuild || this.dcsm2RetryTimer) return;
+        const name = this._layoutName();
+        const quarantine = name !== 'off' && this.dcsm2Recovery.getQuarantine(name);
+        if (quarantine) {
+            this._quarantineDCSM2Layout(name, quarantine);
+            return;
+        }
+        const delay = Math.max(0, this.dcsm2RetryDelayMs || 0);
+        this.log.warn('DCSM2 recovered; rebuilding layout in ' + Math.round(delay / 1000) + ' s');
+        this.dcsm2RetryTimer = setTimeout(() => {
+            this.dcsm2RetryTimer = null;
+            if (this.stopped || !this.deferredRebuild) return;
+            if (this.dcsm2.state !== 'available' || !this.client.ready) return;
+            const selected = this._layoutName();
+            const saved = selected !== 'off' && this.dcsm2Recovery.getQuarantine(selected);
+            if (saved) {
+                this._quarantineDCSM2Layout(selected, saved);
+                return;
+            }
+            this.deferredRebuild = false;
+            this._rebuild();
+        }, delay);
+        this._status();
+    }
+
+    /** Quarantine is persistent and deliberately leaves BMW's native cluster visible. */
+    _quarantineDCSM2Layout(name, record) {
+        if (this.dcsm2RetryTimer) {
+            clearTimeout(this.dcsm2RetryTimer);
+            this.dcsm2RetryTimer = null;
+        }
+        this.deferredRebuild = false;
+        this.activeName = 'off';
+        this.problem = 'layout "' + name + '" quarantined after repeated rapid DCSM2 loss; select another layout';
+        this.layoutTheme = null;
+        this.log.error(this.problem + (record && record.reason ? ' (' + record.reason + ')' : ''));
+        this._dropLayoutLayers();
+        this._status();
+    }
+
     _rebuildInner() {
         if (this.safetyTripped || (this.safety && this.safety.tripped())) return;
         if (!this.client.ready) return; // the 'ready' handler calls us again
         const name = this._layoutName();
+        const quarantine = name !== 'off' && this.dcsm2Recovery.getQuarantine(name);
+        if (quarantine) {
+            this._quarantineDCSM2Layout(name, quarantine);
+            return;
+        }
         const vehicle = this._vehicleGate(this.car.data());
         if (name !== 'off' && vehicle.hold) {
             this._holdForVehicle(vehicle);
@@ -1457,7 +1530,7 @@ class HudApp {
         });
         if (px > PIXEL_BYTES) this.log.warn('layout "' + layout.name + '" needs ' + mib(px) + ' of pixel memory; cluster-render has 16 MiB for every app together (each image counts twice)');
         this.build = { plan: plan, index: 0, current: null, timer: null, deadlineAt: 0, remainingMs: 45000,
-            waitingConnection: null, waitingDCSM2: false, layout: layout.name, started: Date.now() };
+            waitingConnection: null, waitingDCSM2: false, layout: layout.name, layoutKey: name, started: Date.now() };
         this.log.info('layout build: staged transaction started (' + plan.length + ' renderer stages)');
         this._buildNext();
     }
@@ -1512,6 +1585,9 @@ class HudApp {
             }, STATUS_ASK_MS);
             const counts = this._connCounts(b.plan);
             const renderersReady = counts.every((count, ci) => !count || !!(this.clients[ci] && this.clients[ci].ready));
+            if (renderersReady && this.dcsm2.state === 'available') {
+                this.dcsm2Recovery.noteShown(b.layoutKey || b.layout, Date.now());
+            }
             const hasE39BootWidgets = Array.from(this.widgets.values()).some((x) => x.w.type === 'e39dash' || x.w.type === 'e39needles');
             const layoutReady = hasE39BootWidgets && renderersReady && this.dcsm2.state === 'available';
             this.e39Boot.setLayoutReady(layoutReady);
