@@ -409,7 +409,7 @@
     },
     {
       "key": "e39Startup",
-      "label": "E39 Start-Animation & Nadeltest",
+      "label": "E39 Boot Animation",
       "type": "choice",
       "default": "boot",
       "options": [
