@@ -341,7 +341,7 @@ class HudApp {
         this.e39PeakG = null; this.e39Vmax = 0;
         this.e39Sprint = { state: 'armed', startT: 0, lastSec: null, bestSec: null };
         this.cbs = { km: null, color: 0, kind: 'oil' }; // live BMW CBS from KombiInterface_2
-        this.e39Boot = new E39Boot(require('path').join(ctx.dataDir, 'e39_boot_state.json'), this.log);
+        this.e39Boot = new E39Boot(require('path').join(ctx.dataDir, 'e39_boot_state.json'), this.log, this.setting('e39Startup') || 'boot');
         this._frameData = null;
         this.themeName = null;
         this.flash = false;
