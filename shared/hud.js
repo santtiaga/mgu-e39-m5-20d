@@ -1512,7 +1512,8 @@ class HudApp {
             }, STATUS_ASK_MS);
             const counts = this._connCounts(b.plan);
             const renderersReady = counts.every((count, ci) => !count || !!(this.clients[ci] && this.clients[ci].ready));
-            const layoutReady = renderersReady && this.dcsm2.state === 'available';
+            const hasE39BootWidgets = Array.from(this.widgets.values()).some((x) => x.w.type === 'e39dash' || x.w.type === 'e39needles');
+            const layoutReady = hasE39BootWidgets && renderersReady && this.dcsm2.state === 'available';
             this.e39Boot.setLayoutReady(layoutReady);
             this.log.info('layout build: all ' + b.plan.length + ' stages shown in ' + (Date.now() - b.started) + ' ms' +
                 (layoutReady ? '; all renderer connections and DCSM2 ready' : '; readiness gate still closed'));
@@ -1957,7 +1958,8 @@ class HudApp {
         this._frameData = this.car.data();
         this.e39Boot.setMode(this.setting('e39Startup') || 'boot');
         const bootRefs = this._layerRefs();
-        const bootLayoutReady = !this.build && !!this.activeName && this.activeName !== 'off' && bootRefs.length > 0 &&
+        const hasE39BootWidgets = Array.from(this.widgets.values()).some((x) => x.w.type === 'e39dash' || x.w.type === 'e39needles');
+        const bootLayoutReady = hasE39BootWidgets && !this.build && !!this.activeName && this.activeName !== 'off' && bootRefs.length > 0 &&
             bootRefs.every((ref) => !!(ref.c && ref.c.ready)) && this.dcsm2.state === 'available';
         this.e39Boot.setLayoutReady(bootLayoutReady);
         if (!this._frameData.demo && Number.isInteger(this._frameData.condition)) this.e39Boot.onCondition(this._frameData.condition);
