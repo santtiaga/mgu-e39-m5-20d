@@ -8,11 +8,11 @@ const DURATION_MS = 2500;
 const KL15_ON = [7, 8, 10, 12];
 
 class E39Boot {
-    constructor(statePath, log) {
+    constructor(statePath, log, initialMode) {
         this.statePath = statePath || null;
         this.log = log || null;
         this.layoutReady = false;
-        this.mode = 'boot';
+        this.mode = initialMode === 'test' || initialMode === 'off' ? initialMode : 'boot';
         this.state = 'idle';
         this.kind = null;
         this.startedAt = 0;
@@ -34,7 +34,9 @@ class E39Boot {
                 this.kind = saved.kind;
                 this.startedAt = Number.isFinite(saved.startedAt) ? saved.startedAt : 0;
             }
+            if (this.mode === 'off') { this.state = 'idle'; this.kind = null; this.startedAt = 0; }
         } catch (_) { /* first launch: no persisted ignition cycle yet */ }
+        if (this.mode === 'off') this._save();
     }
 
     _save() {
