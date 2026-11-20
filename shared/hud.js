@@ -160,6 +160,7 @@ const StagedBuild = require('./staged_build');
 const LayoutGeneration = require('./layout_generation');
 const RendererInventory = require('./renderer_inventory');
 const VehicleGate = require('./vehicle_gate');
+const E39Boot = require('./e39_boot');
 const EngineSignals = require('./kit/engine_signals');
 const Layouts = require('./layouts');
 const { THEMES, M_STRIPE, LIGHTS, VERDICT, color } = require('./hud_themes');
@@ -340,10 +341,7 @@ class HudApp {
         this.e39PeakG = null; this.e39Vmax = 0;
         this.e39Sprint = { state: 'armed', startT: 0, lastSec: null, bestSec: null };
         this.cbs = { km: null, color: 0, kind: 'oil' }; // live BMW CBS from KombiInterface_2
-        this.e39BootAt = Date.now();
-        this._lastIgn = 0;
-        this._lastStartup = null;
-        this._lastTest = null;
+        this.e39Boot = new E39Boot(require('path').join(ctx.dataDir, 'e39_boot_state.json'), this.log);
         this._frameData = null;
         this.themeName = null;
         this.flash = false;
@@ -1357,7 +1355,6 @@ class HudApp {
         this.deferredRebuild = false;
         this.vehicleOff = false;
         this.vehicleOffLogged = false;
-        this.e39BootAt = Date.now();
         clearTimeout(this.statusAskT); this.statusAskT = null;
         clearTimeout(this.offStatusT1); this.offStatusT1 = null;
         clearTimeout(this.offStatusT2); this.offStatusT2 = null;
@@ -1512,7 +1509,12 @@ class HudApp {
                 this.statusAskT = null;
                 this._guard('status request', () => this.client.status());
             }, STATUS_ASK_MS);
-            this.log.info('layout build: all ' + b.plan.length + ' stages shown in ' + (Date.now() - b.started) + ' ms');
+            const counts = this._connCounts(b.plan);
+            const renderersReady = counts.every((count, ci) => !count || !!(this.clients[ci] && this.clients[ci].ready));
+            const layoutReady = renderersReady && this.dcsm2.state === 'available';
+            this.e39Boot.setLayoutReady(layoutReady);
+            this.log.info('layout build: all ' + b.plan.length + ' stages shown in ' + (Date.now() - b.started) + ' ms' +
+                (layoutReady ? '; all renderer connections and DCSM2 ready' : '; readiness gate still closed'));
             this._status();
             return;
         }
@@ -1926,6 +1928,7 @@ class HudApp {
 
     /** Drop only layout layers; keep the shared renderer connection and cached font assets alive. */
     _dropLayoutLayers() {
+        if (this.e39Boot) this.e39Boot.setLayoutReady(false);
         if (this.build && this.build.timer) clearTimeout(this.build.timer);
         this.build = null;
         this.needsBoost = false;
@@ -2075,15 +2078,11 @@ class HudApp {
         return { green: bars, due: 0, kind: 'oil' };
     }
 
-    _e39Sweep(now) {
-        const animSetting = this.setting('e39Startup') || 'boot';
-        if (animSetting === 'off') return 0;
-        if (!this.e39BootAt) this.e39BootAt = now;
-        const dt = (now - this.e39BootAt) / 1000.0;
-        if (dt >= 0 && dt < 2.5) {
-            return Math.sin((dt / 2.5) * Math.PI);
-        }
-        return 0;
+    _e39Sweep(now, data) {
+        const d = data || this._data();
+        this.e39Boot.setMode(this.setting('e39Startup') || 'boot');
+        if (!d.demo && Number.isInteger(d.condition)) this.e39Boot.onCondition(d.condition);
+        return this.e39Boot.tick(now);
     }
 
     _update(x, now, force) {
@@ -2165,23 +2164,9 @@ class HudApp {
             x.c.uniform(x.ref, 'u_value', [q]);
         } else if (w.type === 'e39dash') {
             const d = this._data();
-            const curStSetting = this.setting('e39Startup');
-            if (this._lastStartupSetting !== curStSetting) {
-                this._lastStartupSetting = curStSetting;
-                if (curStSetting === 'test') {
-                    this.e39BootAt = now;
-                }
-            }
-            const startupEdge = d.startup === 1 && this._lastStartup !== 1;
-            const testEdge = d.test === 2 && this._lastTest !== 2;
-            const ignitionEdge = d.ign !== undefined && d.ign !== this._lastIgn && d.ign >= 1;
-            if (startupEdge || testEdge || ignitionEdge) this.e39BootAt = now;
-            this._lastStartup = d.startup;
-            this._lastTest = d.test;
-            if (d.ign !== undefined) this._lastIgn = d.ign;
-            const sweep = this._e39Sweep(now);
+            const sweep = this._e39Sweep(now, d);
             const isSweepCheck = sweep > 0.6;
-            const sp = this._raw('speed'), rpm = this._raw('rpm'), fuel = this._raw('fuel'), oil = this._raw('oil'), cool = this._raw('coolant');
+            const sp = d.demo ? null : this._raw('speed'), rpm = d.demo ? null : this._raw('rpm'), fuel = d.demo ? null : this._raw('fuel'), oil = d.demo ? null : this._raw('oil'), cool = d.demo ? null : this._raw('coolant');
             const stg = d.stage === 'P' ? 0 : d.stage === 'R' ? 1 : d.stage === 'N' ? 2 : (this._program(d) === 'S' ? 5 : this._program(d) === 'M' ? 6 : 3);
             const gr = (d.stage === 'P' || d.stage === 'R' || d.stage === 'N') ? 0 : (isNum(d.gear) && d.gear >= 1 && d.gear <= 8 ? Math.round(d.gear) : (d.demo ? 1 : 0));
             const lim = this._e39LimitRpm();
@@ -2195,13 +2180,12 @@ class HudApp {
             const shSt = (isSweepCheck || inLim) ? 2 : (isNum(rpm) && rpm >= lim - 250 ? 1 : 0);
             const brkTmp = isSweepCheck ? 2 : ((glon <= -0.25 || (isNum(cool) && cool >= 112)) ? 2 : ((isNum(oil) && oil < 65) ? 1 : 0));
             const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 500) / 500;
-            const demo = d.demo;
             const vals = [
                 q(Math.max(isNum(sp) ? sp / (w.speedMax || 300) : 0, sweep)),
                 q(Math.max(isNum(rpm) ? rpm / (w.rpmMax || this.setting('redline')) : 0, sweep)),
-                q(Math.max(isNum(fuel) ? fuel : (demo ? 0.72 : 0), sweep)),
-                q(Math.max(isNum(oil) ? (oil - 50) / 100 : (demo ? 0.4 : 0), sweep)),
-                q(Math.max(isNum(cool) ? (cool - 50) / 80 : (demo ? 0.5 : 0), sweep)),
+                q(Math.max(isNum(fuel) ? fuel : 0, sweep)),
+                q(Math.max(isNum(oil) ? (oil - 50) / 100 : 0, sweep)),
+                q(Math.max(isNum(cool) ? (cool - 50) / 80 : 0, sweep)),
                 stg,
                 gr,
                 fl,
@@ -2227,16 +2211,17 @@ class HudApp {
             x.c.uniform(x.ref, 'u_ind', [vals[10], vals[11], vals[12], vals[13]]);
             x.c.uniform(x.ref, 'u_rpmActual', [vals[14]]);
         } else if (w.type === 'e39needles') {
-            const sweep = this._e39Sweep(now);
             const d = this._data();
-            const sp = this._raw('speed'), rpm = isNum(this.rpmNeedleF) ? this.rpmNeedleF : this._raw('rpm'), fuel = this._raw('fuel'), oil = this._raw('oil'), cool = this._raw('coolant');
+            const sweep = this._e39Sweep(now, d);
+            const sp = d.demo ? null : this._raw('speed'), rpm = d.demo ? null : (isNum(this.rpmNeedleF) ? this.rpmNeedleF : this._raw('rpm')),
+                fuel = d.demo ? null : this._raw('fuel'), oil = d.demo ? null : this._raw('oil'), cool = d.demo ? null : this._raw('coolant');
             const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 500) / 500;
             const vals = [
                 q(Math.max(isNum(sp) ? sp / (w.speedMax || 300) : 0, sweep)),
                 Math.max(0, Math.min(1.2, Math.max(isNum(rpm) ? rpm / (w.rpmMax || this.setting('redline')) : 0, sweep * 1.2))),
-                q(Math.max(isNum(fuel) ? fuel : (d.demo ? 0.72 : 0), sweep)),
-                q(Math.max(isNum(oil) ? (oil - 50) / 100 : (d.demo ? 0.4 : 0), sweep)),
-                q(Math.max(isNum(cool) ? (cool - 50) / 80 : (d.demo ? 0.5 : 0), sweep)),
+                q(Math.max(isNum(fuel) ? fuel : 0, sweep)),
+                q(Math.max(isNum(oil) ? (oil - 50) / 100 : 0, sweep)),
+                q(Math.max(isNum(cool) ? (cool - 50) / 80 : 0, sweep)),
             ];
             const key = vals.join('|');
             if (!force && key === x.last) return;
