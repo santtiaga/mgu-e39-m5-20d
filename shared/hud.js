@@ -1822,6 +1822,10 @@ class HudApp {
                     // The mask is compiled into the shader source, not evaluated per fragment.
                     // Missing mask preserves the complete original E39 dash (all eight sections).
                     const mask = Number.isInteger(w.mask) ? w.mask : 255;
+                    // Bit order follows the original E39DASH GLSL line numbers:
+                    // 0: 408 M-colour bars; 1: 427 M-emblem polygon; 2: 508 RPM warning bands;
+                    // 3: 593 RPM mark redraw; 4: 648 coolant-zone markers; 5: 801 turn arrows;
+                    // 6: 904 reset pads; 7: 936 service LED segments.
                     const names = [
                         'E39_MASK_LOOP_408', 'E39_MASK_LOOP_427',
                         'E39_MASK_LOOP_508', 'E39_MASK_LOOP_593',
