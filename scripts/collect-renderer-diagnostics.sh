@@ -16,6 +16,15 @@ usage() {
 CAR_HOST="$1"
 DURATION="${2:-600}"
 OUT_DIR="${3:-$HOME/Downloads}"
+# Prefer the root key created by idrive7-8-ssh-root. Override with SSH_KEY=/path/to/key.
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/mgu_root_key}"
+SSH_ARGS=()
+if [ -n "$SSH_KEY" ] && [ -r "$SSH_KEY" ]; then
+    SSH_ARGS=(-i "$SSH_KEY" -o IdentitiesOnly=yes)
+    echo "Using SSH key: $SSH_KEY"
+else
+    echo "SSH key not found/readable at $SSH_KEY; falling back to ssh-agent/default SSH config." >&2
+fi
 case "$DURATION" in ''|*[!0-9]*) usage ;; esac
 [ "$DURATION" -ge 30 ] || { echo "Capture window must be at least 30 seconds." >&2; exit 1; }
 mkdir -p "$OUT_DIR"
@@ -27,7 +36,7 @@ REMOTE_ARCHIVE="/tmp/mgu-renderer-diagnostics-$STAMP.tar.gz"
 echo "Connecting to $CAR_HOST"
 echo "Capture window: $DURATION seconds. Reproduce the issue while the window is running."
 
-ssh "$CAR_HOST" "DURATION='$DURATION' REMOTE_ARCHIVE='$REMOTE_ARCHIVE' bash -s" <<'REMOTE'
+ssh "${SSH_ARGS[@]}" "$CAR_HOST" "DURATION='$DURATION' REMOTE_ARCHIVE='$REMOTE_ARCHIVE' bash -s" <<'REMOTE'
 set -u
 START_EPOCH="$(date +%s)"
 START_ISO="$(date -Iseconds 2>/dev/null || date)"
@@ -115,6 +124,6 @@ rm -rf "$WORK"
 echo "Archive ready: $REMOTE_ARCHIVE"
 REMOTE
 
-scp "$CAR_HOST:$REMOTE_ARCHIVE" "$LOCAL_ARCHIVE"
-ssh "$CAR_HOST" "rm -f '$REMOTE_ARCHIVE'" >/dev/null 2>&1 || true
+scp "${SSH_ARGS[@]}" "$CAR_HOST:$REMOTE_ARCHIVE" "$LOCAL_ARCHIVE"
+ssh "${SSH_ARGS[@]}" "$CAR_HOST" "rm -f '$REMOTE_ARCHIVE'" >/dev/null 2>&1 || true
 echo "Saved: $LOCAL_ARCHIVE"
