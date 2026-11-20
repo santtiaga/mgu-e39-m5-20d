@@ -11,6 +11,7 @@ Independent benchmark app for the MGU `cluster-render` socket. It does not load 
 - GLSL loop workloads: 16, 32, 64, 128 iterations.
 - Actual E39DASH shader with masks: 255, 107, 111, 123, 235.
 - 100 create/drop lifecycle cycles.
+- Graceful client reconnect in the full suite (this is not a forced DCSM2 outage).
 - 5-minute sustained rendering in the full suite.
 - Optional 30-minute soak and manual client reconnect.
 
