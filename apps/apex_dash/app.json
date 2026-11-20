@@ -415,15 +415,15 @@
       "options": [
         [
           "boot",
-          "Bei Start & Zündung (Auto)"
+          "Auto — при включении KL15"
         ],
         [
           "test",
-          "Test 02 Nadeltest abspielen"
+          "Test — ручной запуск"
         ],
         [
           "off",
-          "Deaktiviert"
+          "Off — без анимации"
         ]
       ]
     },
