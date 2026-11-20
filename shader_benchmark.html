@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E39DASH WebGL Shader Benchmark</title>
+<style>
+:root{color-scheme:dark;font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;background:#101216;color:#e7e9ed}
+*{box-sizing:border-box}body{margin:0;padding:22px;max-width:1500px;margin-inline:auto}
+h1{font-size:20px;margin:0 0 5px}p{color:#aeb5c0;margin:4px 0 16px}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px;background:#1a1e25;border:1px solid #303744;border-radius:9px;margin-bottom:12px}
+label{display:flex;align-items:center;gap:7px}button,select,input{font:inherit;color:inherit;background:#252c36;border:1px solid #465161;border-radius:6px;padding:7px 10px}
+button{cursor:pointer}button:disabled{opacity:.45;cursor:default}
+#stage{background:#08090b;border:1px solid #303744;border-radius:9px;padding:8px;overflow:hidden}
+canvas{display:block;width:100%;height:auto;aspect-ratio:8/3;background:#08090b}
+#stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin:12px 0}
+.stat{background:#1a1e25;border:1px solid #303744;border-radius:8px;padding:10px}
+.stat small{display:block;color:#9da6b3}.stat strong{font-size:18px;font-variant-numeric:tabular-nums}
+#log{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b0d10;border:1px solid #303744;border-radius:8px;padding:12px;min-height:90px;color:#c8d0da}
+.ok{color:#8cdb9a}.bad{color:#ff8989}.muted{color:#9da6b3}
+input[type=range]{padding:0;width:130px}
+@media(max-width:650px){body{padding:12px}.toolbar{gap:9px}}
+</style>
+</head>
+<body>
+<h1>E39DASH — browser shader benchmark</h1>
+<p>Standalone WebGL 1.0 test. Source is loaded from shared/shaders.js; this page does not connect to the vehicle or Apex Dash.</p>
+
+<div class="toolbar">
+  <label>Theme <select id="theme"><option value="0">Day</option><option value="1">Night</option></select></label>
+  <label>RPM <input id="rpm" type="range" min="0" max="6000" step="50" value="3400"><output id="rpmOut">3400</output></label>
+  <label><input id="continuous" type="checkbox"> Continuous render</label>
+  <button id="draw">Render once</button>
+  <button id="bench1000">Run 1000 frames</button>
+  <button id="bench60">60-second soak</button>
+  <button id="stop" disabled>Stop test</button>
+</div>
+
+<div id="stage"><canvas id="glcanvas" width="1920" height="720"></canvas></div>
+<div id="stats">
+  <div class="stat"><small>Shader compile / link</small><strong id="compile">Waiting</strong></div>
+  <div class="stat"><small>FPS (rolling)</small><strong id="fps">—</strong></div>
+  <div class="stat"><small>Frame time</small><strong id="frame">—</strong></div>
+  <div class="stat"><small>Frames rendered</small><strong id="frames">0</strong></div>
+  <div class="stat"><small>GPU renderer</small><strong id="gpu" style="font-size:12px">—</strong></div>
+  <div class="stat"><small>WebGL errors</small><strong id="errors">0</strong></div>
+</div>
+<div id="log">Loading shader source…</div>
+
+<script>
+(function () {
+  'use strict';
+  var canvas = document.getElementById('glcanvas');
+  var logEl = document.getElementById('log');
+  var gl = canvas.getContext('webgl', {alpha:false, antialias:false, depth:false, stencil:false, preserveDrawingBuffer:false});
+  var program = null, buffer = null, shaderReady = false;
+  var frameCount = 0, errorCount = 0, lastFrameMs = 0, lastFpsAt = 0, fpsFrames = 0;
+  var running = false, benchmark = null, rafId = 0, lastTimestamp = 0;
+  var rpmInput = document.getElementById('rpm');
+  var themeInput = document.getElementById('theme');
+  var continuousInput = document.getElementById('continuous');
+  var uniformLocations = {};
+
+  function log(message, cls) {
+    logEl.textContent = message;
+    logEl.className = cls || '';
+  }
+  function setText(id, value) { document.getElementById(id).textContent = value; }
+  function compileShader(type, source) {
+    var shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      var info = gl.getShaderInfoLog(shader) || 'Unknown shader compile error';
+      gl.deleteShader(shader);
+      throw new Error(info);
+    }
+    return shader;
+  }
+  function initShader(source) {
+    var vertexSource = [
+      'attribute vec2 a_position;',
+      'varying vec2 v_uv;',
+      'void main(){',
+      '  gl_Position = vec4(a_position, 0.0, 1.0);',
+      '  v_uv = vec2(a_position.x * 0.5 + 0.5, 0.5 - a_position.y * 0.5);',
+      '}'
+    ].join('\n');
+    var vs = compileShader(gl.VERTEX_SHADER, vertexSource);
+    var fs;
+    try { fs = compileShader(gl.FRAGMENT_SHADER, source); }
+    catch (e) { gl.deleteShader(vs); throw e; }
+    var p = gl.createProgram();
+    gl.attachShader(p, vs);
+    gl.attachShader(p, fs);
+    gl.bindAttribLocation(p, 0, 'a_position');
+    gl.linkProgram(p);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+      var info = gl.getProgramInfoLog(p) || 'Unknown program link error';
+      gl.deleteProgram(p);
+      throw new Error(info);
+    }
+    if (program) gl.deleteProgram(program);
+    program = p;
+    gl.useProgram(program);
+    var quad = new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]);
+    if (!buffer) buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    [
+      'u_size','u_speed','u_rpm','u_rpmActual','u_fuel','u_oil','u_coolant',
+      'u_sel','u_svc','u_ind','u_flash','u_hole','u_holeR','u_night','u_v2'
+    ].forEach(function (name) { uniformLocations[name] = gl.getUniformLocation(program, name); });
+    shaderReady = true;
+    setText('compile', 'PASS');
+    document.getElementById('compile').className = 'ok';
+  }
+  function uniform(name, fn) {
+    var loc = uniformLocations[name];
+    if (loc !== null && loc !== undefined) fn(loc);
+  }
+  function drawFrame(timestamp) {
+    if (!shaderReady) return;
+    var rpm = Number(rpmInput.value);
+    var rpmNorm = Math.max(0, Math.min(1, rpm / 6000));
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(program);
+    uniform('u_size', function(l){gl.uniform2f(l,1920,720);});
+    uniform('u_speed', function(l){gl.uniform1f(l,0.62);});
+    uniform('u_rpm', function(l){gl.uniform1f(l,rpmNorm);});
+    uniform('u_rpmActual', function(l){gl.uniform1f(l,rpm);});
+    uniform('u_fuel', function(l){gl.uniform1f(l,0.72);});
+    uniform('u_oil', function(l){gl.uniform1f(l,0.55);});
+    uniform('u_coolant', function(l){gl.uniform1f(l,0.62);});
+    uniform('u_sel', function(l){gl.uniform2f(l,4,3);});
+    uniform('u_svc', function(l){gl.uniform2f(l,4,0);});
+    uniform('u_ind', function(l){gl.uniform4f(l,0,1,0,0);});
+    uniform('u_flash', function(l){gl.uniform1f(l,0);});
+    uniform('u_hole', function(l){gl.uniform4f(l,0,0,0,0);});
+    uniform('u_holeR', function(l){gl.uniform1f(l,0);});
+    uniform('u_night', function(l){gl.uniform1f(l,Number(themeInput.value));});
+    uniform('u_v2', function(l){gl.uniform1f(l,1);});
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    var err = gl.getError();
+    if (err !== gl.NO_ERROR) {
+      errorCount++;
+      setText('errors', String(errorCount) + ' (last 0x' + err.toString(16) + ')');
+    }
+    frameCount++;
+    fpsFrames++;
+    setText('frames', String(frameCount));
+    if (lastTimestamp && timestamp) {
+      lastFrameMs = timestamp - lastTimestamp;
+      setText('frame', lastFrameMs.toFixed(2) + ' ms');
+    }
+    lastTimestamp = timestamp || performance.now();
+    if (!lastFpsAt) lastFpsAt = timestamp || performance.now();
+    var now = timestamp || performance.now();
+    if (now - lastFpsAt >= 1000) {
+      setText('fps', (fpsFrames * 1000 / (now - lastFpsAt)).toFixed(1));
+      fpsFrames = 0;
+      lastFpsAt = now;
+    }
+  }
+  function stopTest(message) {
+    running = false;
+    benchmark = null;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+    document.getElementById('stop').disabled = true;
+    if (message) log(message, errorCount ? 'bad' : 'ok');
+  }
+  function tick(ts) {
+    if (!running) return;
+    drawFrame(ts);
+    if (benchmark) {
+      benchmark.done++;
+      if (benchmark.kind === 'frames' && benchmark.done >= benchmark.target) {
+        stopTest('Completed ' + benchmark.done + ' frames. WebGL errors: ' + errorCount + '.');
+        return;
+      }
+      if (benchmark.kind === 'time' && ts - benchmark.started >= benchmark.target) {
+        stopTest('Completed 60-second soak. Frames: ' + benchmark.done + '. WebGL errors: ' + errorCount + '.');
+        return;
+      }
+    }
+    if (running) rafId = requestAnimationFrame(tick);
+  }
+  function startTest(kind) {
+    if (!shaderReady) return;
+    stopTest();
+    benchmark = kind === 'frames'
+      ? {kind:'frames', target:1000, done:0, started:performance.now()}
+      : {kind:'time', target:60000, done:0, started:performance.now()};
+    running = true;
+    document.getElementById('stop').disabled = false;
+    log(kind === 'frames' ? 'Running 1000-frame benchmark…' : 'Running 60-second soak…');
+    rafId = requestAnimationFrame(tick);
+  }
+  function startContinuous() {
+    if (!shaderReady || running) return;
+    running = true;
+    rafId = requestAnimationFrame(tick);
+  }
+  function refreshStatic() {
+    if (!shaderReady || running) return;
+    drawFrame(performance.now());
+  }
+
+  if (!gl) {
+    setText('compile','NO WEBGL');
+    document.getElementById('compile').className = 'bad';
+    log('This browser did not provide a WebGL 1.0 context.', 'bad');
+    return;
+  }
+  var ext = gl.getExtension('WEBGL_debug_renderer_info');
+  var renderer = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+  setText('gpu', renderer || 'Not reported');
+  fetch('shared/shaders.js').then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status + ' loading shared/shaders.js');
+    return r.text();
+  }).then(function(js) {
+    var match = js.match(/const\\s+E39DASH\\s*=\\s*`([\\s\\S]*?)`;/);
+    if (!match) throw new Error('Could not extract const E39DASH template string from shared/shaders.js');
+    var shader = match[1];
+    var defines = [
+      'E39_MASK_LOOP_408','E39_MASK_LOOP_427','E39_MASK_LOOP_508',
+      'E39_MASK_LOOP_593','E39_MASK_LOOP_648','E39_MASK_LOOP_801',
+      'E39_MASK_LOOP_904','E39_MASK_LOOP_936'
+    ];
+    var defineBlock = defines.map(function(n){return '#define ' + n + ' 1';}).join('\n');
+    shader = shader.replace('// E39_MASK_DEFINES (expanded per widget before shader compilation)', defineBlock);
+    if (shader.indexOf('E39_MASK_DEFINES') !== -1) throw new Error('Mask define placeholder was not replaced');
+    initShader(shader);
+    log('Shader compiled and linked successfully. All 8 E39 mask-loop sections are enabled for this benchmark. Uniform values are synthetic test inputs, not live vehicle data.', 'ok');
+    refreshStatic();
+  }).catch(function(e) {
+    shaderReady = false;
+    setText('compile','FAIL');
+    document.getElementById('compile').className = 'bad';
+    log(String(e && e.stack ? e.stack : e), 'bad');
+  });
+
+  rpmInput.addEventListener('input', function(){document.getElementById('rpmOut').textContent=rpmInput.value;refreshStatic();});
+  themeInput.addEventListener('change', refreshStatic);
+  document.getElementById('draw').addEventListener('click', refreshStatic);
+  document.getElementById('bench1000').addEventListener('click', function(){startTest('frames');});
+  document.getElementById('bench60').addEventListener('click', function(){startTest('time');});
+  document.getElementById('stop').addEventListener('click', function(){stopTest('Test stopped by user.');});
+  continuousInput.addEventListener('change', function(){
+    if (continuousInput.checked) startContinuous();
+    else if (!benchmark) stopTest('Continuous rendering stopped.');
+  });
+  window.addEventListener('beforeunload', function(){stopTest();});
+}());
+</script>
+</body>
+</html>
