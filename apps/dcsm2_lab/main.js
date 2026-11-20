@@ -3,7 +3,7 @@
 const path = require('path');
 const mgu = require('./kit/mgu');
 const { ClusterRender } = require('./cluster_render_client');
-const Benchmark = require('./benchmark');
+const Benchmark = require('./dcsm2_lab_benchmark');
 
 mgu.run({
     start(ctx) {
