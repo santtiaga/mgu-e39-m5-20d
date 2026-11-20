@@ -36,12 +36,12 @@ REMOTE_ARCHIVE="/tmp/mgu-renderer-diagnostics-$STAMP.tar.gz"
 echo "Connecting to $CAR_HOST"
 echo "Capture window: $DURATION seconds. Reproduce the issue while the window is running."
 
-ssh "${SSH_ARGS[@]}" "$CAR_HOST" "DURATION='$DURATION' REMOTE_ARCHIVE='$REMOTE_ARCHIVE' bash -s" <<'REMOTE'
+ssh "${SSH_ARGS[@]}" "$CAR_HOST" "DURATION='$DURATION' REMOTE_ARCHIVE='$REMOTE_ARCHIVE' sh -s" <<'REMOTE'
 set -u
 START_EPOCH="$(date +%s)"
 START_ISO="$(date -Iseconds 2>/dev/null || date)"
 WORK="$(mktemp -d /tmp/mgu-renderer-diag.XXXXXX)"
-mkdir -p "$WORK"/{system,logs,process,files}
+mkdir -p "$WORK/system" "$WORK/logs" "$WORK/process" "$WORK/files"
 printf 'start_epoch=%s\nstart_time=%s\nduration_seconds=%s\n' "$START_EPOCH" "$START_ISO" "$DURATION" > "$WORK/metadata.txt"
 
 {
@@ -101,11 +101,14 @@ for DIR in /var/opt/cluster-render/log /var/log/cluster-render /var/log /var/opt
     if [ -d "$DIR" ]; then
         DEPTH=3
         [ "$DIR" = /var/opt ] && DEPTH=5
+        FIND_LIST="$WORK/find-results.txt"
+        find "$DIR" -maxdepth "$DEPTH" -type f \( -iname '*ramses*' -o -iname '*dcsm*' -o -iname '*cluster*render*' -o -iname '*renderer*' -o -iname '*display*' \) 2>/dev/null > "$FIND_LIST"
         while IFS= read -r FILE; do
             [ -f "$FILE" ] || continue
             SAFE="$(printf '%s' "$FILE" | sed 's#^/##; s#/#_#g')"
             cp -p "$FILE" "$WORK/files/$SAFE" 2>/dev/null || true
-        done < <(find "$DIR" -maxdepth "$DEPTH" -type f \( -iname '*ramses*' -o -iname '*dcsm*' -o -iname '*cluster*render*' -o -iname '*renderer*' -o -iname '*display*' \) 2>/dev/null)
+        done < "$FIND_LIST"
+        rm -f "$FIND_LIST"
     fi
 done
 # Preserve the renderer's complete text logs even if their filenames do not match discovery.
