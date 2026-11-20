@@ -1,7 +1,7 @@
 {
   "id": "dcsm2_lab",
   "title": "DCSM2 Lab",
-  "description": "Independent cluster-render / DCSM2 benchmark. Tests effect creation, surface sizes, layer limits, GLSL workloads, E39DASH masks, lifecycle, reconnect and sustained rendering.",
+  "description": "Independent cluster-render / DCSM2 benchmark. Tests effect and image creation, surface sizes, pixel uploads, layer limits, GLSL workloads, E39DASH masks, lifecycle, reconnect and sustained rendering.",
   "version": "1.0.0",
   "vendor": "custom",
   "loggingId": "DCL1",
