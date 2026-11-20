@@ -53,8 +53,8 @@ class E39Boot {
         }
     }
 
-    _request(kind) {
-        if (this.state === 'playing' || this.state === 'completed') return false;
+    _request(kind, force) {
+        if (!force && (this.state === 'playing' || this.state === 'completed')) return false;
         this.state = 'pending';
         this.kind = kind;
         this.startedAt = 0;
@@ -80,7 +80,7 @@ class E39Boot {
             this.state = 'idle'; this.kind = null; this.startedAt = 0;
             this._save();
         } else if (mode === 'test' && previous !== 'test') {
-            this._request('test');
+            this._request('test', true);
         }
     }
 
