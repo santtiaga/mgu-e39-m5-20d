@@ -291,7 +291,7 @@ class HudApp {
                 this.clients.forEach((c) => c.restoreVisibility());
                 this._resumeBuildAfterGates();
                 if (this.deferredRebuild) this._scheduleDCSM2Rebuild();
-                else if (this.activeName === null || this.widgets.size === 0) this._rebuild();
+                else if (this.activeName === null || (this.widgets.size === 0 && this.activeName !== 'off')) this._rebuild();
                 else this._status();
             } else {
                 // Unknown health is not proof of provider loss, but an overlay
@@ -310,6 +310,7 @@ class HudApp {
                         clearTimeout(this.dcsm2RetryTimer);
                         this.dcsm2RetryTimer = null;
                     }
+                    this.dcsm2RetryLayout = null;
                     const lostLayout = this.activeName;
                     const recovery = this.dcsm2Recovery.onLoss(lostLayout, Date.now());
                     if (recovery.rapid) {
@@ -727,6 +728,7 @@ class HudApp {
         this.dcsm2.stop();
         clearTimeout(this.dcsm2RetryTimer);
         this.dcsm2RetryTimer = null;
+        this.dcsm2RetryLayout = null;
         clearInterval(this.tickTimer);
         clearInterval(this.themeTimer);
         clearInterval(this.statusTimer);
@@ -1370,15 +1372,24 @@ class HudApp {
     _scheduleDCSM2Rebuild() {
         if (this.stopped || !this.deferredRebuild || this.dcsm2RetryTimer) return;
         const name = this._layoutName();
+        if (this.dcsm2RetryTimer) {
+            if (name === this.dcsm2RetryLayout) return; // unrelated setting changes must not bypass the recovery backoff
+            clearTimeout(this.dcsm2RetryTimer);
+            this.dcsm2RetryTimer = null;
+            this.dcsm2RetryLayout = null;
+            this.deferredRebuild = false; // a deliberate layout change is not a retry of the failed layout
+        }
         const quarantine = name !== 'off' && this.dcsm2Recovery.getQuarantine(name);
         if (quarantine) {
             this._quarantineDCSM2Layout(name, quarantine);
             return;
         }
         const delay = Math.max(0, this.dcsm2RetryDelayMs || 0);
+        this.dcsm2RetryLayout = name;
         this.log.warn('DCSM2 recovered; rebuilding layout in ' + Math.round(delay / 1000) + ' s');
         this.dcsm2RetryTimer = setTimeout(() => {
             this.dcsm2RetryTimer = null;
+            this.dcsm2RetryLayout = null;
             if (this.stopped || !this.deferredRebuild) return;
             if (this.dcsm2.state !== 'available' || !this.client.ready) return;
             const selected = this._layoutName();
@@ -1399,6 +1410,7 @@ class HudApp {
             clearTimeout(this.dcsm2RetryTimer);
             this.dcsm2RetryTimer = null;
         }
+        this.dcsm2RetryLayout = null;
         this.deferredRebuild = false;
         this.activeName = 'off';
         this.problem = 'layout "' + name + '" quarantined after repeated rapid DCSM2 loss; select another layout';
@@ -2045,7 +2057,7 @@ class HudApp {
                 this._holdForVehicle(vehicle);
                 return;
             }
-            if (!vehicle.hold && (this.vehicleOff || this.deferredRebuild)) {
+            if (!vehicle.hold && !this.dcsm2RetryTimer && (this.vehicleOff || this.deferredRebuild)) {
                 this.vehicleOff = false;
                 this.deferredRebuild = false;
                 this.vehicleOffLogged = false;

@@ -58,7 +58,8 @@ function run() {
     outsideWindow.noteShown('layout_b', 62000);
     assert.strictEqual(outsideWindow.onLoss('layout_b', 68001).strikes, 0, 'strikes expire after one minute');
 
-    fs.rmSync(dir, { recursive: true, force: true });
+    if (fs.existsSync(statePath)) fs.unlinkSync(statePath);
+    fs.rmdirSync(dir);
     process.stdout.write('Bench DCSM2 mock + rapid-loss quarantine/backoff: OK\\n');
 }
 
