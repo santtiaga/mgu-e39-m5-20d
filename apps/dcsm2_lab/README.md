@@ -6,6 +6,7 @@ Independent benchmark app for the MGU `cluster-render` socket. It does not load 
 
 - Renderer handshake and target/status events.
 - Effect surfaces: 1x1, 480x180, 1920x720.
+- Image surfaces: 1x1, 480x180, 960x360, including pixel upload accounting.
 - Concurrent effect count: 1, 2, 4, 8, 12, 16.
 - GLSL loop workloads: 16, 32, 64, 128 iterations.
 - Actual E39DASH shader with masks: 255, 107, 111, 123, 235.
