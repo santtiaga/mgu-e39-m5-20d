@@ -18,6 +18,7 @@ try {
     boot.setLayoutReady(true);
     assert.strictEqual(boot.state, 'playing', 'animation starts only after layout readiness');
     const start = boot.startedAt;
+    assert.strictEqual(boot.elapsed(start + 1250), 1250, 'startup labels share the controller timeline');
     assert.strictEqual(boot.tick(start + 1250), 1, 'sweep reaches its peak halfway through');
     assert.strictEqual(boot.tick(start + E39Boot.DURATION_MS), 0);
     assert.strictEqual(boot.state, 'completed');
@@ -51,12 +52,24 @@ try {
     assert.strictEqual(test.kind, 'test');
     assert.strictEqual(test.state, 'playing');
 
+    // A process restart while the manual test is selected must not replay it.
+    const testFile = path.join(dir, 'manual-test.json');
+    const persistedTest = new E39Boot(testFile);
+    persistedTest.setLayoutReady(true);
+    persistedTest.setMode('test');
+    persistedTest.tick(persistedTest.startedAt + E39Boot.DURATION_MS);
+    const restartedTest = new E39Boot(testFile, null, 'test');
+    restartedTest.setLayoutReady(true);
+    assert.strictEqual(restartedTest.state, 'completed', 'manual test does not replay on app restart');
+
     // Off suppresses all startup animation.
     test.setMode('off');
     assert.strictEqual(test.tick(Date.now() + 5000), 0);
     assert.strictEqual(test.state, 'idle');
     console.log('E39 boot controller: ignition edge, readiness latch, persistence, rebuild, test and off passed');
 } finally {
+    const testFile = path.join(dir, 'manual-test.json');
     if (fs.existsSync(file)) fs.unlinkSync(file);
+    if (fs.existsSync(testFile)) fs.unlinkSync(testFile);
     if (fs.existsSync(dir)) fs.rmdirSync(dir);
 }
