@@ -2187,4 +2187,11 @@ void main() {
 }
 `;
 
-module.exports = { shiftbar: SHIFTBAR, arc: ARC, revbar: REVBAR, lights: LIGHTS, fill: FILL, box: BOX, grid: GRID, segbar: SEGBAR, mdash: MDASH, mtach: MTACH, sdash: SDASH, e39dash: E39DASH, e39needles: E39NEEDLES, boxes: BOXES, atext: ATEXT };
+const E39DIAG = `precision mediump float;
+varying vec2 v_uv;
+void main() {
+    gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
+}
+`;
+
+module.exports = { shiftbar: SHIFTBAR, arc: ARC, revbar: REVBAR, lights: LIGHTS, fill: FILL, box: BOX, grid: GRID, segbar: SEGBAR, mdash: MDASH, mtach: MTACH, sdash: SDASH, e39dash: E39DASH, e39needles: E39NEEDLES, e39diag: E39DIAG, boxes: BOXES, atext: ATEXT };

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 2,
+  "name": "DIAG 8 — e39_needles only",
+  "theme": "e39v2",
+  "_about": "Diagnostic: only the original e39_needles effect layer. The e39_bg layer is deliberately absent.",
+  "widgets": [
+    {
+      "id": "e39_needles",
+      "type": "e39needles",
+      "class": "overlay",
+      "z": 10,
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 720,
+      "speedMax": 260,
+      "rpmMax": 5000,
+      "night": false
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 2,
+  "name": "DIAG 9 — e39_bg minimal shader",
+  "theme": "e39v2",
+  "_about": "Diagnostic: same e39_bg layer geometry, class, z-order and widget parameters as the original, but using a constant opaque-green minimal GLSL shader. No original E39 shader logic or image sheets.",
+  "widgets": [
+    {
+      "id": "e39_bg_min",
+      "type": "e39diag",
+      "class": "ambient",
+      "z": -10,
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 720,
+      "speedMax": 240,
+      "rpmMax": 5000,
+      "v2": true,
+      "night": false
+    }
+  ]
+}
