@@ -91,6 +91,10 @@ class Layouts {
             if (w.x + w.w > this.size[0] || w.y + w.h > this.size[1]) bad(at + ' runs off the ' + this.size[0] + 'x' + this.size[1] + ' display');
             if (w.class && CLASSES.indexOf(w.class) < 0) bad(at + ' has unknown class "' + w.class + '"');
             if (w.exclusive) bad(at + ' sets exclusive, which would hide everything under it (the CarPlay / Android Auto map too)');
+            if (w.type === 'e39dash' && w.mask !== undefined &&
+                !(Number.isInteger(w.mask) && w.mask >= 0 && w.mask <= 255)) {
+                bad(at + ' "mask" must be an integer from 0 to 255');
+            }
             if (w.conn !== undefined && !(Number.isInteger(w.conn) && w.conn >= 0 && w.conn <= 3)) bad(at + ' "conn" must be 0..3 (the connection to cluster-render)');
             if (w.toggle !== undefined && !/^!?[a-zA-Z0-9_]+(=[a-zA-Z0-9_]+)?$/.test(String(w.toggle))) bad(at + ' has a bad toggle "' + w.toggle + '"');
             if (w.hole !== undefined && !(Array.isArray(w.hole) && w.hole.length === 4 && w.hole.every((n) => typeof n === 'number'))) bad(at + ' "hole" must be [x, y, w, h]');
