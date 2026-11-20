@@ -1119,7 +1119,8 @@ class HudApp {
             }
             case 'e39Obc': {
                 const now = Date.now();
-                const bootDt = (now - (this.e39BootAt || 0)) / 1000.0;
+                const bootElapsed = this.e39Boot.elapsed(now);
+                const bootDt = bootElapsed === null ? -1 : bootElapsed / 1000.0;
                 const animSetting = this.setting('e39Startup') || 'boot';
                 if (animSetting !== 'off' && bootDt >= 0 && bootDt < 7.0) {
                     // Phase 1 (0.0 .. 2.6s): CHECK, CONTROL, OK (synchron zum Nadeltest)
@@ -2059,8 +2060,8 @@ class HudApp {
         if (mode === 'overdue') return { green: 0, due: 2, kind: 'insp' };
 
         // Startup check: during boot / needle test (first 3.0s), show all 5 green bars like original E39 Kl. 15 check!
-        const bootDt = (Date.now() - (this.e39BootAt || 0)) / 1000.0;
-        if (mode === 'auto' && this.setting('e39Startup') !== 'off' && bootDt >= 0 && bootDt < 3.0) {
+        const bootElapsed = this.e39Boot.elapsed(Date.now());
+        if (mode === 'auto' && bootElapsed !== null && bootElapsed < 3000) {
             return { green: 5, due: 0, kind: 'oil' };
         }
 
