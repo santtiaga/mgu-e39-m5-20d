@@ -26,7 +26,8 @@
     "cluster_render_client.js",
     "calibration.js",
     "visible.js",
-    "vehicle_gate.js"
+    "vehicle_gate.js",
+    "e39_boot.js"
   ],
   "signals": {
     "de.bmw.infotainment.vehicle.CDS": {
