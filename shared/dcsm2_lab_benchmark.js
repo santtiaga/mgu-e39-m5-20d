@@ -303,6 +303,8 @@ class Benchmark {
             await this._wait(80);
         }
         await this._wait(2000);
+        if (created === 100) this.passed++;
+        else this.failures += (100 - created);
         this.write('RESULT lifecycle requested=100 created=' + created +
             ' elapsed_ms=' + (Date.now() - start) + ' rendererReady=' + this.client.ready);
         this.testCount++;
@@ -323,12 +325,14 @@ class Benchmark {
         });
         this.passed += soakShown;
         this.inconclusive += refs.length - soakShown;
+        this.failures += (4 - refs.length);
         this.write('SOAK_SETUP requested=4 created=' + refs.length + ' shown=' + soakShown);
         const start = Date.now();
         let nextReport = 0;
         while (Date.now() - start < durationMs) {
             this._assertRunning();
             if (!this.client.ready) {
+                this.failures++;
                 this.write('SOAK interruption rendererReady=false elapsed_ms=' + (Date.now() - start));
                 break;
             }
