@@ -1,0 +1,33 @@
+{
+  "id": "dcsm2_lab",
+  "title": "DCSM2 Lab",
+  "description": "Independent cluster-render / DCSM2 benchmark. Tests effect creation, surface sizes, layer limits, GLSL workloads, E39DASH masks, lifecycle, reconnect and sustained rendering.",
+  "version": "1.0.0",
+  "vendor": "custom",
+  "loggingId": "DCL1",
+  "iconGlyph": "LAB",
+  "shared": [
+    "cluster_render_client.js",
+    "shaders.js"
+  ],
+  "config": {
+    "target": "panel"
+  },
+  "screens": [
+    {
+      "name": "MAIN",
+      "kind": "menu",
+      "title": "DCSM2 Lab",
+      "settings": false,
+      "items": [
+        ["text", "STATUS", "Waiting for cluster-render"],
+        ["button", "RUN_FULL", "Run full benchmark (~8 min)"],
+        ["button", "RUN_SOAK", "Run 30-minute stability test"],
+        ["button", "RUN_BASE", "Run basic renderer tests"],
+        ["button", "STOP", "Stop test and release all layers"],
+        ["button", "RECONNECT", "Reconnect renderer client"],
+        ["button", "SHOW_LOG", "Show log file path"]
+      ]
+    }
+  ]
+}
