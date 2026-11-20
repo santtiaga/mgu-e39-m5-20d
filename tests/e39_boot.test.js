@@ -57,5 +57,6 @@ try {
     assert.strictEqual(test.state, 'idle');
     console.log('E39 boot controller: ignition edge, readiness latch, persistence, rebuild, test and off passed');
 } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+    if (fs.existsSync(dir)) fs.rmdirSync(dir);
 }
