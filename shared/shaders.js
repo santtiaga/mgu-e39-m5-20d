@@ -909,7 +909,16 @@ void main() {
 }
 `;
 
-const E39DASH = `// Classic analog BMW E39 M5 (1998-2003) instrument cluster in one cluster-render "effect" layer (GLSL ES 1.00):
+const E39DASH = `// Compile-time diagnostic mask: bits 0..7 independently retain the corresponding loop.
+#define E39_MASK_LOOP_408
+#define E39_MASK_LOOP_427
+#define E39_MASK_LOOP_508
+#define E39_MASK_LOOP_593
+#define E39_MASK_LOOP_648
+#define E39_MASK_LOOP_801
+#define E39_MASK_LOOP_904
+#define E39_MASK_LOOP_936
+// Classic analog BMW E39 M5 (1998-2003) instrument cluster in one cluster-render "effect" layer (GLSL ES 1.00):
 // Matte anthracite-grey E39 M5 gauge faces with concentric vinyl grain, 3D brushed aluminum/chrome Edition rings,
 // crisp white/ivory scale markings with subtle warm backlight, the iconic E39 M5 two-zone pre-warning LED field
 // recessed into the tachometer (driven by u_oil: ccold oil enables the amber 4000-4500 rpm band,
@@ -1316,7 +1325,8 @@ vec4 drawMLogo(vec2 p, vec2 ctr, float h, vec4 c) {
     float u = (y1 - p.y) / h;
 
     // Three flat, sharply cut parallelograms, matching the reference artwork.
-    for (int i = 0; i < 3; i++) {
+    #ifdef E39_MASK_LOOP_408
+for (int i = 0; i < 3; i++) {
         float xi = xStart + float(i) * (w + gap) + sk * h * u;
         float dx = max(xi - p.x, p.x - (xi + w));
         float dy = max(y0 - p.y, p.y - y1);
@@ -1328,6 +1338,7 @@ vec4 drawMLogo(vec2 p, vec2 ctr, float h, vec4 c) {
             c = over(vec4(sc, cov(d)), c);
         }
     }
+#endif // E39_MASK_LOOP_408
 
     // Solid cool-grey M; no glow, shadow, gradient, or theme-dependent tint.
     float mx0 = xStart + h * 1.28;
@@ -1335,7 +1346,8 @@ vec4 drawMLogo(vec2 p, vec2 ctr, float h, vec4 c) {
     if (mp.x >= -0.05 && mp.x <= 1.53 && mp.y >= -0.05 && mp.y <= 1.05) {
         float edge = 1e4;
         bool inside = false;
-        for (int i = 0; i < 13; i++) {
+        #ifdef E39_MASK_LOOP_427
+for (int i = 0; i < 13; i++) {
             vec2 a = mLogoVertex(i);
             vec2 b = mLogoVertex(i == 12 ? 0 : i + 1);
             edge = min(edge, segD(mp, a, b));
@@ -1345,6 +1357,7 @@ vec4 drawMLogo(vec2 p, vec2 ctr, float h, vec4 c) {
                 if (mp.x < xHit) inside = !inside;
             }
         }
+#endif // E39_MASK_LOOP_427
         float signedD = (inside ? -edge : edge) * h;
         c = over(vec4(0.718, 0.729, 0.741, cov(signedD)), c);
     }
@@ -1416,7 +1429,8 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         float a4 = rpmAngle(4000.0);
         float a45 = rpmAngle(4500.0);
         float a5 = rpmAngle(5000.0);
-        for (int zi = 0; zi < 2; zi++) {
+        #ifdef E39_MASK_LOOP_508
+for (int zi = 0; zi < 2; zi++) {
             bool redZone = zi == 1;
             float a0 = redZone ? a45 : a4;
             float a1 = redZone ? a5 : a45;
@@ -1462,6 +1476,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
                 if (redZone) c = over(vec4(coreCol, 0.29 * coreProfile), c);
             }
         }
+#endif // E39_MASK_LOOP_508
         // Keep the original nine LED positions across 4100-5000 rpm and append two more at the same pitch.
         // The eleven segments activate at 4101, 4201 ... 5101 and 5201 rpm.
         // Preserve the original arc radius, thickness, segment width, gaps and 2 px corner treatment.
@@ -1501,7 +1516,8 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
         }
 
         // Redraw 4000, 4500 and 5000 rpm marks on top of the coloured bands.
-        for (int ti = 0; ti < 3; ti++) {
+        #ifdef E39_MASK_LOOP_593
+for (int ti = 0; ti < 3; ti++) {
             float rpmMark = 4000.0 + float(ti) * 500.0;
             float aMark = rpmAngle(rpmMark);
             float dMark = ti == 1
@@ -1510,6 +1526,7 @@ vec4 mainDial(vec2 p, vec2 center, float R, float val, bool isTach, float subVal
             if (ti == 1) c = addScaleMark(dMark, R * 0.031 / 8.56, c);
             else c = addScaleMark(dMark, R * 0.031 / 8.56, c);
         }
+#endif // E39_MASK_LOOP_593
 
         // 3. Oil Temp Sub-Dial (pivot at center + (0, 0.40 R), sweeping downwards 237 deg -> 123 deg)
         vec2 oilC = center + vec2(0.0, R * 0.40);
@@ -1556,7 +1573,8 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
 
     if (isTemp) {
         // Slanted Blue (-45.5 deg) and Red (+45.5 deg) zone blocks around piv at 0.80 R
-        for (int s = -1; s <= 1; s += 2) {
+        #ifdef E39_MASK_LOOP_648
+for (int s = -1; s <= 1; s += 2) {
             // Keep the original marker position and angle.
             float a = float(s) * 45.5 * D2R;
             vec2 dir = vec2(sin(a), -cos(a));
@@ -1605,6 +1623,7 @@ vec4 sideDial(vec2 p, vec2 center, float R, float val, bool isTemp, vec4 c) {
                 c = over(vec4(pCol, cov(dPatch)), c);
             }
         }
+#endif // E39_MASK_LOOP_648
         // Scale ticks and dots, separated from the thermometer icon.
         float dTicks = min(tickDist(pq, -54.5, R * 0.74, R * 0.88, R * 0.014),
                            tickDist(pq,  54.5, R * 0.74, R * 0.88, R * 0.014));
@@ -1709,7 +1728,8 @@ void main() {
     // BMW E39 turn arrows: use the same subdued, flat recessed finish as the upper center indicator slot.
     float ghostA = mix(0.05, 0.02, u_night);
     // Keep the existing arrow geometry and exact placement; only the inactive backing material changes.
-    for (int s = -1; s <= 1; s += 2) {
+    #ifdef E39_MASK_LOOP_801
+for (int s = -1; s <= 1; s += 2) {
         vec2 ap = p - vec2(s < 0 ? 358.0 : 1436.0, 224.0);
         ap.x *= float(s);
         if (abs(ap.x) < 38.0 && abs(ap.y) < 34.0) {
@@ -1743,6 +1763,7 @@ void main() {
             c = over(vec4(1.0, 1.0, 1.0, ghostA * cov(dArrow)), c);
         }
     }
+#endif // E39_MASK_LOOP_801
     // Upper center slot (890, 136): Shift-up chevron + M-Sport status bar (u_ind.y = sportMode, u_ind.z = shiftState 0..2)
     vec2 sp = p - vec2(890.0, 132.0);
     if (abs(sp.x) < 34.0 && abs(sp.y) < 24.0) {
@@ -1812,11 +1833,13 @@ void main() {
     }
 
     // Circular reset pads: use the same flat recessed surface as the lower DSC display bay.
-    for (int bi = 0; bi < 2; bi++) {
+    #ifdef E39_MASK_LOOP_904
+for (int bi = 0; bi < 2; bi++) {
         vec2 bc = vec2(bi == 0 ? 392.0 : 1388.0, 486.0);
         float dReset = length(p - bc) - 21.0;
         c = over(vec4(slotCol, cov(dReset)), c);
     }
+#endif // E39_MASK_LOOP_904
     // 2. Display Strip Windows (y: 548..634, well above BELT y=663)
     vec4 wSvc  = vec4(338.0, 548.0, 226.0, 86.0);
     vec4 wLcd  = vec4(574.0, 548.0, 626.0, 86.0);
@@ -1844,7 +1867,8 @@ void main() {
         );
         c = over(vec4(cellBg, cellAl * cov(dBgCells)), c);
 
-        for (int si = 0; si < 7; si++) {
+        #ifdef E39_MASK_LOOP_936
+for (int si = 0; si < 7; si++) {
             float sx = 352.0 + float(si) * 23.5;
             float dB = sdRoundBox(p, vec4(sx, 557.0, 17.5, 11.5), 0.8);
             if (si < 5) {
@@ -1886,6 +1910,7 @@ void main() {
                 }
             }
         }
+#endif // E39_MASK_LOOP_936
         // Clock box & clock icon (unlit ghost amber normally; bright glowing amber when service/inspection is due!)
         bool clkLit = dueState >= 0.5;
         vec3 gAmb = clkLit ? vec3(1.0, 0.58, 0.26) : vec3(1.0, 0.33, 0.14);
