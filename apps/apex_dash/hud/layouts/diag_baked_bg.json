@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 2,
+  "name": "DIAG 11 — baked E39 background only",
+  "theme": "e39v2",
+  "_about": "Static RGBA image generated once when the layout is created. No GLSL background, no needles.",
+  "widgets": [
+    {
+      "id": "e39_baked_bg",
+      "type": "e39baked",
+      "class": "ambient",
+      "z": -10,
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 720,
+      "night": false,
+      "own": true
+    }
+  ]
+}
