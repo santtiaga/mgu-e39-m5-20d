@@ -171,10 +171,12 @@ const textRaster = require('./hud_text');
 const { paintIcon } = require('./icons');
 const shaders = require('./shaders');
 const calibration = require('./calibration');
+const E39Background = require('./e39_background');
+const NeedleMotion = require('./needle_motion');
 const Car = require('./kit/car');
 
 // the widget types drawn as pixels (image layers, packed into sheets unless "own": true); the rest are shaders
-const IMAGE_TYPES = { text: true, scale: true, stripe: true, badge: true, gridlabels: true, icon: true, swatchimg: true };
+const IMAGE_TYPES = { text: true, scale: true, stripe: true, badge: true, gridlabels: true, icon: true, swatchimg: true, e39baked: true };
 const STATUS_ASK_MS = 2000;      // after a rebuild: ask cluster-render for its own status text
 const LAYER_BUDGET = 8;          // conservative Apex Dash per-connection budget from on-car observations
 const MAX_CONN = 4;              // connections a layout may ask for ("conn"): 32-layer Apex Dash operating budget
@@ -362,6 +364,7 @@ class HudApp {
         this.targetState = null;         // latest cluster-render target diagnostics
         this.rendererInventory = null;   // latest parsed status snapshot; pixel allocation may still be unknown
         this.rpmF = null; this.rpmNeedleF = null; this.rpmShown = null; this.lastTickT = 0;
+        this.needleMotion = new NeedleMotion();
         this.e39DistKm = 0; this.e39Cons = null; this.e39WearKm = 0;
         this.e39PeakG = null; this.e39Vmax = 0;
         this.e39Sprint = { state: 'armed', startT: 0, lastSec: null, bestSec: null };
@@ -497,6 +500,7 @@ class HudApp {
             },
         };
         this.car = new Car(this.ctx, ['rpm', 'speed', 'temps', 'accel', 'gear', 'torque', 'condition'], extra);
+        this.car.onSample((data, at) => this.needleMotion.sample(data, at), () => { this.needleMotion.reset(); this.rpmNeedleF = null; });
         this.car.setRedline(this.setting('redline'));
         this.score = new ShiftScore(this.car, () => ({
             redline: this.setting('redline'), shiftBefore: this.setting('shiftBefore'), coldGuard: this.setting('coldGuard'),
@@ -1843,7 +1847,8 @@ class HudApp {
         const x = { w, ref, c, ci: sheet ? sheet.ci : this._connOf(w), sheet: sheet || null, last: null, lastPaint: 0, px: null };
         this.widgets.set(w.id, x);
         const t = this.theme;
-        if (w.type === 'atext') {
+        if (w.type === 'e39baked') this._blit(x, null, E39Background.render(w.w, w.h, w.night));
+        else if (w.type === 'atext') {
             const a = this._atlas(w.font, x.ci);
             x.atlas = a;
             x.cells = Math.max(1, Math.min(32, isNum(w.cells) ? Math.floor(w.cells) : Math.floor(w.w / a.cellW)));
@@ -2151,7 +2156,8 @@ class HudApp {
         if (!isNum(raw)) { this.rpmF = null; this.rpmNeedleF = null; this.rpmShown = null; return; }
         this.rpmF = isNum(this.rpmF) ? this.rpmF + (raw - this.rpmF) * (1 - Math.exp(-dt / 120)) : raw;
         // Keep the analog tach needle responsive; the 20 ms filter only damps sample noise.
-        this.rpmNeedleF = isNum(this.rpmNeedleF) ? this.rpmNeedleF + (raw - this.rpmNeedleF) * (1 - Math.exp(-dt / 20)) : raw;
+        const needleTarget = this.needleMotion.value('rpm', raw, now);
+        this.rpmNeedleF = isNum(this.rpmNeedleF) ? this.rpmNeedleF + (needleTarget - this.rpmNeedleF) * (1 - Math.exp(-dt / 8)) : needleTarget;
         if (!isNum(this.rpmShown) || Math.abs(this.rpmF - this.rpmShown) >= 40) this.rpmShown = Math.max(0, Math.round(this.rpmF / 50) * 50);
     }
 
@@ -2329,7 +2335,8 @@ class HudApp {
         } else if (w.type === 'e39needles') {
             const d = this._data();
             const sweep = this._e39Sweep(now, d);
-            const sp = d.demo ? null : this._raw('speed'), rpm = d.demo ? null : (isNum(this.rpmNeedleF) ? this.rpmNeedleF : this._raw('rpm')),
+            const spRaw = d.demo ? null : this._raw('speed'), sp = isNum(spRaw) ? this.needleMotion.value('speed', spRaw, now) : spRaw,
+                rpm = d.demo ? null : (isNum(this.rpmNeedleF) ? this.rpmNeedleF : this._raw('rpm')),
                 fuel = d.demo ? null : this._raw('fuel'), oil = d.demo ? null : this._raw('oil'), cool = d.demo ? null : this._raw('coolant');
             // Keep needle inputs continuous; 1/500 quantization caused visible micro-steps.
             const q = (v) => Math.min(1, Math.max(0, v));

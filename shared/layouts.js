@@ -34,6 +34,7 @@ const TYPES = {
     icon: ['icon'],
     swatch: [],
     swatchimg: [],
+    e39baked: [],
     boxes: ['boxes'],
     atext: ['text', 'font'],
 };
