@@ -26,6 +26,7 @@ class NeedleMotion {
         ['rpm', 'speed'].forEach((key) => {
             const value = data[key], s = this.samples[key], limit = LIMITS[key];
             if (typeof value !== 'number' || !isFinite(value) || value < 0) return;
+            if (s.value === value) return;
             if (s.value !== null) {
                 const dt = at - s.at;
                 if (dt >= 20 && dt <= 250) {
