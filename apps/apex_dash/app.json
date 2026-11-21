@@ -212,6 +212,10 @@
         [
           "diag_e39_bg_min_shader",
           "DIAG 9 — e39_bg minimal shader"
+        ],
+        [
+          "diag_bg_rings_needles",
+          "DIAG 10 — background grain + rings + needles"
         ]
       ]
     },
