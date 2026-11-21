@@ -5,7 +5,13 @@
  * the renderer receives one immutable RGBA image layer. Live needles remain
  * a separate GLSL effect layer.
  */
-const { Canvas } = require('./kit/canvas');
+function makeCanvas(width, height) {
+    // In the installed app the kit exposes ./kit/canvas; source-tree tests use kit/runtime/canvas.
+    let Canvas;
+    try { Canvas = require('./kit/canvas').Canvas; }
+    catch (e) { Canvas = require('./kit/runtime/canvas').Canvas; }
+    return new Canvas(width, height);
+}
 
 function noise(x, y) {
     let n = (Math.imul(x + 1, 0x1f123bb5) ^ Math.imul(y + 7, 0x5f356495)) | 0;
@@ -16,7 +22,7 @@ function noise(x, y) {
 }
 
 function render(width, height, night) {
-    const c = new Canvas(width, height);
+    const c = makeCanvas(width, height);
     const n = !!night;
     c.gradientRect(0, 0, width, height, n
         ? [[0, '#171719'], [0.48, '#111214'], [1, '#090a0b']]
