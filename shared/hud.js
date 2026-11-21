@@ -180,7 +180,7 @@ const LAYER_BUDGET = 8;          // conservative Apex Dash per-connection budget
 const MAX_CONN = 4;              // connections a layout may ask for ("conn"): 32-layer Apex Dash operating budget
 const PIXEL_BYTES = 16 * 1024 * 1024;   // cluster-render's pixel memory for every app's images together (CompositorLimits.pixel_bytes)
 const SHEET_AREA_FRAC = 4;       // the first sheet size limit: 1/4 of the target area (see the header)
-const TICK_MS = 50;              // 20 Hz: shift bar and gauges
+const TICK_MS = 25;              // 40 Hz: smoother analog needles and gauge motion
 const TEXT_MS = 200;             // text re-draws at most 5 times a second (what BMW's own readouts do)
 const DEFAULT_LOCATION = { lat: 35.2271, lon: -80.8431 }; // Charlotte, NC: for the Auto theme's sunset
 const TARGET_SIZES = { hud: [800, 480], panel: [1920, 720] };
@@ -2149,8 +2149,8 @@ class HudApp {
         }
         if (!isNum(raw)) { this.rpmF = null; this.rpmNeedleF = null; this.rpmShown = null; return; }
         this.rpmF = isNum(this.rpmF) ? this.rpmF + (raw - this.rpmF) * (1 - Math.exp(-dt / 120)) : raw;
-        // Keep the analog tach needle tied to live engine rpm with only a light 45 ms anti-jitter filter.
-        this.rpmNeedleF = isNum(this.rpmNeedleF) ? this.rpmNeedleF + (raw - this.rpmNeedleF) * (1 - Math.exp(-dt / 45)) : raw;
+        // Keep the analog tach needle responsive; the 20 ms filter only damps sample noise.
+        this.rpmNeedleF = isNum(this.rpmNeedleF) ? this.rpmNeedleF + (raw - this.rpmNeedleF) * (1 - Math.exp(-dt / 20)) : raw;
         if (!isNum(this.rpmShown) || Math.abs(this.rpmF - this.rpmShown) >= 40) this.rpmShown = Math.max(0, Math.round(this.rpmF / 50) * 50);
     }
 
@@ -2330,7 +2330,8 @@ class HudApp {
             const sweep = this._e39Sweep(now, d);
             const sp = d.demo ? null : this._raw('speed'), rpm = d.demo ? null : (isNum(this.rpmNeedleF) ? this.rpmNeedleF : this._raw('rpm')),
                 fuel = d.demo ? null : this._raw('fuel'), oil = d.demo ? null : this._raw('oil'), cool = d.demo ? null : this._raw('coolant');
-            const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * 500) / 500;
+            // Keep needle inputs continuous; 1/500 quantization caused visible micro-steps.
+            const q = (v) => Math.min(1, Math.max(0, v));
             const vals = [
                 q(Math.max(isNum(sp) ? sp / (w.speedMax || 300) : 0, sweep)),
                 q(Math.max(isNum(rpm) ? rpm / (w.rpmMax || this.setting('redline')) : 0, sweep)),
