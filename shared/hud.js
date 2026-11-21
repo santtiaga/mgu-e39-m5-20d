@@ -1864,6 +1864,7 @@ class HudApp {
             c.uniform(ref, 'u_holeR', [this._holeRadius(w)]);
             c.uniform(ref, 'u_night', [w.night ? 1 : 0]);
             c.uniform(ref, 'u_v2', [w.v2 ? 1 : 0]);
+            c.uniform(ref, 'u_bgOnly', [w.bgOnly ? 1 : 0]);
             c.uniform(ref, 'u_svc', [5, 0]);
             c.uniform(ref, 'u_ind', [0, 0, 0, 0]);
             c.uniform(ref, 'u_flash', [0]);
