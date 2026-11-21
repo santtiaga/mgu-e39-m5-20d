@@ -939,6 +939,7 @@ uniform vec4 u_hole;      // optional map hole
 uniform float u_holeR;
 uniform float u_night;    // 0 day (white marks), 1 night (amber backlight)
 uniform float u_v2;       // 1: version 2 (silver faces, orange-red needles, the car's three display windows)
+uniform float u_bgOnly;   // diagnostic: panel + dial face grain + metallic rings only
 
 const float PI = 3.14159265359;
 const float D2R = 3.14159265359 / 180.0;
@@ -1706,6 +1707,17 @@ void main() {
         float gr = (hash12(floor(p)) - 0.5) * mix(0.018, 0.008, u_night);
         c = over(vec4(clamp(pCol + vec3(gr), 0.0, 1.0), cov(dPan)), c);
         c = over(vec4(0.0, 0.0, 0.0, 0.70 * cov(abs(dPan) - 1.2)), c);
+    }
+
+    // Isolated diagnostic background: keep only the textured panel and the four
+    // machined dial rings/faces. No scales, labels, windows, indicators or needles.
+    if (u_bgOnly > 0.5) {
+        c = drawRingAndFace(p, vec2(245.0, 398.0), 118.0, false, c);
+        c = drawRingAndFace(p, vec2(1735.0, 398.0), 118.0, false, c);
+        c = drawRingAndFace(p, vec2(625.0, 295.0), 214.0, true, c);
+        c = drawRingAndFace(p, vec2(1155.0, 295.0), 214.0, true, c);
+        gl_FragColor = c;
+        return;
     }
 
     // Horizontal display strip divider line (y = 538)
