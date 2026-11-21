@@ -9,7 +9,7 @@ function makeCanvas(width, height) {
     // In the installed app the kit exposes ./kit/canvas; source-tree tests use kit/runtime/canvas.
     let Canvas;
     try { Canvas = require('./kit/canvas').Canvas; }
-    catch (e) { Canvas = require('./kit/runtime/canvas').Canvas; }
+    catch (e) { Canvas = require('../kit/runtime/canvas').Canvas; }
     return new Canvas(width, height);
 }
 
