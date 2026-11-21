@@ -500,7 +500,7 @@ class HudApp {
             },
         };
         this.car = new Car(this.ctx, ['rpm', 'speed', 'temps', 'accel', 'gear', 'torque', 'condition'], extra);
-        this.car.onSample((data, at) => this.needleMotion.sample(data, at), () => this.needleMotion.reset());
+        this.car.onSample((data, at) => this.needleMotion.sample(data, at), () => { this.needleMotion.reset(); this.rpmNeedleF = null; });
         this.car.setRedline(this.setting('redline'));
         this.score = new ShiftScore(this.car, () => ({
             redline: this.setting('redline'), shiftBefore: this.setting('shiftBefore'), coldGuard: this.setting('coldGuard'),
