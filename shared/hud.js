@@ -171,10 +171,11 @@ const textRaster = require('./hud_text');
 const { paintIcon } = require('./icons');
 const shaders = require('./shaders');
 const calibration = require('./calibration');
+const E39Background = require('./e39_background');
 const Car = require('./kit/car');
 
 // the widget types drawn as pixels (image layers, packed into sheets unless "own": true); the rest are shaders
-const IMAGE_TYPES = { text: true, scale: true, stripe: true, badge: true, gridlabels: true, icon: true, swatchimg: true };
+const IMAGE_TYPES = { text: true, scale: true, stripe: true, badge: true, gridlabels: true, icon: true, swatchimg: true, e39baked: true };
 const STATUS_ASK_MS = 2000;      // after a rebuild: ask cluster-render for its own status text
 const LAYER_BUDGET = 8;          // conservative Apex Dash per-connection budget from on-car observations
 const MAX_CONN = 4;              // connections a layout may ask for ("conn"): 32-layer Apex Dash operating budget
@@ -1843,7 +1844,8 @@ class HudApp {
         const x = { w, ref, c, ci: sheet ? sheet.ci : this._connOf(w), sheet: sheet || null, last: null, lastPaint: 0, px: null };
         this.widgets.set(w.id, x);
         const t = this.theme;
-        if (w.type === 'atext') {
+        if (w.type === 'e39baked') this._blit(x, null, E39Background.render(w.w, w.h, w.night));
+        else if (w.type === 'atext') {
             const a = this._atlas(w.font, x.ci);
             x.atlas = a;
             x.cells = Math.max(1, Math.min(32, isNum(w.cells) ? Math.floor(w.cells) : Math.floor(w.w / a.cellW)));
