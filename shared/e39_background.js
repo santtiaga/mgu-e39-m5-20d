@@ -59,7 +59,7 @@ function render(width, height, night) {
         c.arc(x, y, r - 17, r - 16, 0, 360, n ? '#090909' : '#111419');
 
         // Very restrained directional sheen on the metal ring.
-        c.arc(x, y, r + 2, r + 4, 300, 55, n ? '#8d6d50' : '#f0f1f2');
+        c.arc(x, y, r + 2, r + 4, 300, 415, n ? '#8d6d50' : '#f0f1f2');
         c.arc(x, y, r - 2, r - 1, 120, 235, n ? '#090909' : '#525963');
     });
 
