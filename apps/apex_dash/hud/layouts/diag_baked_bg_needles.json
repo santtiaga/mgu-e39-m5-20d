@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 2,
+  "name": "DIAG 12 — baked E39 background + needles",
+  "theme": "e39v2",
+  "_about": "Static RGBA background generated once at layout creation; independent live needles remain a separate GLSL layer.",
+  "widgets": [
+    {
+      "id": "e39_baked_bg",
+      "type": "e39baked",
+      "class": "ambient",
+      "z": -10,
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 720,
+      "night": false,
+      "own": true
+    },
+    {
+      "id": "e39_needles",
+      "type": "e39needles",
+      "class": "overlay",
+      "z": 10,
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 720,
+      "speedMax": 260,
+      "rpmMax": 5000,
+      "night": false
+    }
+  ]
+}
