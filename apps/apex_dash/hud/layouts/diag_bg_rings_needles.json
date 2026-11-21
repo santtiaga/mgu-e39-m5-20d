@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 2,
+  "name": "DIAG 10 — textured background + needles",
+  "theme": "e39v2",
+  "_about": "Diagnostic: E39 panel and four dial faces with grain and metallic rings only, plus the independent e39_needles layer. No dial markings, labels, windows or indicator graphics.",
+  "widgets": [
+    {
+      "id": "e39_bg",
+      "type": "e39dash",
+      "class": "ambient",
+      "z": -10,
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 720,
+      "speedMax": 240,
+      "rpmMax": 5000,
+      "v2": true,
+      "night": false,
+      "bgOnly": true
+    },
+    {
+      "id": "e39_needles",
+      "type": "e39needles",
+      "class": "overlay",
+      "z": 10,
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 720,
+      "speedMax": 260,
+      "rpmMax": 5000,
+      "night": false
+    }
+  ]
+}
