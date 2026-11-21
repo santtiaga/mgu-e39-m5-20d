@@ -29,7 +29,8 @@
     "visible.js",
     "vehicle_gate.js",
     "e39_boot.js",
-    "e39_background.js"
+    "e39_background.js",
+    "needle_motion.js"
   ],
   "signals": {
     "de.bmw.infotainment.vehicle.CDS": {
