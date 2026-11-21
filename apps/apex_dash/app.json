@@ -28,7 +28,8 @@
     "calibration.js",
     "visible.js",
     "vehicle_gate.js",
-    "e39_boot.js"
+    "e39_boot.js",
+    "e39_background.js"
   ],
   "signals": {
     "de.bmw.infotainment.vehicle.CDS": {
