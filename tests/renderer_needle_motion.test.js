@@ -2,8 +2,11 @@
 const assert = require('assert');
 const RendererNeedleMotion = require('../shared/renderer_needle_motion');
 
+const unseeded = new RendererNeedleMotion();
+assert.strictEqual(unseeded.retarget(0.5, 1000, 100), null, 'first target must seed rather than animate');
+assert.strictEqual(unseeded.value(1050), 0.5, 'first target should be available immediately');
+
 const m = new RendererNeedleMotion();
-assert.strictEqual(m.retarget(0.5, 1000, 100), null, 'first target must seed rather than animate');
 m.seed(0.2, 1000);
 assert.deepStrictEqual(m.retarget(0.8, 1050, 100), [[0, 0.3], [100, 0.8]]);
 assert(Math.abs(m.value(1100) - 0.55) < 1e-9, 'value should interpolate linearly');
