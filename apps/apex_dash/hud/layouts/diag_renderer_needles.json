@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 2,
+  "name": "DIAG 13 — renderer-side needle animation",
+  "theme": "e39v2",
+  "_about": "Experimental comparison: speed and RPM uniforms are interpolated by cluster-render using stable animation IDs; fuel, oil and coolant remain direct uniforms. This layout is intentionally isolated from the production themes.",
+  "widgets": [
+    {
+      "id": "e39_needles",
+      "type": "e39needles",
+      "class": "overlay",
+      "z": 10,
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 720,
+      "speedMax": 260,
+      "rpmMax": 5000,
+      "night": false,
+      "rendererAnimation": true,
+      "animationIntervalMs": 100,
+      "animationMs": 140
+    }
+  ]
+}
