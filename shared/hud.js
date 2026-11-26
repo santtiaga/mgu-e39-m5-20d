@@ -173,6 +173,7 @@ const shaders = require('./shaders');
 const calibration = require('./calibration');
 const E39Background = require('./e39_background');
 const NeedleMotion = require('./needle_motion');
+const RendererNeedleMotion = require('./renderer_needle_motion');
 const Car = require('./kit/car');
 
 // the widget types drawn as pixels (image layers, packed into sheets unless "own": true); the rest are shaders
@@ -2348,13 +2349,25 @@ class HudApp {
                 q(Math.max(isNum(cool) ? (cool - 50) / 80 : 0, sweep)),
             ];
             const key = vals.join('|');
-            if (!force && key === x.last) return;
+            if (!force && key === x.last) {
+                // A throttled renderer animation may have a newer target waiting
+                // even when the vehicle signals have not changed on this tick.
+                if (w.rendererAnimation) this._updateRendererNeedles(x, vals[0], vals[1], now, false);
+                return;
+            }
             x.last = key;
-            x.c.uniform(x.ref, 'u_speed', [vals[0]]);
-            x.c.uniform(x.ref, 'u_rpm', [vals[1]]);
-            x.c.uniform(x.ref, 'u_fuel', [vals[2]]);
-            x.c.uniform(x.ref, 'u_oil', [vals[3]]);
-            x.c.uniform(x.ref, 'u_coolant', [vals[4]]);
+            if (w.rendererAnimation) {
+                this._updateRendererNeedles(x, vals[0], vals[1], now, force);
+                x.c.uniform(x.ref, 'u_fuel', [vals[2]]);
+                x.c.uniform(x.ref, 'u_oil', [vals[3]]);
+                x.c.uniform(x.ref, 'u_coolant', [vals[4]]);
+            } else {
+                x.c.uniform(x.ref, 'u_speed', [vals[0]]);
+                x.c.uniform(x.ref, 'u_rpm', [vals[1]]);
+                x.c.uniform(x.ref, 'u_fuel', [vals[2]]);
+                x.c.uniform(x.ref, 'u_oil', [vals[3]]);
+                x.c.uniform(x.ref, 'u_coolant', [vals[4]]);
+            }
         } else if (w.type === 'sdash') {
             const us = this.setting('units') === 'us';
             const sp = this._raw('speed'), rpm = this._raw('rpm'), fuel = this._raw('fuel'), oil = this._raw('oil');
@@ -2423,6 +2436,45 @@ class HudApp {
             x.c.uniform(x.ref, 'u_lit', [lit]);
             x.c.uniform(x.ref, 'u_strobe', [sp.now ? 1 : 0]);
         }
+    }
+
+    /**
+     * Experimental renderer-side interpolation for the E39 analog speed and RPM needles.
+     * Retargets stable animation IDs at a bounded rate. The helper predicts the value at
+     * replacement time so the new two-key animation starts where the previous one should be.
+     */
+    _updateRendererNeedles(x, speed, rpm, now, force) {
+        let state = x.rendererNeedles;
+        if (!state) {
+            state = x.rendererNeedles = {
+                speed: new RendererNeedleMotion(),
+                rpm: new RendererNeedleMotion(),
+                seeded: false,
+                lastAt: 0,
+                pending: null,
+            };
+        }
+        if (!state.seeded) {
+            x.c.uniform(x.ref, 'u_speed', [speed]);
+            x.c.uniform(x.ref, 'u_rpm', [rpm]);
+            state.speed.seed(speed, now);
+            state.rpm.seed(rpm, now);
+            state.seeded = true;
+            state.lastAt = now;
+            return;
+        }
+
+        state.pending = { speed: speed, rpm: rpm };
+        const interval = Math.max(80, Math.min(200, Number(x.w.animationIntervalMs) || 100));
+        const duration = Math.max(interval, Math.min(250, Number(x.w.animationMs) || 140));
+        if (!force && now - state.lastAt < interval) return;
+
+        const speedKeys = state.speed.retarget(state.pending.speed, now, duration);
+        if (speedKeys) x.c.animate(x.ref, { anim: 1, property: 'uniform', name: 'u_speed', keys: speedKeys });
+        const rpmKeys = state.rpm.retarget(state.pending.rpm, now, duration);
+        if (rpmKeys) x.c.animate(x.ref, { anim: 2, property: 'uniform', name: 'u_rpm', keys: rpmKeys });
+        state.lastAt = now;
+        state.pending = null;
     }
 
     /** A rounded tag: fill in the tone colour (bright for a fresh grade), text centred on it. Empty text: nothing. */

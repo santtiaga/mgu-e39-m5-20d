@@ -632,7 +632,12 @@ class ClusterRender extends EventEmitter {
         if (!l || !opts.property || !opts.keys) return 0;
         const keys = typeof opts.keys === 'string' ? opts.keys
             : opts.keys.map((k) => k[0] + ':' + k.slice(1).join(',')).join(' ');
-        const anim = l.nextAnim++;
+        // An explicit ID replaces that animation in place. This is important on
+        // iDrive 7: issuing a fresh ID for every needle sample leaves retired keys
+        // in RAMSES until its animation-system compaction threshold is reached.
+        const anim = opts.anim === undefined ? l.nextAnim++ : opts.anim;
+        if (!Number.isInteger(anim) || anim < 1 || anim > 0xffffffff) return 0;
+        if (anim >= l.nextAnim) l.nextAnim = anim + 1;
         const m = { op: 'animate', ref: ref, anim: anim, property: opts.property, keys: keys,
             loop: flag(opts.loop), interp: opts.interp || 'linear' };
         if (opts.part) m.part = opts.part;
